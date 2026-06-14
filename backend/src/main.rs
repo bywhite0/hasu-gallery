@@ -1,14 +1,19 @@
 use axum::{
     Router,
-    routing::get,
+    routing::{get, post},
     response::IntoResponse,
     http::StatusCode,
     extract::State,
 };
 use std::net::SocketAddr;
 use tower_http::cors::{CorsLayer, Any};
+use tower_sessions::{SessionManagerLayer, Expiry};
+use tower_sessions_sqlx_store::PostgresStore;
 
 mod db;
+mod auth;
+mod models;
+mod routes;
 
 #[derive(Clone)]
 struct AppState {
@@ -40,18 +45,46 @@ async fn main() {
         .expect("Failed to run migrations");
     tracing::info!("Migrations completed");
 
+    // Create session store
+    let session_store = PostgresStore::new(db.clone());
+    session_store
+        .migrate()
+        .await
+        .expect("Failed to migrate session store");
+
+    let session_layer = SessionManagerLayer::new(session_store)
+        .with_expiry(Expiry::OnInactivity(time::Duration::days(7)));
+
     // Create shared state
     let state = AppState { db };
 
     // Build router
     let app = Router::new()
         .route("/health", get(health_check))
+        .route("/api/auth/register", post(routes::auth::register))
+        .route("/api/auth/login", post(routes::auth::login))
+        .route("/api/auth/logout", post(routes::auth::logout))
+        .route("/api/auth/me", get(routes::auth::me))
         .with_state(state)
+        .layer(session_layer)
         .layer(
             CorsLayer::new()
-                .allow_origin(Any)
-                .allow_methods(Any)
-                .allow_headers(Any),
+                .allow_origin([
+                    "http://localhost:5173".parse().unwrap(),
+                    "http://127.0.0.1:5173".parse().unwrap(),
+                ])
+                .allow_methods([
+                    axum::http::Method::GET,
+                    axum::http::Method::POST,
+                    axum::http::Method::PUT,
+                    axum::http::Method::DELETE,
+                    axum::http::Method::OPTIONS,
+                ])
+                .allow_headers([
+                    axum::http::header::CONTENT_TYPE,
+                    axum::http::header::AUTHORIZATION,
+                ])
+                .allow_credentials(true),
         );
 
     // Start server
