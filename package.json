@@ -1,0 +1,15 @@
+{
+  "name": "hasu-gallery",
+  "version": "0.1.0",
+  "private": true,
+  "description": "双画廊 UGC 平台 (Meme + Art) - pnpm monorepo",
+  "packageManager": "pnpm@10.26.2",
+  "scripts": {
+    "dev": "pnpm --filter @hasu-gallery/web dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "storybook": "pnpm --filter @hasu-gallery/ui storybook",
+    "build-storybook": "pnpm --filter @hasu-gallery/ui build-storybook",
+    "dev:api": "cargo run --manifest-path backend/Cargo.toml"
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "name": "@hasu-gallery/web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Hasu Gallery web application",
+  "type": "module",
+  "scripts": {
+    "dev": "rspack serve",
+    "build": "rspack build",
+    "preview": "rspack serve --mode production",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hasu-gallery/ui": "workspace:*",
+    "@hasu-gallery/types": "workspace:*",
+    "@tanstack/react-query": "^5.62.0",
+    "@tanstack/react-router": "^1.95.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "zustand": "^5.0.2"
+  },
+  "devDependencies": {
+    "@rspack/cli": "^1.1.8",
+    "@rspack/core": "^1.1.8",
+    "@rspack/plugin-react-refresh": "^1.0.1",
+    "@tailwindcss/postcss": "^4.3.0",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "postcss": "^8.5.15",
+    "postcss-loader": "^8.2.1",
+    "react-refresh": "^0.14.2",
+    "tailwindcss": "^4.3.0",
+    "typescript": "^5.7.2"
+  }
+}
