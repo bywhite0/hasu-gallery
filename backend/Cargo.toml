@@ -16,6 +16,11 @@ dotenv = "0.15"
 sqlx = { version = "0.7", features = ["runtime-tokio-native-tls", "postgres", "chrono", "uuid"] }
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1", features = ["v4", "serde"] }
+argon2 = { version = "0.5", features = ["std"] }
+tower-sessions = "0.12"
+tower-sessions-sqlx-store = { version = "0.12", features = ["postgres"] }
+validator = { version = "0.18", features = ["derive"] }
+time = "0.3"
 
 [[bin]]
 name = "hasu-gallery-api"
