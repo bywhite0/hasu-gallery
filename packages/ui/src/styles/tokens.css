@@ -1,0 +1,30 @@
+/* Tailwind v4 design tokens */
+@theme {
+  /* Core neutrals */
+  --color-paper: #f7f7f3;
+  --color-surface: #ffffff;
+  --color-ink: #383834;
+  --color-ink-2: #6b6b62;
+  --color-ink-3: #95948a;
+
+  /* Accent */
+  --color-accent: #fce8e6;
+  --color-accent-dark: #f8d7d3;
+
+  /* Semantic */
+  --color-success: #4f9e6e;
+  --color-warning: #c98a0c;
+  --color-danger: #ba2636;
+  --color-info: #5383c3;
+
+  /* Typography */
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-serif: "Noto Serif JP", serif;
+
+  /* Spacing */
+  --spacing-xs: 0.25rem;
+  --spacing-sm: 0.5rem;
+  --spacing-md: 1rem;
+  --spacing-lg: 1.5rem;
+  --spacing-xl: 2rem;
+}

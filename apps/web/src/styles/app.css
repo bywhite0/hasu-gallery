@@ -1,0 +1,17 @@
+@import "tailwindcss";
+@import "@hasu-gallery/ui/styles/tokens.css";
+
+/* Scan UI package for Tailwind classes */
+@source "../../packages/ui/src";
+
+/* Base styles */
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}

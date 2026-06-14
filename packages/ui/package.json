@@ -1,0 +1,44 @@
+{
+  "name": "@hasu-gallery/ui",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared UI components library with Storybook",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./styles/tokens.css": "./src/styles/tokens.css"
+  },
+  "scripts": {
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-switch": "^1.2.6",
+    "@radix-ui/react-tabs": "^1.1.13",
+    "@radix-ui/react-tooltip": "^1.2.8",
+    "clsx": "^2.1.1",
+    "lucide-react": "^1.17.0"
+  },
+  "devDependencies": {
+    "@rsbuild/core": "^2.0.9",
+    "@rsbuild/plugin-react": "^2.0.1",
+    "@storybook/addon-docs": "^10.4.1",
+    "@storybook/react": "^10.4.1",
+    "@tailwindcss/postcss": "^4.3.0",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "postcss": "^8.5.15",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "storybook": "^10.4.1",
+    "storybook-react-rsbuild": "^3.3.4",
+    "tailwindcss": "^4.3.0",
+    "typescript": "^5.7.2"
+  }
+}
