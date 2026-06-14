@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- 简约莲花图标 - Hasu (莲) -->
+  <defs>
+    <linearGradient id="petal" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#fce8e6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f8d7d3;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- 背景 -->
+  <rect width="32" height="32" rx="6" fill="#383834"/>
+
+  <!-- 莲花花瓣（5瓣） -->
+  <g transform="translate(16,16)">
+    <!-- 中心花瓣 上 -->
+    <ellipse cx="0" cy="-6" rx="3" ry="5" fill="url(#petal)"/>
+    <!-- 右上 -->
+    <ellipse cx="5" cy="-3" rx="3" ry="5" transform="rotate(72 5 -3)" fill="url(#petal)"/>
+    <!-- 右下 -->
+    <ellipse cx="3" cy="4" rx="3" ry="5" transform="rotate(144 3 4)" fill="url(#petal)"/>
+    <!-- 左下 -->
+    <ellipse cx="-3" cy="4" rx="3" ry="5" transform="rotate(216 -3 4)" fill="url(#petal)"/>
+    <!-- 左上 -->
+    <ellipse cx="-5" cy="-3" rx="3" ry="5" transform="rotate(288 -5 -3)" fill="url(#petal)"/>
+
+    <!-- 中心点 -->
+    <circle cx="0" cy="0" r="2" fill="#f7f7f3"/>
+  </g>
+</svg>
