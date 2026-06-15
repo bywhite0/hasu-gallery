@@ -42,9 +42,8 @@ pub async fn upload_file(
         .await
         .map_err(|e| format!("Failed to upload to S3: {}", e))?;
 
-    Ok(format!("{}/{}/{}",
+    Ok(format!("{}/{}",
         env::var("PUBLIC_MEDIA_BASE_URL").unwrap_or_else(|_| "http://localhost:8787/media".to_string()),
-        bucket,
         key
     ))
 }
