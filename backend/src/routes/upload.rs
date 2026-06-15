@@ -36,6 +36,7 @@ pub async fn upload_work(
     let mut file_data: Option<Vec<u8>> = None;
     let mut title: Option<String> = None;
     let mut gallery: Option<String> = None;
+    let mut origin: Option<String> = None;
 
     // 解析 multipart 数据
     while let Some(field) = multipart
@@ -76,6 +77,13 @@ pub async fn upload_work(
                     .map_err(|e| (StatusCode::BAD_REQUEST, format!("Failed to read gallery: {}", e)))?;
                 gallery = Some(text);
             }
+            "origin" => {
+                let text: String = field
+                    .text()
+                    .await
+                    .map_err(|e| (StatusCode::BAD_REQUEST, format!("Failed to read origin: {}", e)))?;
+                origin = Some(text);
+            }
             _ => {}
         }
     }
@@ -93,6 +101,22 @@ pub async fn upload_work(
         ));
     }
 
+    // meme 必须提供 origin
+    if gallery_kind == "meme" && origin.is_none() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Origin is required for meme gallery".to_string(),
+        ));
+    }
+
+    // art 不能有 origin
+    if gallery_kind == "art" && origin.is_some() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Origin must not be provided for art gallery".to_string(),
+        ));
+    }
+
     // 检测图片格式
     let content_type = detect_image_format(&file_data)
         .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
@@ -100,6 +124,8 @@ pub async fn upload_work(
     // 获取图片尺寸
     let (width, height) = get_image_dimensions(&file_data)
         .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
+
+    tracing::info!("Image dimensions: {}x{}", width, height);
 
     // 生成唯一 ID 和文件名
     let work_id = Uuid::new_v4().to_string();
@@ -143,11 +169,12 @@ pub async fn upload_work(
     // 插入数据库记录
     let query_str = format!(
         r#"
-        INSERT INTO works (id, gallery, title, status, uploader_id, asset_file, thumbnail_asset_file, width, height)
-        VALUES ($1, '{}'::gallery_kind, $2, 'pending'::work_status, $3, $4, $5, $6, $7)
+        INSERT INTO works (id, gallery, origin, title, status, uploader_id, asset_file, thumbnail_asset_file, width, height)
+        VALUES ($1, '{}'::gallery_kind, {}::meme_origin, $2, 'pending'::work_status, $3, $4, $5, $6, $7)
         RETURNING id, title, status::text as status
         "#,
-        gallery_kind
+        gallery_kind,
+        origin.as_ref().map(|o| format!("'{}'", o)).unwrap_or_else(|| "NULL".to_string())
     );
 
     let work = sqlx::query(&query_str)
