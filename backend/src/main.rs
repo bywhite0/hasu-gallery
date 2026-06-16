@@ -73,6 +73,7 @@ async fn main() {
         .route("/api/auth/logout", post(routes::auth::logout))
         .route("/api/auth/me", get(routes::auth::me))
         .route("/api/works", get(routes::works::handle_works_list))
+        .route("/api/works/:id", get(routes::works::handle_work_detail))
         .route("/api/works/upload", post(routes::upload::upload_work))
         .with_state(state)
         .layer(session_layer)
