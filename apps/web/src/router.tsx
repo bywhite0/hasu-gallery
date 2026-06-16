@@ -8,6 +8,7 @@ import {
 import { Button } from "@hasu-gallery/ui";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
+import { GalleryPage } from "./pages/GalleryPage";
 import { AuthGuard } from "./components/AuthGuard";
 
 // Root layout
@@ -66,10 +67,7 @@ const memeGalleryRoute = createRoute({
   path: "/gallery/meme",
   component: () => (
     <AuthGuard>
-      <div className="space-y-4">
-        <h2 className="text-xl font-semibold">Meme Gallery</h2>
-        <p className="text-ink-2">Coming soon - Phase 2.2</p>
-      </div>
+      <GalleryPage gallery="meme" />
     </AuthGuard>
   ),
 });
@@ -79,10 +77,7 @@ const artGalleryRoute = createRoute({
   path: "/gallery/art",
   component: () => (
     <AuthGuard>
-      <div className="space-y-4">
-        <h2 className="text-xl font-semibold">Art Gallery</h2>
-        <p className="text-ink-2">Coming soon - Phase 2.2</p>
-      </div>
+      <GalleryPage gallery="art" />
     </AuthGuard>
   ),
 });
