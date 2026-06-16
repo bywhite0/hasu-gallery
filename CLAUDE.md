@@ -3,6 +3,7 @@
 [根目录](./) > **hasu-gallery**
 
 **变更记录 (Changelog)**
+- 2026-06-17: Phase 1 完成 — 数据库迁移、认证系统、上传流水线全部落地
 - 2026-06-14: 初始化项目架构，基于 linkura-apps 技术栈（Rspack + TanStack + Tailwind v4）
 - 2026-06-14: 迁移 Phase 0 规范与 roadmap，确认方案 C（双轨拆仓）
 
@@ -33,9 +34,10 @@ Hasu Gallery 是一个面向「莲之空（Hasu no Sora）」的**双画廊 UGC 
 
 **后端**
 - Rust（Axum 0.7 + tokio 1）
-- Postgres 16（sqlx 0.7）
-- S3-compatible 对象存储
-- argon2 认证 + tower-sessions
+- PostgreSQL 16（sqlx 0.7，连接池 20 连接）
+- MinIO S3（aws-sdk-s3 1.52，内网 `100.104.3.1:9000`）
+- argon2 0.5 密码哈希 + tower-sessions 0.12（PostgreSQL 存储，7 天过期）
+- image 0.25（缩略图生成，Lanczos3 400x400 JPEG）
 
 **开发工具**
 - pnpm 10.26.2（包管理与脚本）
@@ -80,8 +82,21 @@ hasu-gallery/
 │           └── api.ts
 └── backend/                   # Rust API（不在 pnpm workspace）
     ├── Cargo.toml
+    ├── migrations/
+    │   └── 001_initial.sql     # Phase 0 DDL（9 表 + 5 枚举 + 2 触发器）
     └── src/
-        └── main.rs
+        ├── main.rs             # 服务器入口 + CORS + 路由注册
+        ├── db.rs               # 连接池 + 迁移运行
+        ├── auth.rs             # argon2 密码哈希/验证
+        ├── storage.rs          # S3 客户端 + 上传
+        ├── image_processor.rs  # 缩略图生成 + 格式检测
+        ├── models/
+        │   ├── mod.rs
+        │   └── user.rs         # User 模型 + 注册/登录请求
+        └── routes/
+            ├── mod.rs
+            ├── auth.rs         # register/login/logout/me
+            └── upload.rs       # multipart 上传 + 验证
 ```
 
 ---
@@ -172,8 +187,9 @@ chore: upgrade dependencies
 ### 项目上下文
 
 1. **架构约束**: 前后端独立，不耦合部署
-2. **数据流**: Postgres → Rust API → React Frontend
-3. **关键文件**:
+2. **数据流**: PostgreSQL → Rust API（Axum） → React Frontend（TanStack Query）
+3. **存储流**: 用户上传 → Rust API 验证 → S3/MinIO 原图 + 缩略图 → Nginx 公开代理
+4. **关键文件**:
    - 前端类型: `packages/types/src/models.ts`
    - 前端路由: `apps/web/src/router.tsx`
    - 后端入口: `backend/src/main.rs`
@@ -182,9 +198,9 @@ chore: upgrade dependencies
 ### 常见任务
 
 1. **新增作品字段**:
-   - 修改 `backend/migrations/` 数据库迁移
+   - 修改 `backend/migrations/` 添加新迁移
    - 更新 `packages/types/src/models.ts` 中的 `Work` 类型
-   - 同步 API 响应结构
+   - 同步后端 routes 中的 SQL 查询与 API 响应结构
 
 2. **添加页面路由**:
    - 在 `apps/web/src/router.tsx` 添加新 route
@@ -193,16 +209,17 @@ chore: upgrade dependencies
 
 3. **添加筛选维度**:
    - 前端: 更新 zustand store 或页面组件状态
-   - 后端: 扩展查询参数与 SQL 过滤逻辑
-   - 类型: 同步 API 请求/响应类型
+   - 后端: 扩展 `GET /api/works` 查询参数与 SQL WHERE 过滤
+   - 类型: 同步 `packages/types/src/api.ts` 请求/响应类型
 
 ### 注意事项
 
-- ❌ 不要在前端 `public/` 存放用户上传作品（使用 S3 URL）
+- ❌ 不要在前端 `public/` 存放用户上传作品（使用 S3 URL `https://assets.kaho.top/hasu-gallery/`）
 - ❌ 不要硬编码作品数据到组件中
-- ✅ 优先使用 Postgres 维护数据结构
+- ✅ 优先使用 PostgreSQL 维护数据结构
 - ✅ 保持 API 契约稳定，前端只消费 JSON 响应
-- ✅ 大量数据筛选优先走服务端（避免前端全量加载）
+- ✅ 大量数据筛选优先走服务端 `GET /api/works?gallery=&status=&page=&limit=`
+- ✅ 上传必须先登录（session cookie），gallery=meme 必须提供 origin
 
 ---
 
@@ -216,6 +233,9 @@ chore: upgrade dependencies
 - `CLAUDE.md` - AI 开发指引（本文件）
 - `.ccg/spec/phase0-content-core-model.md` - Phase 0 数据模型规范
 - `.ccg/spec/roadmap.md` - 项目路线图
+- `.ccg/spec/phase1-summary.md` - Phase 1 实施总结
+- `.ccg/spec/phase2-plan.md` - Phase 2 前端实施计划
+- `docs/edge-server-setup.md` - 边缘服务器部署指南
 
 ### 前端关键文件
 
@@ -229,9 +249,17 @@ chore: upgrade dependencies
 
 ### 后端关键文件
 
-- `backend/src/main.rs` - API 服务器入口
+- `backend/src/main.rs` - API 服务器入口（路由注册、CORS、session）
+- `backend/src/db.rs` - 数据库连接池与迁移
+- `backend/src/auth.rs` - argon2 密码哈希与验证
+- `backend/src/storage.rs` - S3 客户端与文件上传
+- `backend/src/image_processor.rs` - 缩略图生成（400x400 Lanczos3）
+- `backend/src/routes/auth.rs` - 认证 API（register/login/logout/me）
+- `backend/src/routes/upload.rs` - 上传 API（multipart + 验证）
+- `backend/src/models/user.rs` - 用户模型与请求验证
+- `backend/migrations/001_initial.sql` - 数据库 DDL
 - `backend/Cargo.toml` - Rust 依赖声明
-- `backend/.env.example` - 环境变量示例
+- `backend/.env` - 环境变量（不提交）
 
 ---
 
@@ -243,43 +271,48 @@ chore: upgrade dependencies
 - Monorepo 结构已搭建
 - Rspack + TanStack 技术栈就位
 - Tailwind v4 + Storybook 配置完成
-- 后端 Rust 骨架就位
+- Phase 0 数据模型规范落地
 
-### 推荐下一步（Phase 1）
+✅ **Phase 1（后端基础设施）已完成**：
+- PostgreSQL 数据库迁移（9 表 + 5 枚举 + 2 触发器）
+- 认证系统（argon2id + tower-sessions + 4 个 API 端点）
+- 上传流水线（S3/MinIO + 缩略图生成 + 格式验证）
+- 边缘服务器部署（PostgreSQL @ 100.104.1.1，MinIO @ 100.104.3.1）
 
-1. **数据库迁移**（Phase 1.1）
-   - 创建 `backend/migrations/` 目录
-   - 按 Phase 0 DDL 定义 Postgres 表结构
-   - 配置 sqlx 离线模式
+### 推荐下一步（Phase 2）
 
-2. **认证中间件**（Phase 1.2）
-   - argon2 密码哈希
-   - tower-sessions session 管理
-   - 登录/注册 API
+详见 `.ccg/spec/phase2-plan.md`，概要：
 
-3. **上传流水线**（Phase 1.3）
-   - S3 对象存储集成
-   - 文件上传 API
-   - 缩略图生成
+1. **认证界面**（2.1）
+   - 登录/注册页面 + 路由保护
+   - 表单验证 + 错误提示
 
-4. **审核工作台**（Phase 1.4）
-   - 审核队列页面
-   - 批准/拒绝操作
-   - 权限控制
+2. **作品列表页**（2.2）
+   - Meme/Art 双画廊网格
+   - 筛选、排序、分页
+   - 需新增 `GET /api/works` 后端 API
 
-5. **画廊浏览**（Phase 1.5）
-   - Meme Gallery 页面
-   - Art Gallery 页面
-   - 筛选与搜索
+3. **作品详情页**（2.3）
+   - 大图查看器 + 元数据面板
+   - 需新增 `GET /api/works/:id` 后端 API
+
+4. **上传界面**（2.4）
+   - 拖拽上传 + 元数据表单
+   - 上传进度反馈
+
+5. **用户中心**（2.5）
+   - 我的上传列表 + 统计
+   - 需新增 `DELETE /api/works/:id`、`PATCH /api/works/:id`
 
 ---
 
 ## 技术债务
 
-1. 缺少前端测试（Vitest + Testing Library）
-2. 缺少后端集成测试（Postgres 测试容器）
-3. 缺少错误监控（生产环境）
-4. 缺少性能监控（Web Vitals）
+1. `frontend/` 尚未实现任何页面（仅骨架就位）
+2. 缺少前端测试（Vitest + Testing Library 未配置）
+3. 缺少后端集成测试（仅有单元测试）
+4. 缺少 CI/CD 流水线（GitHub Actions 未配置）
+5. 缺少生产环境错误监控与性能指标收集
 
 ---
 

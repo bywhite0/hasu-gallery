@@ -3,34 +3,28 @@
 **Project**: hasu-gallery (新仓独立项目)  
 **Vision**: Dual-gallery UGC platform (Meme Gallery + Art Gallery) with upload & moderation  
 **Created**: 2026-06-09  
-**Last Synced**: 2026-06-14  
-**Status**: ✅ 方案 C 已选择 - 双轨拆仓，hasu-gallery 为新建 UGC 平台，hasu-memes 保持只读画廊终态
+**Last Synced**: 2026-06-17  
+**Status**: ✅ Phase 1 完成 — 数据库迁移、认证系统、上传流水线全部落地；Phase 2 前端画廊界面进行中
 
 > **架构更新 (2026-06-14)**: 基于 linkura-apps 分析，采用 Rspack + TanStack Router/Query + zustand + Tailwind v4 技术栈
 
 ---
 
-## 状态快照（2026-06-13 对照）
+## 状态快照（2026-06-17 对照）
 
-> 本节由 `master` 分支 + `backend/Cargo.toml` + `backend/src/` + 最近 20 个 commit 客观核对得出。**不替项目做方向决策**，只标注差距。
+> 本节由 `master` 分支 + `backend/src/` + 最近 20 个 commit 客观核对得出。
 
 | Phase | 路线图声明 | 实际代码状态 | 差距 |
 |---|---|---|---|
 | **0: Foundation & Design** | ✅ COMPLETE | ✅ 规范文件已落地（`.ccg/spec/phase0-content-core-model.md`），决策表完整 | — |
-| **1.1 Postgres 迁移** | ⏳ Ready to begin | ❌ `backend/Cargo.toml` 仍仅含 `axum + rusqlite + tokio + tower-http`；**零** sqlx/deadpool/argon2 依赖 | 未启动 |
-| **1.2 替换 MemeDataCache** | ⏳ Ready to begin | ❌ `MemeDataCache` 仍是核心数据源（main.rs 3183 行） | 未启动 |
-| **1.3 模块化 main.rs** | ⏳ Ready to begin | ❌ `backend/src/` 仍是扁平的 `main.rs` + `catalog.rs` + `facets.rs` + 两个 bin；无 `routes/ handlers/ middleware/ storage/ security/` | 未启动 |
-| **1.4 Auth 中间件** | ⏳ Ready to begin | ❌ Grep `argon2\|session\|tower-http` 在路由保护中无命中 | 未启动 |
-| **1.5 上传流水线** | ⏳ Ready to begin | ❌ 无 `POST /api/upload`、无 pHash 依赖、无 S3 客户端 | 未启动 |
-| **1.6 动态 Facets** | ⏳ Ready to begin | ❌ `facets.rs` 仍从静态 `catalog.rs` 聚合（200 行） | 未启动 |
-| **1.7 API 扩展** | ⏳ Ready to begin | ❌ 仅有 `GET /api/memes`，无 `?gallery=` 分流 | 未启动 |
-| **2-5** | ⏳ 未开始 | ⏳ 未开始 | — |
+| **1.1 Postgres 迁移** | ✅ COMPLETE | ✅ `backend/migrations/001_initial.sql` 已部署（9 表 + 5 枚举 + 2 触发器），边缘服务器 `100.104.1.1:5432` 运行中 | — |
+| **1.2 认证系统** | ✅ COMPLETE | ✅ argon2id + tower-sessions（PostgreSQL 存储），4 个 API 端点（register/login/logout/me） | — |
+| **1.3 上传流水线** | ✅ COMPLETE | ✅ S3/MinIO 上传 + 缩略图生成（400x400 Lanczos3）+ multipart 验证，Nginx 公开代理 `https://assets.kaho.top/hasu-gallery/` | — |
+| **1.4 模块化 main.rs** | ✅ COMPLETE | ✅ `backend/src/` 已模块化：`auth.rs`、`db.rs`、`storage.rs`、`image_processor.rs`、`models/`、`routes/` | — |
+| **2: 前端画廊界面** | ⏳ 进行中 | ⏳ 前端骨架就位（Rspack + TanStack），页面尚未实现 | 计划见 `docs/phase2-plan.md` |
+| **3-5** | ⏳ 未开始 | ⏳ 未开始 | — |
 
-**重要偏差（须在动手前决策方向）**：
-
-1. **方向冲突**：最近 5 个 commit 集中在「Vercel 纯静态部署 + 静态数据导出 + 拆分静态详情」（消减 Rust 运行依赖）；路线图 Phase 1 规划「引入 Postgres + 鉴权 + S3 + 审核」（加深 Rust 依赖）。两条方向互为反方向，**强行推进 Phase 1 会推翻刚上线的静态化成果**。
-2. ~~**数据规模声明失真**：路线图 Phase 0 文档写「3499 activity-record test items 充分」~~ ✅ **已核对，数字准确**（`tmp/real-memes/assets/` 精确为 3499 个图片，分布 webp 1992 / jpg 983 / png 510 / gif 14）
-3. **README.md 完全无 UGC/Postgres/审核字样**：README 仍以「SQLite 单文件 + 本地 Rust API + Vercel 静态化」为主叙事，与 Phase 0/1 规范不一致。
+**方向已确定**：方案 C（双轨拆仓）。hasu-memes 保持只读画廊终态，hasu-gallery 为新建 UGC 平台。
 
 ---
 
@@ -381,27 +375,14 @@ backend/src/
 
 ## Next Actions
 
-**当前状态**：Phase 0 规范文档已落地，但与最近工作流方向冲突；Phase 1 任一子项未启动。
+**当前状态**：Phase 1 全部完成，Phase 2 前端画廊界面进行中。
 
-**先决项（阻塞所有 Phase 1 工作）**：
+**Phase 2 优先项**（详见 `phase2-plan.md`）：
+1. **认证界面**：登录/注册页面 + 路由保护
+2. **作品列表 API**：`GET /api/works`（分页、筛选、排序）
+3. **作品列表页**：Meme/Art 双画廊网格
+4. **作品详情 API + 页面**：`GET /api/works/:id` + 大图查看器
+5. **上传界面**：拖拽上传 + 元数据表单
+6. **用户中心**：我的上传列表 + 统计
 
-1. **⚠️ 方向决策**（必须先做，不能跳过）：
-   - **A. 追路线图**：开始 Phase 1.1（Postgres 迁移）+ 1.3（模块化骨架），按规划演进 UGC 平台
-   - **B. 重置路线图**：把 hasu-memes 定位为「只读画廊终态」，更新 roadmap.md 删除 Phase 1-5 内容，补"性能/可访问性/CI"作为新路线
-   - **C. 双轨**：当前仓保持只读画廊；UGC 拆新仓 `hasu-gallery`（先迁 Phase 0 规范），主仓标记路线图「已迁移」
-   - **D. 冻结**：维持现状，停止路线图相关工作，等业务侧给出新信号
-
-2. **已落地的具体可补工作**（不依赖方向决策）：
-   - 刷新 `README.md` 增加 Phase 0 数据模型简介（当前完全无 UGC 字样）
-   - 同步 `tmp/real-memes/assets/` 实际规模（已核对：3499 项，分布 webp 1992 / jpg 983 / png 510 / gif 14）
-   - 把 `backend/Cargo.toml` 实际依赖图与 Phase 1 计划依赖的差距作为 gap 清单归档到本文件
-
-3. **若选 A 启动 Phase 1**（顺序敏感）：
-   - 1.1 Postgres + 迁移工具（阻塞 1.2/1.5/1.6/1.7）
-   - 1.3 模块化 main.rs（必须先于 1.2 缓存替换，避免双重重构）
-   - 1.4 Auth 中间件（与 1.3 部分可并行）
-   - 1.6 动态 Facets（依赖 1.1）
-   - 1.5 上传流水线（依赖 1.4 + 1.6）
-   - 1.2 替换 MemeDataCache（最后做，因为会改变所有 handler 的数据获取路径）
-
-4. **若选 B 收口**：删除 `.ccg/spec/phase0-content-core-model.md` 中已废弃的 Postgres/S3 决策；路线图章节简化为「只读画廊」三项：性能（虚拟滚动/缩略图优先）、可访问性（aria/键盘导航）、CI 矩阵扩展。
+**阻塞项**：Phase 2 前端页面依赖后端 `GET /api/works` 和 `GET /api/works/:id` API（尚未实现）。
