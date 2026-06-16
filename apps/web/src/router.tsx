@@ -3,8 +3,12 @@ import {
   createRootRoute,
   createRoute,
   Outlet,
+  Link,
 } from "@tanstack/react-router";
 import { Button } from "@hasu-gallery/ui";
+import { LoginPage } from "./pages/LoginPage";
+import { RegisterPage } from "./pages/RegisterPage";
+import { AuthGuard } from "./components/AuthGuard";
 
 // Root layout
 const rootRoute = createRootRoute({
@@ -28,18 +32,69 @@ const indexRoute = createRoute({
     <div className="space-y-4">
       <h2 className="text-xl font-semibold">Welcome to Hasu Gallery</h2>
       <p className="text-ink-2">
-        双画廊 UGC 平台 - Monorepo 骨架已就位
+        双画廊 UGC 平台 - Phase 2.1 认证界面已就位
       </p>
       <div className="flex gap-4">
-        <Button>Meme Gallery</Button>
-        <Button variant="outline">Art Gallery</Button>
+        <Link to="/login">
+          <Button>Login</Button>
+        </Link>
+        <Link to="/register">
+          <Button variant="outline">Register</Button>
+        </Link>
       </div>
     </div>
   ),
 });
 
+// Login route
+const loginRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/login",
+  component: LoginPage,
+});
+
+// Register route
+const registerRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/register",
+  component: RegisterPage,
+});
+
+// Protected gallery routes
+const memeGalleryRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/gallery/meme",
+  component: () => (
+    <AuthGuard>
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold">Meme Gallery</h2>
+        <p className="text-ink-2">Coming soon - Phase 2.2</p>
+      </div>
+    </AuthGuard>
+  ),
+});
+
+const artGalleryRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/gallery/art",
+  component: () => (
+    <AuthGuard>
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold">Art Gallery</h2>
+        <p className="text-ink-2">Coming soon - Phase 2.2</p>
+      </div>
+    </AuthGuard>
+  ),
+});
+
 // Create route tree
-const routeTree = rootRoute.addChildren([indexRoute]);
+const routeTree = rootRoute.addChildren([
+  indexRoute,
+  loginRoute,
+  registerRoute,
+  memeGalleryRoute,
+  artGalleryRoute,
+]);
 
 // Create router
 export const router = createRouter({ routeTree });
