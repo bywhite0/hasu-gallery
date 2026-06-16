@@ -1,5 +1,5 @@
 import { fetchJson } from './client';
-import { WorksListResponse } from '@hasu-gallery/types';
+import { WorksListResponse, Work } from '@hasu-gallery/types';
 
 export interface WorksListParams {
   gallery: 'meme' | 'art';
@@ -20,4 +20,8 @@ export async function listWorks(params: WorksListParams): Promise<WorksListRespo
   if (params.sort) searchParams.set('sort', params.sort);
 
   return fetchJson<WorksListResponse>(`/api/works?${searchParams}`);
+}
+
+export async function getWork(id: string): Promise<Work> {
+  return fetchJson<Work>(`/api/works/${id}`);
 }

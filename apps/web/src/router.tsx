@@ -9,6 +9,7 @@ import { Button } from "@hasu-gallery/ui";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { GalleryPage } from "./pages/GalleryPage";
+import { WorkDetailPage } from "./pages/WorkDetailPage";
 import { AuthGuard } from "./components/AuthGuard";
 
 // Root layout
@@ -82,6 +83,17 @@ const artGalleryRoute = createRoute({
   ),
 });
 
+// Work detail route
+const workDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/works/$id",
+  component: () => (
+    <AuthGuard>
+      <WorkDetailPage />
+    </AuthGuard>
+  ),
+});
+
 // Create route tree
 const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -89,6 +101,7 @@ const routeTree = rootRoute.addChildren([
   registerRoute,
   memeGalleryRoute,
   artGalleryRoute,
+  workDetailRoute,
 ]);
 
 // Create router

@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Query, State},
+    extract::{Path, Query, State},
     http::StatusCode,
     response::IntoResponse,
     Json,
@@ -34,6 +34,14 @@ pub struct WorkItem {
     pub width: i32,
     pub height: i32,
     pub created_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub uploader_id: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rights_note: Option<String>,
 }
 
 /// Pagination metadata
@@ -239,6 +247,10 @@ pub async fn handle_works_list(
                 width,
                 height,
                 created_at: created_at.to_rfc3339(),
+                uploader_id: None,
+                source: None,
+                source_url: None,
+                rights_note: None,
             }
         })
         .collect();
@@ -255,4 +267,79 @@ pub async fn handle_works_list(
     };
 
     Ok((StatusCode::OK, Json(response)))
+}
+
+/// Handler for GET /api/works/:id
+pub async fn handle_work_detail(
+    Path(id): Path<String>,
+    State(state): State<AppState>,
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    // Query single work with all detail fields
+    let query = "SELECT id, gallery, origin, title, status, uploader_id, width, height,
+                        source, source_url, rights_note, created_at, asset_file
+                 FROM works
+                 WHERE id = $1";
+
+    let row = sqlx::query(query)
+        .bind(&id)
+        .fetch_optional(&state.db)
+        .await
+        .map_err(|e| {
+            tracing::error!("Database error fetching work {}: {}", id, e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to fetch work".to_string(),
+            )
+        })?;
+
+    // Return 404 if not found
+    let row = row.ok_or_else(|| {
+        (
+            StatusCode::NOT_FOUND,
+            format!("Work with id {} not found", id),
+        )
+    })?;
+
+    // Extract fields from row
+    let work_id: String = row.try_get("id").map_err(|e| {
+        tracing::error!("Failed to extract id: {}", e);
+        (StatusCode::INTERNAL_SERVER_ERROR, "Invalid work data".to_string())
+    })?;
+
+    let gallery: String = row.try_get("gallery").map_err(|e| {
+        tracing::error!("Failed to extract gallery: {}", e);
+        (StatusCode::INTERNAL_SERVER_ERROR, "Invalid work data".to_string())
+    })?;
+
+    let origin: Option<String> = row.try_get("origin").ok();
+    let title: String = row.try_get("title").unwrap_or_default();
+    let status: String = row.try_get("status").unwrap_or_default();
+    let uploader_id: Option<i32> = row.try_get("uploader_id").ok();
+    let width: i32 = row.try_get("width").unwrap_or(0);
+    let height: i32 = row.try_get("height").unwrap_or(0);
+    let source: Option<String> = row.try_get("source").ok();
+    let source_url: Option<String> = row.try_get("source_url").ok();
+    let rights_note: Option<String> = row.try_get("rights_note").ok();
+    let created_at: chrono::DateTime<chrono::Utc> = row.try_get("created_at").unwrap_or_default();
+    let asset_file: String = row.try_get("asset_file").unwrap_or_default();
+
+    // Build response
+    let work_item = WorkItem {
+        id: work_id.clone(),
+        gallery,
+        origin,
+        title,
+        status,
+        thumbnail_url: build_thumbnail_url(&work_id, &asset_file),
+        file_url: build_file_url(&work_id, &asset_file),
+        width,
+        height,
+        created_at: created_at.to_rfc3339(),
+        uploader_id,
+        source,
+        source_url,
+        rights_note,
+    };
+
+    Ok((StatusCode::OK, Json(work_item)))
 }
