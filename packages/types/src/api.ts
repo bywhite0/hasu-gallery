@@ -1,13 +1,28 @@
 // API 响应类型
 
-import { Work } from './models';
+import { Work, GalleryKind, MemeOrigin, WorkStatus } from './models';
+
+export interface WorkListItem {
+  id: string;
+  gallery: GalleryKind;
+  origin: MemeOrigin | null;
+  title: string;
+  status: WorkStatus;
+  thumbnail_url: string;
+  file_url: string;
+  width: number;
+  height: number;
+  created_at: string;
+}
 
 export interface WorksListResponse {
-  works: Work[];
-  nextCursor: string | null;
-  hasMore: boolean;
-  total: number;
-  limit: number;
+  works: WorkListItem[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    total_pages: number;
+  };
 }
 
 export interface WorkDetailResponse {
