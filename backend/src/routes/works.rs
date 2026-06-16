@@ -121,10 +121,10 @@ pub async fn handle_works_list(
         }
     };
 
-    // Build WHERE clause
+    // Build WHERE clause with proper type casts for enums
     let mut where_conditions = vec![
-        "gallery = $1".to_string(),
-        "status = $2".to_string(),
+        "gallery = $1::gallery_kind".to_string(),
+        "status = $2::work_status".to_string(),
     ];
     let mut param_index = 3;
 
@@ -136,7 +136,7 @@ pub async fn handle_works_list(
                 "Invalid origin parameter. Must be one of: official, derived, fan_made".to_string(),
             ));
         }
-        where_conditions.push(format!("origin = ${}", param_index));
+        where_conditions.push(format!("origin = ${}::meme_origin", param_index));
         param_index += 1;
     }
 
