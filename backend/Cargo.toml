@@ -7,7 +7,7 @@ edition = "2021"
 axum = "0.7"
 tokio = { version = "1", features = ["full"] }
 tower = "0.4"
-tower-http = { version = "0.5", features = ["cors"] }
+tower-http = { version = "0.5", features = ["cors", "limit"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tracing = "0.1"
@@ -21,6 +21,11 @@ tower-sessions = "0.12"
 tower-sessions-sqlx-store = { version = "0.12", features = ["postgres"] }
 validator = { version = "0.18", features = ["derive"] }
 time = "0.3"
+axum-extra = { version = "0.9", features = ["multipart"] }
+image = "0.25"
+aws-sdk-s3 = "1.52"
+aws-config = "1.5"
+bytes = "1"
 
 [[bin]]
 name = "hasu-gallery-api"

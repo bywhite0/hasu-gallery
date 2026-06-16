@@ -6,7 +6,7 @@ use axum::{
     extract::State,
 };
 use std::net::SocketAddr;
-use tower_http::cors::{CorsLayer, Any};
+use tower_http::cors::CorsLayer;
 use tower_sessions::{SessionManagerLayer, Expiry};
 use tower_sessions_sqlx_store::PostgresStore;
 
@@ -14,10 +14,13 @@ mod db;
 mod auth;
 mod models;
 mod routes;
+mod storage;
+mod image_processor;
 
 #[derive(Clone)]
 struct AppState {
     db: db::DbPool,
+    s3_client: aws_sdk_s3::Client,
 }
 
 #[tokio::main]
@@ -55,8 +58,12 @@ async fn main() {
     let session_layer = SessionManagerLayer::new(session_store)
         .with_expiry(Expiry::OnInactivity(time::Duration::days(7)));
 
+    // Create S3 client
+    tracing::info!("Initializing S3 client...");
+    let s3_client = storage::create_s3_client().await;
+
     // Create shared state
-    let state = AppState { db };
+    let state = AppState { db, s3_client };
 
     // Build router
     let app = Router::new()
@@ -65,6 +72,7 @@ async fn main() {
         .route("/api/auth/login", post(routes::auth::login))
         .route("/api/auth/logout", post(routes::auth::logout))
         .route("/api/auth/me", get(routes::auth::me))
+        .route("/api/works/upload", post(routes::upload::upload_work))
         .with_state(state)
         .layer(session_layer)
         .layer(
