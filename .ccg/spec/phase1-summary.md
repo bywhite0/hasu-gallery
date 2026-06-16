@@ -179,42 +179,49 @@ curl -X POST http://localhost:8787/api/works/upload \
 
 ## 下一步计划
 
-### Phase 2: 前端画廊界面
-- [ ] 作品列表页（支持筛选、分页）
-- [ ] 作品详情页（显示原图、元数据、操作按钮）
-- [ ] 上传表单组件（拖拽上传、进度条）
-- [ ] 画廊切换（meme / art）
+### Phase 2: 前端画廊界面（详见 `phase2-plan.md`）
+- [ ] 认证界面（登录/注册 + 路由保护）
+- [ ] 作品列表 API（`GET /api/works` 分页/筛选/排序）
+- [ ] 作品列表页（Meme/Art 双画廊网格）
+- [ ] 作品详情 API + 页面（`GET /api/works/:id` + 大图查看器）
+- [ ] 上传界面（拖拽上传 + 元数据表单）
+- [ ] 用户中心（我的上传列表 + 统计）
 
 ### Phase 3: 审核与状态管理
 - [ ] 审核队列（moderator 可见）
 - [ ] 状态流转：pending → approved / rejected
 - [ ] 批量操作（批量审核、批量删除）
 
-### Phase 4: 搜索与索引
-- [ ] 全文搜索（PostgreSQL `tsvector`）
-- [ ] 标签系统（多对多关系表）
-- [ ] 按来源/分类筛选
+### Phase 4: Art Gallery 发布
+- [ ] 画廊切换器（Meme / Art）
+- [ ] Art 专属筛选（artist、medium、rating）
+- [ ] 内容分级过滤
 
-### Phase 5: 生产部署
-- [ ] Docker 容器化
+### Phase 5: 生产硬化
+- [ ] 安全加固（速率限制、CSRF、输入消毒）
+- [ ] 可观测性（结构化日志、健康检查）
 - [ ] CI/CD 流水线（GitHub Actions）
-- [ ] 日志聚合（结构化日志）
-- [ ] 监控与告警（健康检查、错误率）
+- [ ] 性能优化（连接池调优、CDN、虚拟滚动）
 
 ## 提交历史
 
-- `8874657`: feat: add Vercel deployment support and optimize static data architecture
-- `cbf860e`: docs: sync documentation with current implementation state
-- `5af364e`: feat(phase1.3): add upload pipeline with S3 and thumbnail generation
+- `286d2e8`: Merge Phase 1: Complete backend infrastructure
+- `eb94104`: docs: add Phase 1 implementation summary
 - `a10784f`: fix(phase1.3): add origin field validation and fix public URL generation
+- `5af364e`: feat(phase1.3): add upload pipeline with S3 and thumbnail generation
+- `dd69954`: Merge Phase 1.2: Authentication System
+- `9bc0fa9`: feat(phase1.2): add authentication system
+- `0d39d0d`: Merge Phase 1.1: Database Migration
+- `0ae93e8`: docs: add edge server setup guide and scripts
+- `e5e6b01`: feat(phase1.1): add database migration and connection pool
 
 ## 参考文档
 
-- [Edge Server Setup](./edge-server-setup.md) - PostgreSQL 部署指南
-- [Upload Testing Scripts](../scripts/) - 上传测试脚本
-- [Backend README](../backend/README.md) - 后端 API 文档
+- [Edge Server Setup](../../docs/edge-server-setup.md) - PostgreSQL 部署指南
+- [Upload Testing Scripts](../../scripts/) - 上传测试脚本
+- [Phase 2 Plan](./phase2-plan.md) - 前端画廊界面计划
 
 ---
 
-**最后更新**：2026-06-15  
-**文档版本**：1.0
+**最后更新**：2026-06-17  
+**文档版本**：1.1
