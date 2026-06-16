@@ -10,7 +10,9 @@ import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { GalleryPage } from "./pages/GalleryPage";
 import { WorkDetailPage } from "./pages/WorkDetailPage";
+import { UploadPage } from "./pages/UploadPage";
 import { AuthGuard } from "./components/AuthGuard";
+import { useAuthStore } from "./store/auth";
 
 // Root layout
 const rootRoute = createRootRoute({
@@ -30,22 +32,41 @@ const rootRoute = createRootRoute({
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
-  component: () => (
-    <div className="space-y-4">
-      <h2 className="text-xl font-semibold">Welcome to Hasu Gallery</h2>
-      <p className="text-ink-2">
-        双画廊 UGC 平台 - Phase 2.1 认证界面已就位
-      </p>
-      <div className="flex gap-4">
-        <Link to="/login">
-          <Button>Login</Button>
-        </Link>
-        <Link to="/register">
-          <Button variant="outline">Register</Button>
-        </Link>
+  component: () => {
+    const user = useAuthStore((state) => state.user);
+    return (
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold">Welcome to Hasu Gallery</h2>
+        <p className="text-ink-2">
+          双画廊 UGC 平台 - Phase 2 功能完整
+        </p>
+        <div className="flex gap-4">
+          {user ? (
+            <>
+              <Link to="/gallery/meme">
+                <Button>Meme Gallery</Button>
+              </Link>
+              <Link to="/gallery/art">
+                <Button>Art Gallery</Button>
+              </Link>
+              <Link to="/upload">
+                <Button variant="outline">Upload</Button>
+              </Link>
+            </>
+          ) : (
+            <>
+              <Link to="/login">
+                <Button>Login</Button>
+              </Link>
+              <Link to="/register">
+                <Button variant="outline">Register</Button>
+              </Link>
+            </>
+          )}
+        </div>
       </div>
-    </div>
-  ),
+    );
+  },
 });
 
 // Login route
@@ -94,6 +115,17 @@ const workDetailRoute = createRoute({
   ),
 });
 
+// Upload route
+const uploadRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/upload",
+  component: () => (
+    <AuthGuard>
+      <UploadPage />
+    </AuthGuard>
+  ),
+});
+
 // Create route tree
 const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -102,6 +134,7 @@ const routeTree = rootRoute.addChildren([
   memeGalleryRoute,
   artGalleryRoute,
   workDetailRoute,
+  uploadRoute,
 ]);
 
 // Create router
