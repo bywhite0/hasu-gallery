@@ -3,6 +3,7 @@
 [根目录](./) > **hasu-gallery**
 
 **变更记录 (Changelog)**
+- 2026-06-17: Phase 2 完成 — 前端画廊界面、上传流程、用户个人页全部实现（+2,562 行代码）
 - 2026-06-17: Phase 1 完成 — 数据库迁移、认证系统、上传流水线全部落地
 - 2026-06-14: 初始化项目架构，基于 linkura-apps 技术栈（Rspack + TanStack + Tailwind v4）
 - 2026-06-14: 迁移 Phase 0 规范与 roadmap，确认方案 C（双轨拆仓）
@@ -61,17 +62,41 @@ hasu-gallery/
 │       ├── rspack.config.js   # Rspack 配置
 │       ├── src/
 │       │   ├── main.tsx
-│       │   ├── router.tsx     # TanStack Router
+│       │   ├── router.tsx     # TanStack Router（8 个路由）
 │       │   ├── store/         # zustand 状态
+│       │   │   ├── index.ts
+│       │   │   └── auth.ts    # 认证状态
 │       │   ├── pages/         # 页面组件
+│       │   │   ├── LoginPage.tsx
+│       │   │   ├── RegisterPage.tsx
+│       │   │   ├── GalleryPage.tsx      # 作品列表（meme/art）
+│       │   │   ├── WorkDetailPage.tsx   # 作品详情
+│       │   │   ├── UploadPage.tsx       # 上传界面
+│       │   │   └── ProfilePage.tsx      # 用户个人页
 │       │   ├── components/    # 业务组件
+│       │   │   ├── AuthGuard.tsx
+│       │   │   ├── WorkCard.tsx         # 作品卡片
+│       │   │   ├── WorksGrid.tsx        # 作品网格
+│       │   │   ├── FilterPanel.tsx      # 筛选面板
+│       │   │   ├── Pagination.tsx       # 分页控制
+│       │   │   ├── FileDropZone.tsx     # 拖拽上传区
+│       │   │   ├── ImagePreview.tsx     # 图片预览
+│       │   │   ├── UploadForm.tsx       # 上传表单
+│       │   │   ├── StatsCard.tsx        # 统计卡片
+│       │   │   └── MyWorksList.tsx      # 我的作品列表
+│       │   ├── api/           # API 客户端
+│       │   │   ├── client.ts   # fetchJson 封装
+│       │   │   ├── auth.ts     # 认证 API
+│       │   │   ├── works.ts    # 作品列表/详情 API
+│       │   │   ├── upload.ts   # 上传 API
+│       │   │   └── profile.ts  # 用户统计/我的作品 API
 │       │   └── styles/
 │       └── public/
 ├── packages/
 │   ├── ui/                    # @hasu-gallery/ui - 组件库
 │   │   ├── .storybook/        # Storybook 配置
 │   │   ├── src/
-│   │   │   ├── primitives/    # 基础组件
+│   │   │   ├── primitives/    # 基础组件（Button 等）
 │   │   │   ├── styles/
 │   │   │   │   └── tokens.css # Tailwind v4 tokens
 │   │   │   └── lib/
@@ -79,7 +104,7 @@ hasu-gallery/
 │   └── types/                 # @hasu-gallery/types - 共享类型
 │       └── src/
 │           ├── models.ts      # Work/User 等
-│           └── api.ts
+│           └── api.ts         # API 响应类型
 └── backend/                   # Rust API（不在 pnpm workspace）
     ├── Cargo.toml
     ├── migrations/
@@ -96,7 +121,9 @@ hasu-gallery/
         └── routes/
             ├── mod.rs
             ├── auth.rs         # register/login/logout/me
-            └── upload.rs       # multipart 上传 + 验证
+            ├── upload.rs       # multipart 上传 + 验证
+            ├── works.rs        # 作品列表/详情 API
+            └── users.rs        # 用户统计/我的作品 API
 ```
 
 ---
@@ -279,40 +306,96 @@ chore: upgrade dependencies
 - 上传流水线（S3/MinIO + 缩略图生成 + 格式验证）
 - 边缘服务器部署（PostgreSQL @ 100.104.1.1，MinIO @ 100.104.3.1）
 
-### 推荐下一步（Phase 2）
+✅ **Phase 2（前端画廊界面）已完成**（+2,562 行代码）：
 
-详见 `.ccg/spec/phase2-plan.md`，概要：
+**2.1 认证界面**（543 行）
+- LoginPage + RegisterPage（表单验证 + 错误提示）
+- AuthGuard 路由保护
+- zustand auth store（用户状态管理）
 
-1. **认证界面**（2.1）
-   - 登录/注册页面 + 路由保护
-   - 表单验证 + 错误提示
+**2.2 作品列表页**（575 行）
+- GalleryPage（可复用，支持 meme/art）
+- WorksGrid + WorkCard（响应式网格）
+- FilterPanel（status/origin/sort 筛选）
+- Pagination 组件
+- 后端 API：`GET /api/works`（分页 + 筛选 + 排序）
 
-2. **作品列表页**（2.2）
-   - Meme/Art 双画廊网格
-   - 筛选、排序、分页
-   - 需新增 `GET /api/works` 后端 API
+**2.3 作品详情页**（277 行）
+- WorkDetailPage（大图查看 + 元数据面板）
+- 下载功能 + 返回导航
+- 后端 API：`GET /api/works/:id`（404 处理）
 
-3. **作品详情页**（2.3）
-   - 大图查看器 + 元数据面板
-   - 需新增 `GET /api/works/:id` 后端 API
+**2.4 上传界面**（558 行）
+- UploadPage（完整上传流程）
+- FileDropZone（拖拽 + 文件验证）
+- ImagePreview（预览 + 尺寸检测）
+- UploadForm（多字段表单 + 条件显示）
+- upload API 客户端（FormData + multipart）
 
-4. **上传界面**（2.4）
-   - 拖拽上传 + 元数据表单
-   - 上传进度反馈
+**2.5 用户个人页**（609 行）
+- ProfilePage（用户信息 + 统计 + 我的上传）
+- StatsCard 组件（4 种 variant）
+- MyWorksList（状态徽章 + 筛选）
+- 后端 API：`GET /api/users/me/stats`、`GET /api/users/me/works`
 
-5. **用户中心**（2.5）
-   - 我的上传列表 + 统计
-   - 需新增 `DELETE /api/works/:id`、`PATCH /api/works/:id`
+### 推荐下一步（Phase 3 - 审核工作流）
+
+1. **管理员审核界面**
+   - 待审作品队列（pending works）
+   - 批量操作（批准/拒绝/撤销）
+   - 需新增 `PATCH /api/works/:id/status` API
+
+2. **审核日志**
+   - 记录审核操作（moderation_log 表）
+   - 审核历史查看
+
+3. **权限控制**
+   - 角色检查（仅 admin/moderator 可访问）
+   - 路由级权限保护
 
 ---
 
 ## 技术债务
 
-1. `frontend/` 尚未实现任何页面（仅骨架就位）
+1. ~~`frontend/` 尚未实现任何页面（仅骨架就位）~~ ✅ Phase 2 完成
 2. 缺少前端测试（Vitest + Testing Library 未配置）
 3. 缺少后端集成测试（仅有单元测试）
 4. 缺少 CI/CD 流水线（GitHub Actions 未配置）
 5. 缺少生产环境错误监控与性能指标收集
+
+---
+
+## API 路由清单
+
+### 认证 API
+- `POST /api/auth/register` - 用户注册（handle, email, password, display_name）
+- `POST /api/auth/login` - 用户登录（handle, password）
+- `POST /api/auth/logout` - 用户登出
+- `GET /api/auth/me` - 获取当前用户信息（需要 session）
+
+### 作品 API
+- `GET /api/works` - 作品列表
+  - 参数：gallery（必填），status, origin（meme only）, page, limit, sort
+  - 返回：{ works: WorkItem[], pagination: {...} }
+  
+- `GET /api/works/:id` - 作品详情
+  - 返回：WorkItem（含完整元数据）
+  - 404 如果作品不存在
+  
+- `POST /api/works/upload` - 上传作品（需要认证）
+  - multipart/form-data：file, title, gallery, origin（meme 必填）, source, source_url
+  - 返回：上传成功的 WorkItem
+
+### 用户 API
+- `GET /api/users/me/stats` - 当前用户统计（需要认证）
+  - 返回：{ total, pending, approved, rejected }
+  
+- `GET /api/users/me/works` - 我的上传列表（需要认证）
+  - 参数：status（可选）, page, limit
+  - 返回：{ works: WorkItem[], pagination: {...} }
+
+### 健康检查
+- `GET /health` - 服务器健康检查
 
 ---
 
