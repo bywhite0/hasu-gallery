@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import { Button } from './ui/button';
+import { Button } from '@hasu-gallery/ui';
 
 interface ImagePreviewProps {
   file: File;
@@ -40,8 +40,8 @@ export function ImagePreview({ file, onRemove }: ImagePreviewProps) {
   return (
     <div className="relative rounded-lg overflow-hidden border border-border bg-card">
       <Button
-        variant="destructive"
-        size="icon"
+        variant="ghost"
+        size="sm"
         className="absolute top-2 right-2 h-8 w-8 z-10"
         onClick={onRemove}
       >

@@ -15,6 +15,8 @@ export interface Work {
   uploader_name: string | null; // 替换 uploader_id，显示上传者昵称
   file: string | null;
   asset_file: string | null;
+  thumbnail_url?: string; // 前端显示用，从 asset_file 派生
+  file_url?: string; // 前端显示用，从 asset_file 派生
   width: number;
   height: number;
   source: string;

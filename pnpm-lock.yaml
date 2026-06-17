@@ -22,6 +22,9 @@ importers:
       '@tanstack/react-router':
         specifier: ^1.95.0
         version: 1.170.15(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      lucide-react:
+        specifier: ^1.18.0
+        version: 1.18.0(react@19.2.7)
       react:
         specifier: ^19.0.0
         version: 19.2.7
