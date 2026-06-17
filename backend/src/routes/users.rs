@@ -33,7 +33,7 @@ pub async fn handle_my_stats(
     State(state): State<AppState>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
     // Extract user_id from session
-    let user_id: i32 = session
+    let user_id: i64 = session
         .get(SESSION_USER_ID_KEY)
         .await
         .map_err(|e| {
@@ -42,62 +42,31 @@ pub async fn handle_my_stats(
         })?
         .ok_or_else(|| (StatusCode::UNAUTHORIZED, "Not logged in".to_string()))?;
 
-    // Get total count
-    let total: i64 = sqlx::query("SELECT COUNT(*) FROM works WHERE uploader_id = $1")
-        .bind(user_id)
-        .fetch_one(&state.db)
-        .await
-        .map_err(|e| {
-            tracing::error!("Database error: {}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Failed to fetch stats".to_string())
-        })?
-        .try_get(0)
-        .map_err(|e| {
-            tracing::error!("Failed to extract count: {}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Failed to parse stats".to_string())
-        })?;
-
-    // Get pending count
-    let pending: i64 = sqlx::query("SELECT COUNT(*) FROM works WHERE uploader_id = $1 AND status = 'pending'::work_status")
-        .bind(user_id)
-        .fetch_one(&state.db)
-        .await
-        .map_err(|e| {
-            tracing::error!("Database error: {}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Failed to fetch stats".to_string())
-        })?
-        .try_get(0)
-        .unwrap_or(0);
-
-    // Get approved count
-    let approved: i64 = sqlx::query("SELECT COUNT(*) FROM works WHERE uploader_id = $1 AND status = 'approved'::work_status")
-        .bind(user_id)
-        .fetch_one(&state.db)
-        .await
-        .map_err(|e| {
-            tracing::error!("Database error: {}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Failed to fetch stats".to_string())
-        })?
-        .try_get(0)
-        .unwrap_or(0);
-
-    // Get rejected count
-    let rejected: i64 = sqlx::query("SELECT COUNT(*) FROM works WHERE uploader_id = $1 AND status = 'rejected'::work_status")
-        .bind(user_id)
-        .fetch_one(&state.db)
-        .await
-        .map_err(|e| {
-            tracing::error!("Database error: {}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Failed to fetch stats".to_string())
-        })?
-        .try_get(0)
-        .unwrap_or(0);
+    // 使用单次聚合查询优化 N+1 问题
+    let stats = sqlx::query!(
+        r#"
+        SELECT
+            COUNT(*) as "total!",
+            COUNT(*) FILTER (WHERE status = 'pending'::work_status) as "pending!",
+            COUNT(*) FILTER (WHERE status = 'approved'::work_status) as "approved!",
+            COUNT(*) FILTER (WHERE status = 'rejected'::work_status) as "rejected!"
+        FROM works
+        WHERE uploader_id = $1
+        "#,
+        user_id
+    )
+    .fetch_one(&state.db)
+    .await
+    .map_err(|e| {
+        tracing::error!("Database error: {}", e);
+        (StatusCode::INTERNAL_SERVER_ERROR, "Failed to fetch stats".to_string())
+    })?;
 
     Ok((StatusCode::OK, Json(StatsResponse {
-        total,
-        pending,
-        approved,
-        rejected,
+        total: stats.total,
+        pending: stats.pending,
+        approved: stats.approved,
+        rejected: stats.rejected,
     })))
 }
 
@@ -108,7 +77,7 @@ pub async fn handle_my_works(
     Query(params): Query<MyWorksQuery>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
     // Extract user_id from session
-    let user_id: i32 = session
+    let user_id: i64 = session
         .get(SESSION_USER_ID_KEY)
         .await
         .map_err(|e| {
@@ -228,7 +197,7 @@ pub async fn handle_my_works(
                 width,
                 height,
                 created_at: created_at.to_rfc3339(),
-                uploader_id: None,
+                uploader_name: None, // 我的作品列表不显示上传者（就是自己）
                 source: None,
                 source_url: None,
                 rights_note: None,
