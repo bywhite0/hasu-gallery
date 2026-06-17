@@ -77,11 +77,10 @@ fn extract_extension(asset_file: &str) -> &str {
         .unwrap_or("jpg")
 }
 
-/// Build thumbnail URL for a work
-pub fn build_thumbnail_url(id: &str, asset_file: &str) -> String {
+/// Build thumbnail URL for a work (always .jpg since thumbnails are JPEG)
+pub fn build_thumbnail_url(id: &str, _asset_file: &str) -> String {
     let base = get_media_base_url();
-    let ext = extract_extension(asset_file);
-    format!("{}/{}_thumb.{}", base, id, ext)
+    format!("{}/{}_thumb.jpg", base, id)
 }
 
 /// Build file URL for a work
@@ -155,12 +154,12 @@ pub async fn handle_works_list(
     let limit = params.limit.unwrap_or(24).clamp(1, 100);
     let offset = (page - 1) * limit;
 
-    // Parse sort parameter
+    // Parse sort parameter and construct ORDER BY clause safely
     let sort = params.sort.as_deref().unwrap_or("created_at_desc");
-    let order_by = match sort {
-        "created_at_desc" => "created_at DESC",
-        "created_at_asc" => "created_at ASC",
-        "title_asc" => "title ASC",
+    let (order_col, order_dir) = match sort {
+        "created_at_desc" => ("created_at", "DESC"),
+        "created_at_asc" => ("created_at", "ASC"),
+        "title_asc" => ("title", "ASC"),
         _ => {
             return Err((
                 StatusCode::BAD_REQUEST,
@@ -168,6 +167,7 @@ pub async fn handle_works_list(
             ));
         }
     };
+    let order_by = format!("{} {}", order_col, order_dir);
 
     // Build WHERE clause with proper type casts for enums
     let mut where_conditions = vec![
@@ -313,11 +313,12 @@ pub async fn handle_works_list(
 pub async fn handle_work_detail(
     Path(id): Path<String>,
     State(state): State<AppState>,
+    session: Session,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
     // Query single work with all detail fields including uploader name
     let query = "SELECT w.id, w.gallery, w.origin, w.title, w.status, w.width, w.height,
                         w.source, w.source_url, w.rights_note, w.created_at, w.asset_file,
-                        u.display_name as uploader_name
+                        w.uploader_id, u.display_name as uploader_name
                  FROM works w
                  LEFT JOIN users u ON w.uploader_id = u.id
                  WHERE w.id = $1";
@@ -355,7 +356,8 @@ pub async fn handle_work_detail(
 
     let origin: Option<String> = row.try_get("origin").ok();
     let title: String = row.try_get("title").unwrap_or_default();
-    let status: String = row.try_get("status").unwrap_or_default();
+    let status_str: String = row.try_get("status").unwrap_or_default();
+    let uploader_id_opt: Option<i64> = row.try_get("uploader_id").ok();
     let uploader_name: Option<String> = row.try_get("uploader_name").ok();
     let width: i32 = row.try_get("width").unwrap_or(0);
     let height: i32 = row.try_get("height").unwrap_or(0);
@@ -365,13 +367,54 @@ pub async fn handle_work_detail(
     let created_at: chrono::DateTime<chrono::Utc> = row.try_get("created_at").unwrap_or_default();
     let asset_file: String = row.try_get("asset_file").unwrap_or_default();
 
+    // 访问控制：非 approved 状态需要验证权限
+    if status_str != "approved" {
+        let user_id: Option<i64> = session.get(SESSION_USER_ID_KEY).await.ok().flatten();
+
+        if let Some(uid) = user_id {
+            // 检查是否为作品上传者
+            let is_owner = uploader_id_opt.map_or(false, |uploader_id| uploader_id == uid);
+
+            if !is_owner {
+                // 不是上传者，检查是否为管理员或审核员
+                let user_role: Option<String> = sqlx::query_scalar(
+                    "SELECT role::text FROM users WHERE id = $1"
+                )
+                .bind(uid)
+                .fetch_optional(&state.db)
+                .await
+                .map_err(|e| {
+                    tracing::error!("Failed to fetch user role: {}", e);
+                    (StatusCode::INTERNAL_SERVER_ERROR, "Authorization check failed".to_string())
+                })?;
+
+                if let Some(role) = user_role {
+                    if role != "admin" && role != "moderator" {
+                        return Err((
+                            StatusCode::FORBIDDEN,
+                            "Only the uploader, moderators, or admins can view non-approved works".to_string(),
+                        ));
+                    }
+                } else {
+                    return Err((StatusCode::UNAUTHORIZED, "User not found".to_string()));
+                }
+            }
+            // 是上传者或管理员，允许访问
+        } else {
+            return Err((
+                StatusCode::UNAUTHORIZED,
+                "Authentication required to view non-approved works".to_string(),
+            ));
+        }
+    }
+
     // Build response
     let work_item = WorkItem {
         id: work_id.clone(),
         gallery,
         origin,
         title,
-        status,
+        status: status_str,
         thumbnail_url: build_thumbnail_url(&work_id, &asset_file),
         file_url: build_file_url(&work_id, &asset_file),
         width,
