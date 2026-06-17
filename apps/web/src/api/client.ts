@@ -3,7 +3,7 @@
  * Handles JSON requests/responses and authentication via cookies
  */
 
-export const BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+export const BASE_URL = (import.meta.env?.VITE_API_BASE_URL as string | undefined) || '';
 
 export class ApiError extends Error {
   constructor(
