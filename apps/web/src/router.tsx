@@ -11,21 +11,51 @@ import { RegisterPage } from "./pages/RegisterPage";
 import { GalleryPage } from "./pages/GalleryPage";
 import { WorkDetailPage } from "./pages/WorkDetailPage";
 import { UploadPage } from "./pages/UploadPage";
+import { ProfilePage } from "./pages/ProfilePage";
 import { AuthGuard } from "./components/AuthGuard";
 import { useAuthStore } from "./store/auth";
 
 // Root layout
 const rootRoute = createRootRoute({
-  component: () => (
-    <div className="min-h-screen bg-paper text-ink">
-      <header className="border-b border-ink p-4">
-        <h1 className="text-2xl font-bold">Hasu Gallery</h1>
-      </header>
-      <main className="container mx-auto p-4">
-        <Outlet />
-      </main>
-    </div>
-  ),
+  component: () => {
+    const user = useAuthStore((state) => state.user);
+    return (
+      <div className="min-h-screen bg-paper text-ink">
+        <header className="border-b border-ink p-4">
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-bold">Hasu Gallery</h1>
+            {user && (
+              <nav className="flex gap-4">
+                <Link to="/gallery/meme">
+                  <Button variant="ghost" size="sm">
+                    Meme
+                  </Button>
+                </Link>
+                <Link to="/gallery/art">
+                  <Button variant="ghost" size="sm">
+                    Art
+                  </Button>
+                </Link>
+                <Link to="/upload">
+                  <Button variant="ghost" size="sm">
+                    Upload
+                  </Button>
+                </Link>
+                <Link to="/profile">
+                  <Button variant="ghost" size="sm">
+                    Profile
+                  </Button>
+                </Link>
+              </nav>
+            )}
+          </div>
+        </header>
+        <main className="container mx-auto p-4">
+          <Outlet />
+        </main>
+      </div>
+    );
+  },
 });
 
 // Index route
@@ -126,6 +156,17 @@ const uploadRoute = createRoute({
   ),
 });
 
+// Profile route
+const profileRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/profile",
+  component: () => (
+    <AuthGuard>
+      <ProfilePage />
+    </AuthGuard>
+  ),
+});
+
 // Create route tree
 const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -135,6 +176,7 @@ const routeTree = rootRoute.addChildren([
   artGalleryRoute,
   workDetailRoute,
   uploadRoute,
+  profileRoute,
 ]);
 
 // Create router

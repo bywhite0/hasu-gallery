@@ -75,6 +75,8 @@ async fn main() {
         .route("/api/works", get(routes::works::handle_works_list))
         .route("/api/works/:id", get(routes::works::handle_work_detail))
         .route("/api/works/upload", post(routes::upload::upload_work))
+        .route("/api/users/me/works", get(routes::users::handle_my_works))
+        .route("/api/users/me/stats", get(routes::users::handle_my_stats))
         .with_state(state)
         .layer(session_layer)
         .layer(
