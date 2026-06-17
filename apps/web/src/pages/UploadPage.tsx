@@ -44,7 +44,7 @@ export function UploadPage() {
 
   const handleViewWork = () => {
     if (uploadedWork) {
-      navigate(`/works/${uploadedWork.id}`);
+      navigate({ to: `/works/${uploadedWork.id}` as any });
     }
   };
 

@@ -2,14 +2,14 @@ import { WorkListItem } from '@hasu-gallery/types';
 
 interface WorkCardProps {
   work: WorkListItem;
-  onClick?: () => void;
+  onClick?: (work: WorkListItem) => void;
 }
 
 export function WorkCard({ work, onClick }: WorkCardProps) {
   return (
     <div
       className="bg-surface rounded-md overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-      onClick={onClick}
+      onClick={onClick ? () => onClick(work) : undefined}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
       onKeyDown={
@@ -17,7 +17,7 @@ export function WorkCard({ work, onClick }: WorkCardProps) {
           ? (e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
-                onClick();
+                onClick(work);
               }
             }
           : undefined

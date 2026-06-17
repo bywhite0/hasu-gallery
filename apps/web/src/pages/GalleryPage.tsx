@@ -10,11 +10,11 @@ interface GalleryPageProps {
   gallery: 'meme' | 'art';
 }
 
-interface Filters {
-  status?: string;
-  origin?: string;
-  sort?: string;
-}
+type Filters = {
+  status?: "pending" | "approved" | "rejected";
+  origin?: "official" | "derived" | "fan_made";
+  sort?: "created_at_desc" | "created_at_asc" | "title_asc";
+};
 
 export function GalleryPage({ gallery }: GalleryPageProps) {
   const navigate = useNavigate();
@@ -35,8 +35,8 @@ export function GalleryPage({ gallery }: GalleryPageProps) {
     setPage(newPage);
   };
 
-  const handleWorkClick = (workId: string) => {
-    navigate({ to: `/works/${workId}` });
+  const handleWorkClick = (id: string) => {
+    navigate({ to: `/works/${id}` });
   };
 
   const title = gallery === 'meme' ? 'Meme Gallery' : 'Art Gallery';

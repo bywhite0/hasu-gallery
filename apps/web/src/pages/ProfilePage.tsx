@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@tanstack/react-router';
 import { Clock, CheckCircle, XCircle, Upload } from 'lucide-react';
-import { useAuthStore } from '@/stores/authStore';
-import { getMyWorks, getMyStats } from '@/api/works';
-import { StatsCard } from '@/components/StatsCard';
-import { MyWorksList } from '@/components/MyWorksList';
-import { Pagination } from '@/components/Pagination';
-import { Button } from '@/components/ui/button';
+import { useAuthStore } from '../store/auth';
+import { getMyWorks, getMyStats } from '../api/profile';
+import { StatsCard } from '../components/StatsCard';
+import { MyWorksList } from '../components/MyWorksList';
+import { Pagination } from '../components/Pagination';
+import { Button } from '@hasu-gallery/ui';
 
 type StatusFilter = 'all' | 'pending' | 'approved' | 'rejected';
 
@@ -45,8 +45,8 @@ export function ProfilePage() {
     setPage(newPage);
   };
 
-  const handleWorkClick = (id: number) => {
-    navigate(`/works/${id}`);
+  const handleWorkClick = (id: string) => {
+    navigate({ to: `/works/${id}` });
   };
 
   if (!userInfo) {
@@ -69,7 +69,7 @@ export function ProfilePage() {
     <div className="container mx-auto px-4 py-8 space-y-8">
       {/* User info header */}
       <div className="space-y-2">
-        <h1 className="text-4xl font-bold">{userInfo.name || userInfo.handle}</h1>
+        <h1 className="text-4xl font-bold">{userInfo.display_name || userInfo.handle}</h1>
         <p className="text-lg text-muted-foreground">@{userInfo.handle}</p>
         {userInfo.email && <p className="text-sm text-muted-foreground">{userInfo.email}</p>}
         <p className="text-sm text-muted-foreground">Joined {joinDate}</p>
@@ -78,26 +78,26 @@ export function ProfilePage() {
       {/* Stats grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard
-          title="Total Uploads"
-          value={statsLoading ? '...' : stats?.total_uploads ?? 0}
+          label="Total Uploads"
+          value={statsLoading ? 0 : Number(stats?.total ?? 0)}
           icon={<Upload className="h-5 w-5" />}
           variant="default"
         />
         <StatsCard
-          title="Pending"
-          value={statsLoading ? '...' : stats?.pending ?? 0}
+          label="Pending"
+          value={statsLoading ? 0 : Number(stats?.pending ?? 0)}
           icon={<Clock className="h-5 w-5" />}
           variant="warning"
         />
         <StatsCard
-          title="Approved"
-          value={statsLoading ? '...' : stats?.approved ?? 0}
+          label="Approved"
+          value={statsLoading ? 0 : Number(stats?.approved ?? 0)}
           icon={<CheckCircle className="h-5 w-5" />}
           variant="success"
         />
         <StatsCard
-          title="Rejected"
-          value={statsLoading ? '...' : stats?.rejected ?? 0}
+          label="Rejected"
+          value={statsLoading ? 0 : Number(stats?.rejected ?? 0)}
           icon={<XCircle className="h-5 w-5" />}
           variant="danger"
         />
@@ -143,7 +143,7 @@ export function ProfilePage() {
             <MyWorksList works={worksData.works} onWorkClick={handleWorkClick} />
             <Pagination
               currentPage={page}
-              totalPages={worksData.total_pages}
+              totalPages={worksData.pagination.total_pages}
               onPageChange={handlePageChange}
             />
           </>

@@ -1,9 +1,9 @@
-import type { WorkListItem } from '../types';
+import type { WorkListItem } from '@hasu-gallery/types';
 import { WorkCard } from './WorkCard';
 
 interface WorksGridProps {
   works: WorkListItem[];
-  onWorkClick?: (work: WorkListItem) => void;
+  onWorkClick?: (workId: string) => void;
 }
 
 export function WorksGrid({ works, onWorkClick }: WorksGridProps) {
@@ -21,7 +21,7 @@ export function WorksGrid({ works, onWorkClick }: WorksGridProps) {
         <WorkCard
           key={work.id}
           work={work}
-          onClick={onWorkClick}
+          onClick={() => onWorkClick?.(work.id)}
         />
       ))}
     </div>

@@ -37,6 +37,8 @@ pub async fn upload_work(
     let mut title: Option<String> = None;
     let mut gallery: Option<String> = None;
     let mut origin: Option<String> = None;
+	let mut source: Option<String> = None;
+	let mut source_url: Option<String> = None;
 
     // 解析 multipart 数据
     while let Some(field) = multipart
@@ -187,8 +189,8 @@ pub async fn upload_work(
 
     // 插入数据库记录（使用参数化查询防止 SQL 注入）
     let query_str = r#"
-        INSERT INTO works (id, gallery, origin, title, status, uploader_id, asset_file, thumbnail_asset_file, width, height)
-        VALUES ($1, $2::gallery_kind, $3::meme_origin, $4, 'pending'::work_status, $5, $6, $7, $8, $9)
+        INSERT INTO works (id, gallery, origin, title, source, source_url, status, uploader_id, asset_file, thumbnail_asset_file, width, height)
+        VALUES ($1, $2::gallery_kind, $3::meme_origin, $4, $5, $6, 'pending'::work_status, $7, $8, $9, $10, $11)
         RETURNING id, title, status::text as status
     "#;
 
@@ -197,6 +199,8 @@ pub async fn upload_work(
         .bind(&gallery_kind)
         .bind(origin.as_deref()) // None 会自动转换为 NULL
         .bind(&title)
+		.bind(source.as_deref())
+		.bind(source_url.as_deref())
         .bind(user_id)
         .bind(&file_url)
         .bind(&thumbnail_url)

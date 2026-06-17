@@ -61,7 +61,7 @@ export function LoginForm() {
 
       <p style={{ marginTop: '1rem', fontSize: '0.875rem' }}>
         Don't have an account?{' '}
-        <a href="/register" style={{ color: 'blue', textDeccorationLine: 'underline' }}>
+        <a href="/register" style={{ color: 'blue', textDecorationLine: 'underline' }}>
           Register
         </a>
       </p>

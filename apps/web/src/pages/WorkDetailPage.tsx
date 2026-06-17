@@ -32,7 +32,7 @@ export function WorkDetailPage() {
         <p className="text-lg text-destructive">
           {error instanceof Error ? error.message : 'Failed to load work'}
         </p>
-        <Link to="/gallery/all">
+        <Link to="/gallery/meme">
           <Button variant="outline">Back to gallery</Button>
         </Link>
       </div>
@@ -40,6 +40,7 @@ export function WorkDetailPage() {
   }
 
   const handleDownload = () => {
+    if (!work.file_url) return;
     const link = document.createElement('a');
     link.href = work.file_url;
     link.download = work.file_url.split('/').pop() || 'download';

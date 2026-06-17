@@ -1,11 +1,15 @@
 interface FilterPanelProps {
   gallery: 'meme' | 'art';
   filters: {
-    status?: string;
-    origin?: string;
-    sort?: string;
+    status?: "pending" | "approved" | "rejected";
+    origin?: "official" | "derived" | "fan_made";
+    sort?: "created_at_desc" | "created_at_asc" | "title_asc";
   };
-  onFilterChange: (filters: { status?: string; origin?: string; sort?: string }) => void;
+  onFilterChange: (filters: {
+    status?: "pending" | "approved" | "rejected";
+    origin?: "official" | "derived" | "fan_made";
+    sort?: "created_at_desc" | "created_at_asc" | "title_asc";
+  }) => void;
 }
 
 export function FilterPanel({ gallery, filters, onFilterChange }: FilterPanelProps) {
@@ -15,7 +19,7 @@ export function FilterPanel({ gallery, filters, onFilterChange }: FilterPanelPro
   };
 
   // Map display values to API values
-  const sortValueMap: Record<string, string> = {
+  const sortValueMap: Record<string, "created_at_desc" | "created_at_asc" | "title_asc"> = {
     'newest': 'created_at_desc',
     'oldest': 'created_at_asc',
     'title-az': 'title_asc',
