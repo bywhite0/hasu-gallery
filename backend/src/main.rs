@@ -1,9 +1,10 @@
 use axum::{
     Router,
-    routing::{get, post},
+    routing::{get, post, patch},
     response::IntoResponse,
     http::StatusCode,
     extract::State,
+    middleware::from_fn_with_state,
 };
 use std::net::SocketAddr;
 use tower_http::cors::CorsLayer;
@@ -16,6 +17,7 @@ mod models;
 mod routes;
 mod storage;
 mod image_processor;
+mod middleware;
 
 #[derive(Clone)]
 struct AppState {
@@ -77,6 +79,18 @@ async fn main() {
     tracing::info!("CORS allowed origins: {:?}", allowed_origins);
 
     // Build router
+    // Moderation routes (require moderator/admin role) - use PgPool as state
+    let moderation_routes = Router::new()
+        .route("/api/moderation/queue", get(routes::moderation::get_queue))
+        .route("/api/works/:id/status", patch(routes::moderation::update_status))
+        .route("/api/moderation/log/:work_id", get(routes::moderation::get_log))
+        .with_state(state.db.clone())
+        .layer(from_fn_with_state(
+            state.db.clone(),
+            middleware::require_moderator
+        ));
+
+    // Public routes - use AppState
     let app = Router::new()
         .route("/health", get(health_check))
         .route("/api/auth/register", post(routes::auth::register))
@@ -88,6 +102,7 @@ async fn main() {
         .route("/api/works/upload", post(routes::upload::upload_work))
         .route("/api/users/me/works", get(routes::users::handle_my_works))
         .route("/api/users/me/stats", get(routes::users::handle_my_stats))
+        .merge(moderation_routes)
         .with_state(state)
         .layer(session_layer)
         .layer(
@@ -97,6 +112,7 @@ async fn main() {
                     axum::http::Method::GET,
                     axum::http::Method::POST,
                     axum::http::Method::PUT,
+                    axum::http::Method::PATCH,
                     axum::http::Method::DELETE,
                     axum::http::Method::OPTIONS,
                 ])

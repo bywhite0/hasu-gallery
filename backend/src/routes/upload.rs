@@ -37,8 +37,8 @@ pub async fn upload_work(
     let mut title: Option<String> = None;
     let mut gallery: Option<String> = None;
     let mut origin: Option<String> = None;
-	let mut source: Option<String> = None;
-	let mut source_url: Option<String> = None;
+    let source: Option<String> = None;
+    let source_url: Option<String> = None;
 
     // 解析 multipart 数据
     while let Some(field) = multipart
