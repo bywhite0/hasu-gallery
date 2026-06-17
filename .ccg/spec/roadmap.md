@@ -185,7 +185,6 @@ backend/src/
 
 **Deliverable**: Extended API contract
 
----
 
 ### Phase 2: Frontend Gallery Interface ✅ COMPLETE
 
@@ -194,16 +193,18 @@ backend/src/
 
 #### 2.1 Authentication UI ✅
 
-**Deliverables**:
+**Features**:
 - LoginPage + RegisterPage (表单验证 + 错误提示)
 - AuthGuard 路由保护
 - zustand auth store（用户状态管理）
 
 **Files**: `apps/web/src/pages/{LoginPage,RegisterPage}.tsx`, `apps/web/src/components/AuthGuard.tsx`, `apps/web/src/store/auth.ts`
 
+**Deliverable**: Complete authentication UI
+
 #### 2.2 Works List Page ✅
 
-**Deliverables**:
+**Features**:
 - GalleryPage（可复用，支持 meme/art）
 - WorksGrid + WorkCard（响应式网格 1/3/4/6 列）
 - FilterPanel（status/origin/sort 筛选）
@@ -212,18 +213,22 @@ backend/src/
 
 **Files**: `apps/web/src/pages/GalleryPage.tsx`, `apps/web/src/components/{WorkCard,WorksGrid,FilterPanel,Pagination}.tsx`, `backend/src/routes/works.rs`
 
+**Deliverable**: Functional gallery browsing
+
 #### 2.3 Work Detail Page ✅
 
-**Deliverables**:
+**Features**:
 - WorkDetailPage（大图查看 + 元数据面板）
 - 下载功能 + 返回导航
 - 后端 API：`GET /api/works/:id`（404 处理）
 
 **Files**: `apps/web/src/pages/WorkDetailPage.tsx`
 
+**Deliverable**: Work detail view
+
 #### 2.4 Upload Interface ✅
 
-**Deliverables**:
+**Features**:
 - UploadPage（完整上传流程）
 - FileDropZone（拖拽 + 文件验证，max 10MB）
 - ImagePreview（预览 + 尺寸检测）
@@ -232,9 +237,11 @@ backend/src/
 
 **Files**: `apps/web/src/pages/UploadPage.tsx`, `apps/web/src/components/{FileDropZone,ImagePreview,UploadForm}.tsx`, `apps/web/src/api/upload.ts`
 
+**Deliverable**: User upload flow (uploads → pending status)
+
 #### 2.5 User Profile Page ✅
 
-**Deliverables**:
+**Features**:
 - ProfilePage（用户信息 + 统计 + 我的上传）
 - StatsCard 组件（4 种 variant）
 - MyWorksList（状态徽章 + 筛选）
@@ -242,34 +249,9 @@ backend/src/
 
 **Files**: `apps/web/src/pages/ProfilePage.tsx`, `apps/web/src/components/{StatsCard,MyWorksList}.tsx`, `backend/src/routes/users.rs`
 
----
+**Deliverable**: User profile & submission management
 
-### Phase 3: Moderation UI & Workflow
-
-**Goal**: Enable moderators to review pending submissions
-
-#### 2.1 Moderation Queue API
-
-**Endpoints**:
-- `GET /api/moderation/queue?gallery=meme|art&status=pending` (moderator-only)
-- `POST /api/moderation/approve/:id` (body: `{note}`)
-- `POST /api/moderation/reject/:id` (body: `{note}`)
-- `POST /api/moderation/takedown/:id` (body: `{note}`)
-- `GET /api/moderation/log/:work_id` (audit trail)
-
-**Deliverable**: Moderation API
-
-#### 2.2 Frontend: Moderation Dashboard
-
-**Features**:
-- Moderation queue (pending works, filterable by gallery)
-- Work preview + metadata display
-- Approve/reject/takedown buttons with reason textarea
-- Batch operations (optional, nice-to-have)
-
-**Access control**: Route-level guard (moderator role required)
-
-**Deliverable**: Functional moderation UI
+**Phase 2 Summary**: 完整的用户体验闭环 — 认证、浏览、上传、个人中心。所有作品进入 `pending` 状态，等待 Phase 3 审核流程。
 
 ---
 
@@ -281,10 +263,12 @@ backend/src/
 
 **Endpoints**:
 - `GET /api/moderation/queue?gallery=meme|art&status=pending` (moderator-only)
-- `POST /api/moderation/approve/:id` (body: `{note}`)
-- `POST /api/moderation/reject/:id` (body: `{note}`)
-- `POST /api/moderation/takedown/:id` (body: `{note}`)
+- `PATCH /api/works/:id/status` (body: `{status: "approved"|"rejected"|"takedown", note: "..."}`)
 - `GET /api/moderation/log/:work_id` (audit trail)
+
+**Access control**: 
+- Role check (moderator/admin only)
+- Record each action in `moderation_log` table
 
 **Deliverable**: Moderation API
 
@@ -295,6 +279,7 @@ backend/src/
 - Work preview + metadata display
 - Approve/reject/takedown buttons with reason textarea
 - Batch operations (optional, nice-to-have)
+- Audit log viewer
 
 **Access control**: Route-level guard (moderator role required)
 
@@ -302,38 +287,9 @@ backend/src/
 
 ---
 
-### Phase 4: Advanced User Features
+### Phase 4: Art Gallery Launch
 
-**Goal**: Enhanced user experience and content management
-
-#### 4.1 My Submissions Enhancement
-
-**Features**:
-- Edit own pending works
-- Delete own pending/rejected works
-- View rejection reasons
-- Resubmit rejected works
-
-**Endpoints**:
-- `PATCH /api/works/:id` (own works only)
-- `DELETE /api/works/:id` (own works only)
-
-**Deliverable**: User content management
-
-#### 4.2 Advanced Filtering
-
-**Features**:
-- Art-specific facets: artist, medium, rating
-- Multi-character filtering
-- Tag-based search
-
-**Deliverable**: Enhanced discovery
-
----
-
-### Phase 5: Art Gallery Launch
-
-**Goal**: Make art gallery publicly visible
+**Goal**: Make art gallery production-ready with full metadata support
 
 #### 4.1 Frontend: Gallery Switcher
 
@@ -345,32 +301,19 @@ backend/src/
 
 **Deliverable**: Dual-gallery navigation
 
-#### 4.2 Content Filtering
+#### 4.2 Art Metadata Enhancement
 
 **Features**:
-- Rating filter (art gallery only)
-- Default: all_ages (guest) or user preference (logged in)
-- Cookie/session to persist rating preference
-
-**Deliverable**: Age-appropriate content filtering
-
----
-
-### Phase 5: Art Gallery Launch
-
-**Goal**: Make art gallery production-ready with full metadata support
-
-#### 5.1 Art Metadata Enhancement
-
-**Features**:
-- Artist field support
+- Artist field support in upload form and display
 - Medium/technique tagging
 - Rating system (all_ages/r15/r18)
 - Art-specific filters in gallery
 
+**Database**: Use existing `work_art_meta` table
+
 **Deliverable**: Art gallery metadata complete
 
-#### 5.2 Content Filtering
+#### 4.3 Content Filtering
 
 **Features**:
 - Rating filter (art gallery only)
@@ -381,7 +324,7 @@ backend/src/
 
 ---
 
-### Phase 6: Polish & Hardening
+### Phase 5: Polish & Hardening
 
 **Goal**: Production readiness
 
@@ -389,114 +332,71 @@ backend/src/
 
 - Rate limiting (upload, login attempts)
 - CSRF protection
-- Input sanitization (especially user-provided URLs)
-- Object storage URL signing (if needed)
+- Input sanitization audit
+- SQL injection prevention (use parameterized queries)
+- File upload restrictions (extension whitelist, magic byte validation)
 
-#### 5.2 Observability
+#### 5.2 Performance Optimization
 
-- Structured logging (`tracing` crate)
-- Health check endpoint (`GET /health`)
-- Metrics (optional: Prometheus exporter)
+- Database indexing (on `gallery`, `status`, `created_at`, `phash`)
+- Image optimization (thumbnail generation, progressive JPEG)
+- CDN integration for static assets
+- Lazy loading for gallery grids
 
-#### 5.3 Performance Optimization
+#### 5.3 Testing & CI
 
-- Connection pooling tuning
-- Query optimization (EXPLAIN plans)
-- CDN integration for object storage
-- Frontend: virtual scrolling (if not already in Phase 2/3)
+- Unit tests (backend: auth, upload, moderation logic)
+- Integration tests (API endpoints)
+- E2E tests (upload flow, moderation flow)
+- GitHub Actions CI pipeline
 
-#### 5.4 Testing
+#### 5.4 Documentation
 
-- Integration tests (end-to-end upload → moderation → public flow)
-- Load testing (concurrent uploads, moderation queue under stress)
-- Security testing (OWASP Top 10 checks)
+- API documentation (OpenAPI/Swagger)
+- Deployment guide (Docker Compose, environment variables)
+- Moderation guidelines
+- User guide (how to upload, content policy)
 
----
+#### 5.5 Monitoring
 
-## Technical Decisions Log
-
-| Decision | Rationale |
-|----------|-----------|
-| Keep Rust (no Go rewrite) | 3700 lines + 35 tests already proven; rewrite = zero new user value |
-| Postgres over SQLite | Write concurrency, FTS, growth headroom for UGC scale |
-| Core + extension tables | Art/meme metadata divergence; cleaner than nullable monolith |
-| pHash in MVP | Duplicate prevention is critical for UGC quality |
-| No historical migration | 3499 test items sufficient; fresh start cheaper than backfill |
-| argon2id password hashing | Compliance (per CLAUDE.md legal/compliance note) |
-| S3-compatible storage | UGC cannot live in git; standard solution |
-
----
-
-## Risk Register
-
-| Risk | Mitigation |
-|------|-----------|
-| Legal: Copyright/DMCA claims | `takedown` state + mandatory provenance + moderation log |
-| Abuse: Malicious uploads | Pre-screen (MIME/size/pHash) + moderation queue + rate limiting |
-| Scale: Moderation queue grows | Batch ops UI + auto-prescreen to reduce queue load |
-| Security: Auth bypass | Standard practices (argon2, httpOnly cookies, CSRF tokens) |
-| Complexity: Phase 1 refactor risk | Incremental, not rewrite; preserve tests; modularize first |
-
----
-
-## Success Criteria
-
-### Phase 1 (Backend Spine)
-- ✅ Postgres migrations run without errors
-- ✅ Upload endpoint accepts multipart form, stores in object storage
-- ✅ pHash duplicate detection triggers correctly
-- ✅ Auth middleware protects moderation/upload routes
-- ✅ Existing 35 tests ported and passing
-
-### Phase 2 (Moderation)
-- ✅ Moderator can approve/reject pending works
-- ✅ Approved works appear in public gallery
-- ✅ Rejection reason shown to uploader
-
-### Phase 3 (Upload Flow)
-- ✅ Member can submit meme or art
-- ✅ Pre-screen catches invalid formats, oversized files
-- ✅ Duplicate works rejected with link to original
-
-### Phase 4 (Art Gallery)
-- ✅ Art gallery accessible via UI
-- ✅ Art-specific facets (artist, medium, rating) functional
-- ✅ Rating filter applied correctly
-
-### Phase 5 (Production)
-- ✅ No critical security vulnerabilities (OWASP Top 10)
-- ✅ 95th percentile upload latency < 3s
-- ✅ Health check endpoint returns 200
-
----
-
-## Estimated Timeline (Rough)
-
-| Phase | Estimated Effort | Parallelizable? |
-|-------|-----------------|-----------------|
-| 0: Design | 1 day | — |
-| 1: Backend Spine | 2-3 weeks | Partially (1.1-1.4 can overlap) |
-| 2: Moderation | 1 week | Some backend/frontend overlap |
-| 3: Upload Flow | 1 week | Some backend/frontend overlap |
-| 4: Art Gallery | 3-5 days | Mostly frontend |
-| 5: Hardening | 1-2 weeks | Ongoing |
-
-**Total**: ~6-8 weeks for MVP (single developer, full-time equivalent)
-
-**Assumptions**: Developer familiar with Rust, React, Postgres. Includes testing time.
+- Error tracking (Sentry or similar)
+- Performance monitoring (APM)
+- Database query profiling
+- User analytics (upload success rate, moderation queue backlog)
 
 ---
 
 ## Next Actions
 
-**当前状态**：Phase 1 全部完成，Phase 2 前端画廊界面进行中。
+> **Current Status (2026-06-17)**: Phase 2 完成，Phase 3 准备启动
 
-**Phase 2 优先项**（详见 `phase2-plan.md`）：
-1. **认证界面**：登录/注册页面 + 路由保护
-2. **作品列表 API**：`GET /api/works`（分页、筛选、排序）
-3. **作品列表页**：Meme/Art 双画廊网格
-4. **作品详情 API + 页面**：`GET /api/works/:id` + 大图查看器
-5. **上传界面**：拖拽上传 + 元数据表单
-6. **用户中心**：我的上传列表 + 统计
+**Immediate Next Steps**:
+1. Phase 3.1: 实现审核 API（`PATCH /api/works/:id/status` + 权限检查）
+2. Phase 3.2: 构建审核界面（ModerationPage + 待审队列 + 批量操作）
+3. Phase 3 验收：创建测试账号（moderator role），验证审核流程
 
-**阻塞项**：Phase 2 前端页面依赖后端 `GET /api/works` 和 `GET /api/works/:id` API（尚未实现）。
+**Long-term Priorities**:
+- Phase 4: Art Gallery 上线（metadata + rating 系统）
+- Phase 5: 生产化加固（性能、安全、监控）
+
+---
+
+## Technical Debt
+
+1. ~~Frontend 尚未实现~~ ✅ Phase 2 完成
+2. 缺少前端测试（Vitest + Testing Library 未配置）
+3. 缺少后端集成测试
+4. 缺少 CI/CD 流水线
+5. 缺少生产环境监控
+
+---
+
+## Appendix: Migration from hasu-memes
+
+**Context**: hasu-memes is a read-only gallery with 3499 memes from activity-record.  
+**Decision (2026-06-14)**: Dual-track approach (方案 C)
+
+- **hasu-memes**: Keep as-is (read-only, SQLite, no auth)
+- **hasu-gallery**: New UGC platform (this project)
+
+**No data migration needed**: hasu-gallery starts fresh with user-uploaded content.
