@@ -75,14 +75,14 @@ fn extract_extension(asset_file: &str) -> &str {
 }
 
 /// Build thumbnail URL for a work
-fn build_thumbnail_url(id: &str, asset_file: &str) -> String {
+pub fn build_thumbnail_url(id: &str, asset_file: &str) -> String {
     let base = get_media_base_url();
     let ext = extract_extension(asset_file);
     format!("{}/{}_thumb.{}", base, id, ext)
 }
 
 /// Build file URL for a work
-fn build_file_url(id: &str, asset_file: &str) -> String {
+pub fn build_file_url(id: &str, asset_file: &str) -> String {
     let base = get_media_base_url();
     let ext = extract_extension(asset_file);
     format!("{}/{}.{}", base, id, ext)

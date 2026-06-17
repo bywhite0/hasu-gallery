@@ -14,7 +14,7 @@ use crate::{
     AppState,
 };
 
-const SESSION_USER_ID_KEY: &str = "user_id";
+pub const SESSION_USER_ID_KEY: &str = "user_id";
 
 /// 注册新用户
 pub async fn register(
