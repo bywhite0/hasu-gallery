@@ -12,6 +12,7 @@ import { GalleryPage } from "./pages/GalleryPage";
 import { WorkDetailPage } from "./pages/WorkDetailPage";
 import { UploadPage } from "./pages/UploadPage";
 import { ProfilePage } from "./pages/ProfilePage";
+import { ModerationPage } from "./pages/ModerationPage";
 import { AuthGuard } from "./components/AuthGuard";
 import { useAuthStore } from "./store/auth";
 
@@ -19,6 +20,8 @@ import { useAuthStore } from "./store/auth";
 const rootRoute = createRootRoute({
   component: () => {
     const user = useAuthStore((state) => state.user);
+    const isModerator = user && (user.role === 'moderator' || user.role === 'admin');
+
     return (
       <div className="min-h-screen bg-paper text-ink">
         <header className="border-b border-ink p-4">
@@ -46,6 +49,13 @@ const rootRoute = createRootRoute({
                     Profile
                   </Button>
                 </Link>
+                {isModerator && (
+                  <Link to="/moderation">
+                    <Button variant="ghost" size="sm">
+                      Moderation
+                    </Button>
+                  </Link>
+                )}
               </nav>
             )}
           </div>
@@ -167,6 +177,13 @@ const profileRoute = createRoute({
   ),
 });
 
+// Moderation route (moderator/admin only)
+const moderationRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/moderation",
+  component: ModerationPage,
+});
+
 // Create route tree
 const routeTree = rootRoute.addChildren([
   indexRoute,
@@ -177,6 +194,7 @@ const routeTree = rootRoute.addChildren([
   workDetailRoute,
   uploadRoute,
   profileRoute,
+  moderationRoute,
 ]);
 
 // Create router
