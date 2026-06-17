@@ -4,7 +4,7 @@
 **Vision**: Dual-gallery UGC platform (Meme Gallery + Art Gallery) with upload & moderation  
 **Created**: 2026-06-09  
 **Last Synced**: 2026-06-17  
-**Status**: ✅ Phase 2 完成并验收通过（+2,562 行代码，100% 测试通过）；🚀 Phase 3 审核工作流开发中
+**Status**: ✅ Phase 3 完成（审核工作流，+824 行代码）；Phase 4 待开始
 
 > **架构更新 (2026-06-14)**: 基于 linkura-apps 分析，采用 Rspack + TanStack Router/Query + zustand + Tailwind v4 技术栈
 
@@ -26,11 +26,14 @@
 | **2.3 作品详情页** | ✅ COMPLETE | ✅ WorkDetailPage（277 行），后端 `GET /api/works/:id` | — |
 | **2.4 上传界面** | ✅ COMPLETE | ✅ UploadPage + FileDropZone + ImagePreview + UploadForm（558 行） | — |
 | **2.5 用户个人页** | ✅ COMPLETE | ✅ ProfilePage + StatsCard + MyWorksList（609 行），后端 `GET /api/users/me/{stats,works}` | — |
-| **3.1 审核队列 API** | 🚀 进行中 | 🚀 开发中 | 开发中 |
-| **3.2 审核仪表板** | ⏳ 未开始 | ⏳ 未开始 | 等待 3.1 |
-| **4-5** | ⏳ 未开始 | ⏳ 未开始 | — |
+| **3.1 审核队列 API** | ✅ COMPLETE | ✅ middleware.rs + routes/moderation.rs（300 行），3 个 API 端点 | — |
+| **3.2 审核仪表板** | ✅ COMPLETE | ✅ ModerationPage + ModerationActions + ModerationLog（524 行）| — |
+| **4: Art Gallery** | ⏳ 未开始 | ⏳ 未开始 | 计划中 |
+| **5: Polish & Hardening** | ⏳ 未开始 | ⏳ 未开始 | — |
 
 **Phase 2 总计**: +2,562 行前端代码，11 个 API 端点，完整的画廊浏览和上传功能。
+
+**Phase 3 总计**: +824 行代码（后端 300 行 + 前端 524 行），审核工作流完整实现。
 
 **方向已确定**：方案 C（双轨拆仓）。hasu-memes 保持只读画廊终态，hasu-gallery 为新建 UGC 平台。
 
