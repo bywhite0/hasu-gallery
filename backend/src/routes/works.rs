@@ -6,8 +6,10 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use sqlx::Row;
+use tower_sessions::Session;
 
 use crate::AppState;
+use super::auth::SESSION_USER_ID_KEY;
 
 /// Query parameters for works listing
 #[derive(Debug, Deserialize)]
@@ -34,8 +36,9 @@ pub struct WorkItem {
     pub width: i32,
     pub height: i32,
     pub created_at: String,
+    // 移除 uploader_id 防止信息泄露，仅在详情页显示上传者昵称
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub uploader_id: Option<i32>,
+    pub uploader_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -91,6 +94,7 @@ pub fn build_file_url(id: &str, asset_file: &str) -> String {
 /// Handler for GET /api/works
 pub async fn handle_works_list(
     State(state): State<AppState>,
+    session: Session,
     Query(params): Query<WorksQuery>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
     // Validate gallery parameter
@@ -108,6 +112,42 @@ pub async fn handle_works_list(
             StatusCode::BAD_REQUEST,
             "Invalid status parameter".to_string(),
         ));
+    }
+
+    // 未授权访问控制：非 approved 状态需要验证权限
+    if status != "approved" {
+        let user_id: Option<i64> = session.get(SESSION_USER_ID_KEY).await.ok().flatten();
+
+        if let Some(uid) = user_id {
+            // 检查用户角色
+            let user_role: Option<String> = sqlx::query_scalar(
+                "SELECT role::text FROM users WHERE id = $1"
+            )
+            .bind(uid)
+            .fetch_optional(&state.db)
+            .await
+            .map_err(|e| {
+                tracing::error!("Failed to fetch user role: {}", e);
+                (StatusCode::INTERNAL_SERVER_ERROR, "Authorization check failed".to_string())
+            })?;
+
+            // 仅管理员和审核员可以查看所有非公开作品
+            if let Some(role) = user_role {
+                if role != "admin" && role != "moderator" {
+                    return Err((
+                        StatusCode::FORBIDDEN,
+                        "Only moderators and admins can view non-approved works".to_string(),
+                    ));
+                }
+            } else {
+                return Err((StatusCode::UNAUTHORIZED, "User not found".to_string()));
+            }
+        } else {
+            return Err((
+                StatusCode::UNAUTHORIZED,
+                "Authentication required to view non-approved works".to_string(),
+            ));
+        }
     }
 
     // Parse pagination parameters
@@ -247,7 +287,7 @@ pub async fn handle_works_list(
                 width,
                 height,
                 created_at: created_at.to_rfc3339(),
-                uploader_id: None,
+                uploader_name: None, // 列表不显示上传者信息
                 source: None,
                 source_url: None,
                 rights_note: None,
@@ -274,11 +314,13 @@ pub async fn handle_work_detail(
     Path(id): Path<String>,
     State(state): State<AppState>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    // Query single work with all detail fields
-    let query = "SELECT id, gallery, origin, title, status, uploader_id, width, height,
-                        source, source_url, rights_note, created_at, asset_file
-                 FROM works
-                 WHERE id = $1";
+    // Query single work with all detail fields including uploader name
+    let query = "SELECT w.id, w.gallery, w.origin, w.title, w.status, w.width, w.height,
+                        w.source, w.source_url, w.rights_note, w.created_at, w.asset_file,
+                        u.display_name as uploader_name
+                 FROM works w
+                 LEFT JOIN users u ON w.uploader_id = u.id
+                 WHERE w.id = $1";
 
     let row = sqlx::query(query)
         .bind(&id)
@@ -314,7 +356,7 @@ pub async fn handle_work_detail(
     let origin: Option<String> = row.try_get("origin").ok();
     let title: String = row.try_get("title").unwrap_or_default();
     let status: String = row.try_get("status").unwrap_or_default();
-    let uploader_id: Option<i32> = row.try_get("uploader_id").ok();
+    let uploader_name: Option<String> = row.try_get("uploader_name").ok();
     let width: i32 = row.try_get("width").unwrap_or(0);
     let height: i32 = row.try_get("height").unwrap_or(0);
     let source: Option<String> = row.try_get("source").ok();
@@ -335,7 +377,7 @@ pub async fn handle_work_detail(
         width,
         height,
         created_at: created_at.to_rfc3339(),
-        uploader_id,
+        uploader_name,
         source,
         source_url,
         rights_note,

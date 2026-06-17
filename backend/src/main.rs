@@ -65,6 +65,17 @@ async fn main() {
     // Create shared state
     let state = AppState { db, s3_client };
 
+    // 从环境变量读取 CORS 配置
+    let allowed_origins_str = std::env::var("CORS_ALLOWED_ORIGINS")
+        .unwrap_or_else(|_| "http://localhost:5173,http://127.0.0.1:5173".to_string());
+
+    let allowed_origins: Vec<_> = allowed_origins_str
+        .split(',')
+        .filter_map(|s| s.trim().parse().ok())
+        .collect();
+
+    tracing::info!("CORS allowed origins: {:?}", allowed_origins);
+
     // Build router
     let app = Router::new()
         .route("/health", get(health_check))
@@ -81,10 +92,7 @@ async fn main() {
         .layer(session_layer)
         .layer(
             CorsLayer::new()
-                .allow_origin([
-                    "http://localhost:5173".parse().unwrap(),
-                    "http://127.0.0.1:5173".parse().unwrap(),
-                ])
+                .allow_origin(allowed_origins)
                 .allow_methods([
                     axum::http::Method::GET,
                     axum::http::Method::POST,

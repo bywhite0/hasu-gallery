@@ -125,6 +125,25 @@ pub async fn upload_work(
     let (width, height) = get_image_dimensions(&file_data)
         .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
 
+    // 防止解压缩炸弹攻击：限制图片尺寸
+    const MAX_DIMENSION: u32 = 8192; // 8K 分辨率
+    const MAX_PIXELS: u64 = 67_108_864; // 64MP (8192 * 8192)
+
+    if width > MAX_DIMENSION || height > MAX_DIMENSION {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            format!("Image dimensions exceed {}px limit ({}x{})", MAX_DIMENSION, width, height),
+        ));
+    }
+
+    let total_pixels = width as u64 * height as u64;
+    if total_pixels > MAX_PIXELS {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            format!("Image pixel count exceeds 64MP limit ({} pixels)", total_pixels),
+        ));
+    }
+
     tracing::info!("Image dimensions: {}x{}", width, height);
 
     // 生成唯一 ID 和文件名
@@ -166,19 +185,17 @@ pub async fn upload_work(
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
 
-    // 插入数据库记录
-    let query_str = format!(
-        r#"
+    // 插入数据库记录（使用参数化查询防止 SQL 注入）
+    let query_str = r#"
         INSERT INTO works (id, gallery, origin, title, status, uploader_id, asset_file, thumbnail_asset_file, width, height)
-        VALUES ($1, '{}'::gallery_kind, {}::meme_origin, $2, 'pending'::work_status, $3, $4, $5, $6, $7)
+        VALUES ($1, $2::gallery_kind, $3::meme_origin, $4, 'pending'::work_status, $5, $6, $7, $8, $9)
         RETURNING id, title, status::text as status
-        "#,
-        gallery_kind,
-        origin.as_ref().map(|o| format!("'{}'", o)).unwrap_or_else(|| "NULL".to_string())
-    );
+    "#;
 
-    let work = sqlx::query(&query_str)
+    let work = sqlx::query(query_str)
         .bind(&work_id)
+        .bind(&gallery_kind)
+        .bind(origin.as_deref()) // None 会自动转换为 NULL
         .bind(&title)
         .bind(user_id)
         .bind(&file_url)

@@ -12,7 +12,7 @@ export interface Work {
   origin: MemeOrigin | null;
   title: string;
   status: WorkStatus;
-  uploader_id: number | null;
+  uploader_name: string | null; // 替换 uploader_id，显示上传者昵称
   file: string | null;
   asset_file: string | null;
   width: number;
