@@ -1,0 +1,6 @@
+{"_example": "Fill with {\"file\": \"path\", \"reason\": \"why\"}. Seed rows are skipped."}
+{"file": ".ccg/spec/roadmap.md", "reason": "Phase 4 路线图定义"}
+{"file": ".ccg/spec/phase0-content-core-model.md", "reason": "数据模型规范（work_art_meta 表）"}
+{"file": "packages/types/src/models.ts", "reason": "共享类型定义"}
+{"file": "apps/web/src/router.tsx", "reason": "前端路由配置"}
+{"file": "backend/src/main.rs", "reason": "后端入口 + 路由注册"}

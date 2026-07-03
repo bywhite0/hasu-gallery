@@ -14,6 +14,7 @@ type Filters = {
   status?: "pending" | "approved" | "rejected";
   origin?: "official" | "derived" | "fan_made";
   sort?: "created_at_desc" | "created_at_asc" | "title_asc";
+  rating?: "all_ages" | "r15" | "r18";
 };
 
 export function GalleryPage({ gallery }: GalleryPageProps) {

@@ -1,9 +1,4 @@
-use axum::{
-    extract::State,
-    http::StatusCode,
-    response::IntoResponse,
-    Json,
-};
+use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
 use axum_extra::extract::Multipart;
 use serde_json::json;
 use sqlx::Row;
@@ -12,8 +7,7 @@ use uuid::Uuid;
 
 use crate::{
     image_processor::{detect_image_format, generate_thumbnail, get_image_dimensions},
-    storage,
-    AppState,
+    storage, AppState,
 };
 
 const SESSION_USER_ID_KEY: &str = "user_id";
@@ -37,15 +31,19 @@ pub async fn upload_work(
     let mut title: Option<String> = None;
     let mut gallery: Option<String> = None;
     let mut origin: Option<String> = None;
-    let source: Option<String> = None;
-    let source_url: Option<String> = None;
+    let mut source: Option<String> = None;
+    let mut source_url: Option<String> = None;
+    let mut artist: Option<String> = None;
+    let mut medium: Option<String> = None;
+    let mut rating: Option<String> = None;
 
     // 解析 multipart 数据
-    while let Some(field) = multipart
-        .next_field()
-        .await
-        .map_err(|e| (StatusCode::BAD_REQUEST, format!("Failed to read field: {}", e)))?
-    {
+    while let Some(field) = multipart.next_field().await.map_err(|e| {
+        (
+            StatusCode::BAD_REQUEST,
+            format!("Failed to read field: {}", e),
+        )
+    })? {
         let name = field.name().unwrap_or("").to_string();
 
         match name.as_str() {
@@ -53,7 +51,12 @@ pub async fn upload_work(
                 let data = field
                     .bytes()
                     .await
-                    .map_err(|e| (StatusCode::BAD_REQUEST, format!("Failed to read file: {}", e)))?
+                    .map_err(|e| {
+                        (
+                            StatusCode::BAD_REQUEST,
+                            format!("Failed to read file: {}", e),
+                        )
+                    })?
                     .to_vec();
 
                 if data.len() > MAX_FILE_SIZE {
@@ -66,34 +69,87 @@ pub async fn upload_work(
                 file_data = Some(data);
             }
             "title" => {
-                let text: String = field
-                    .text()
-                    .await
-                    .map_err(|e| (StatusCode::BAD_REQUEST, format!("Failed to read title: {}", e)))?;
+                let text: String = field.text().await.map_err(|e| {
+                    (
+                        StatusCode::BAD_REQUEST,
+                        format!("Failed to read title: {}", e),
+                    )
+                })?;
                 title = Some(text);
             }
             "gallery" => {
-                let text: String = field
-                    .text()
-                    .await
-                    .map_err(|e| (StatusCode::BAD_REQUEST, format!("Failed to read gallery: {}", e)))?;
+                let text: String = field.text().await.map_err(|e| {
+                    (
+                        StatusCode::BAD_REQUEST,
+                        format!("Failed to read gallery: {}", e),
+                    )
+                })?;
                 gallery = Some(text);
             }
             "origin" => {
-                let text: String = field
-                    .text()
-                    .await
-                    .map_err(|e| (StatusCode::BAD_REQUEST, format!("Failed to read origin: {}", e)))?;
+                let text: String = field.text().await.map_err(|e| {
+                    (
+                        StatusCode::BAD_REQUEST,
+                        format!("Failed to read origin: {}", e),
+                    )
+                })?;
                 origin = Some(text);
+            }
+            "source" => {
+                let text: String = field.text().await.map_err(|e| {
+                    (
+                        StatusCode::BAD_REQUEST,
+                        format!("Failed to read source: {}", e),
+                    )
+                })?;
+                source = Some(text);
+            }
+            "source_url" => {
+                let text: String = field.text().await.map_err(|e| {
+                    (
+                        StatusCode::BAD_REQUEST,
+                        format!("Failed to read source_url: {}", e),
+                    )
+                })?;
+                source_url = Some(text);
+            }
+            "artist" => {
+                let text: String = field.text().await.map_err(|e| {
+                    (
+                        StatusCode::BAD_REQUEST,
+                        format!("Failed to read artist: {}", e),
+                    )
+                })?;
+                artist = Some(text);
+            }
+            "medium" => {
+                let text: String = field.text().await.map_err(|e| {
+                    (
+                        StatusCode::BAD_REQUEST,
+                        format!("Failed to read medium: {}", e),
+                    )
+                })?;
+                medium = Some(text);
+            }
+            "rating" => {
+                let text: String = field.text().await.map_err(|e| {
+                    (
+                        StatusCode::BAD_REQUEST,
+                        format!("Failed to read rating: {}", e),
+                    )
+                })?;
+                rating = Some(text);
             }
             _ => {}
         }
     }
 
     // 验证必填字段
-    let file_data = file_data.ok_or_else(|| (StatusCode::BAD_REQUEST, "File is required".to_string()))?;
+    let file_data =
+        file_data.ok_or_else(|| (StatusCode::BAD_REQUEST, "File is required".to_string()))?;
     let title = title.ok_or_else(|| (StatusCode::BAD_REQUEST, "Title is required".to_string()))?;
-    let gallery_kind = gallery.ok_or_else(|| (StatusCode::BAD_REQUEST, "Gallery is required".to_string()))?;
+    let gallery_kind =
+        gallery.ok_or_else(|| (StatusCode::BAD_REQUEST, "Gallery is required".to_string()))?;
 
     // 验证 gallery 值
     if gallery_kind != "meme" && gallery_kind != "art" {
@@ -103,12 +159,30 @@ pub async fn upload_work(
         ));
     }
 
+    let source = source.unwrap_or_default().trim().to_string();
+    let source_url = source_url.unwrap_or_default().trim().to_string();
+
     // meme 必须提供 origin
-    if gallery_kind == "meme" && origin.is_none() {
-        return Err((
-            StatusCode::BAD_REQUEST,
-            "Origin is required for meme gallery".to_string(),
-        ));
+    if gallery_kind == "meme" {
+        let origin_val = origin.as_deref().unwrap_or("");
+        if origin_val.is_empty() {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                "Origin is required for meme gallery".to_string(),
+            ));
+        }
+        if !["official", "derived", "fan_made"].contains(&origin_val) {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                "Origin must be one of: official, derived, fan_made".to_string(),
+            ));
+        }
+        if ["derived", "fan_made"].contains(&origin_val) && source.is_empty() {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                "Source is required for derived or fan-made memes".to_string(),
+            ));
+        }
     }
 
     // art 不能有 origin
@@ -119,13 +193,35 @@ pub async fn upload_work(
         ));
     }
 
+    // art 必须提供 artist 和 rating
+    if gallery_kind == "art" {
+        if artist.as_deref().map_or(true, |a| a.trim().is_empty()) {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                "Artist is required for art gallery".to_string(),
+            ));
+        }
+        let rating_val = rating.as_deref().unwrap_or("");
+        if !["all_ages", "r15", "r18"].contains(&rating_val) {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                "Rating must be one of: all_ages, r15, r18".to_string(),
+            ));
+        }
+        if source_url.is_empty() {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                "Source URL is required for art gallery".to_string(),
+            ));
+        }
+    }
+
     // 检测图片格式
-    let content_type = detect_image_format(&file_data)
-        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
+    let content_type = detect_image_format(&file_data).map_err(|e| (StatusCode::BAD_REQUEST, e))?;
 
     // 获取图片尺寸
-    let (width, height) = get_image_dimensions(&file_data)
-        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
+    let (width, height) =
+        get_image_dimensions(&file_data).map_err(|e| (StatusCode::BAD_REQUEST, e))?;
 
     // 防止解压缩炸弹攻击：限制图片尺寸
     const MAX_DIMENSION: u32 = 8192; // 8K 分辨率
@@ -134,7 +230,10 @@ pub async fn upload_work(
     if width > MAX_DIMENSION || height > MAX_DIMENSION {
         return Err((
             StatusCode::BAD_REQUEST,
-            format!("Image dimensions exceed {}px limit ({}x{})", MAX_DIMENSION, width, height),
+            format!(
+                "Image dimensions exceed {}px limit ({}x{})",
+                MAX_DIMENSION, width, height
+            ),
         ));
     }
 
@@ -142,7 +241,10 @@ pub async fn upload_work(
     if total_pixels > MAX_PIXELS {
         return Err((
             StatusCode::BAD_REQUEST,
-            format!("Image pixel count exceeds 64MP limit ({} pixels)", total_pixels),
+            format!(
+                "Image pixel count exceeds 64MP limit ({} pixels)",
+                total_pixels
+            ),
         ));
     }
 
@@ -199,8 +301,8 @@ pub async fn upload_work(
         .bind(&gallery_kind)
         .bind(origin.as_deref()) // None 会自动转换为 NULL
         .bind(&title)
-		.bind(source.as_deref())
-		.bind(source_url.as_deref())
+        .bind(&source)
+        .bind(&source_url)
         .bind(user_id)
         .bind(&file_url)
         .bind(&thumbnail_url)
@@ -210,11 +312,28 @@ pub async fn upload_work(
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
-    let work_id_ret: String = work.try_get("id")
+    // 插入 art 元数据
+    if gallery_kind == "art" {
+        sqlx::query(
+            "INSERT INTO work_art_meta (work_id, artist, medium, rating) VALUES ($1, $2, $3, $4::art_rating)"
+        )
+        .bind(&work_id)
+        .bind(artist.as_deref().unwrap_or(""))
+        .bind(medium.as_deref())
+        .bind(rating.as_deref().unwrap_or("all_ages"))
+        .execute(&state.db)
+        .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    let work_title: String = work.try_get("title")
+    }
+
+    let work_id_ret: String = work
+        .try_get("id")
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    let work_status: String = work.try_get("status")
+    let work_title: String = work
+        .try_get("title")
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    let work_status: String = work
+        .try_get("status")
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     Ok((

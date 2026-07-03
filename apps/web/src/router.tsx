@@ -4,6 +4,7 @@ import {
   createRoute,
   Outlet,
   Link,
+  useRouterState,
 } from "@tanstack/react-router";
 import { Button } from "@hasu-gallery/ui";
 import { LoginPage } from "./pages/LoginPage";
@@ -21,6 +22,13 @@ const rootRoute = createRootRoute({
   component: () => {
     const user = useAuthStore((state) => state.user);
     const isModerator = user && (user.role === 'moderator' || user.role === 'admin');
+    const routerState = useRouterState();
+    const currentPath = routerState.location.pathname;
+
+    const navLinkClass = (path: string) =>
+      currentPath === path
+        ? "bg-ink text-paper"
+        : "";
 
     return (
       <div className="min-h-screen bg-paper text-ink">
@@ -30,28 +38,28 @@ const rootRoute = createRootRoute({
             {user && (
               <nav className="flex gap-4">
                 <Link to="/gallery/meme">
-                  <Button variant="ghost" size="sm">
+                  <Button variant="ghost" size="sm" className={navLinkClass('/gallery/meme')}>
                     Meme
                   </Button>
                 </Link>
                 <Link to="/gallery/art">
-                  <Button variant="ghost" size="sm">
+                  <Button variant="ghost" size="sm" className={navLinkClass('/gallery/art')}>
                     Art
                   </Button>
                 </Link>
                 <Link to="/upload">
-                  <Button variant="ghost" size="sm">
+                  <Button variant="ghost" size="sm" className={navLinkClass('/upload')}>
                     Upload
                   </Button>
                 </Link>
                 <Link to="/profile">
-                  <Button variant="ghost" size="sm">
+                  <Button variant="ghost" size="sm" className={navLinkClass('/profile')}>
                     Profile
                   </Button>
                 </Link>
                 {isModerator && (
                   <Link to="/moderation">
-                    <Button variant="ghost" size="sm">
+                    <Button variant="ghost" size="sm" className={navLinkClass('/moderation')}>
                       Moderation
                     </Button>
                   </Link>

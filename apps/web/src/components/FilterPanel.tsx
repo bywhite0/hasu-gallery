@@ -4,11 +4,13 @@ interface FilterPanelProps {
     status?: "pending" | "approved" | "rejected";
     origin?: "official" | "derived" | "fan_made";
     sort?: "created_at_desc" | "created_at_asc" | "title_asc";
+    rating?: "all_ages" | "r15" | "r18";
   };
   onFilterChange: (filters: {
     status?: "pending" | "approved" | "rejected";
     origin?: "official" | "derived" | "fan_made";
     sort?: "created_at_desc" | "created_at_asc" | "title_asc";
+    rating?: "all_ages" | "r15" | "r18";
   }) => void;
 }
 
@@ -82,6 +84,24 @@ export function FilterPanel({ gallery, filters, onFilterChange }: FilterPanelPro
           <option value="title-az">Title A-Z</option>
         </select>
       </div>
+
+      {gallery === 'art' && (
+        <div className="flex items-center gap-2">
+          <label htmlFor="rating-filter" className="text-sm font-medium">
+            Rating:
+          </label>
+          <select
+            id="rating-filter"
+            value={filters.rating || 'all_ages'}
+            onChange={(e) => handleChange('rating', e.target.value)}
+            className="px-3 py-1.5 border border-ink rounded bg-surface text-sm"
+          >
+            <option value="all_ages">All Ages</option>
+            <option value="r15">R-15</option>
+            <option value="r18">R-18</option>
+          </select>
+        </div>
+      )}
     </div>
   );
 }

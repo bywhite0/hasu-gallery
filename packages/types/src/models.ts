@@ -6,17 +6,23 @@ export type WorkStatus = 'pending' | 'approved' | 'rejected' | 'takedown';
 export type UserRole = 'member' | 'moderator' | 'admin';
 export type ArtRating = 'all_ages' | 'r15' | 'r18';
 
+export interface ArtMeta {
+  artist: string;
+  medium?: string | null;
+  rating: ArtRating;
+}
+
 export interface Work {
   id: string;
   gallery: GalleryKind;
   origin: MemeOrigin | null;
   title: string;
   status: WorkStatus;
-  uploader_name: string | null; // 替换 uploader_id，显示上传者昵称
+  uploader_name: string | null;
   file: string | null;
   asset_file: string | null;
-  thumbnail_url?: string; // 前端显示用，从 asset_file 派生
-  file_url?: string; // 前端显示用，从 asset_file 派生
+  thumbnail_url?: string;
+  file_url?: string;
   width: number;
   height: number;
   source: string;
@@ -24,6 +30,7 @@ export interface Work {
   rights_note: string;
   created_at: string;
   updated_at: string;
+  art_meta?: ArtMeta | null;
 }
 
 export interface User {

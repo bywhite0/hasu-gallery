@@ -8,8 +8,8 @@ use serde::{Deserialize, Serialize};
 use sqlx::Row;
 use tower_sessions::Session;
 
-use crate::AppState;
 use super::auth::SESSION_USER_ID_KEY;
+use crate::AppState;
 
 /// Query parameters for works listing
 #[derive(Debug, Deserialize)]
@@ -20,6 +20,9 @@ pub struct WorksQuery {
     pub page: Option<u32>,
     pub limit: Option<u32>,
     pub sort: Option<String>,
+    pub artist: Option<String>,
+    pub medium: Option<String>,
+    pub rating: Option<String>,
 }
 
 /// Work item in response
@@ -45,6 +48,17 @@ pub struct WorkItem {
     pub source_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rights_note: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub art_meta: Option<ArtMeta>,
+}
+
+/// Art metadata sub-object
+#[derive(Debug, Serialize)]
+pub struct ArtMeta {
+    pub artist: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub medium: Option<String>,
+    pub rating: String,
 }
 
 /// Pagination metadata
@@ -71,10 +85,7 @@ fn get_media_base_url() -> String {
 
 /// Extract file extension from asset_file path
 fn extract_extension(asset_file: &str) -> &str {
-    asset_file
-        .rsplit('.')
-        .next()
-        .unwrap_or("jpg")
+    asset_file.rsplit('.').next().unwrap_or("jpg")
 }
 
 /// Build thumbnail URL for a work (always .jpg since thumbnails are JPEG)
@@ -119,16 +130,18 @@ pub async fn handle_works_list(
 
         if let Some(uid) = user_id {
             // 检查用户角色
-            let user_role: Option<String> = sqlx::query_scalar(
-                "SELECT role::text FROM users WHERE id = $1"
-            )
-            .bind(uid)
-            .fetch_optional(&state.db)
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to fetch user role: {}", e);
-                (StatusCode::INTERNAL_SERVER_ERROR, "Authorization check failed".to_string())
-            })?;
+            let user_role: Option<String> =
+                sqlx::query_scalar("SELECT role::text FROM users WHERE id = $1")
+                    .bind(uid)
+                    .fetch_optional(&state.db)
+                    .await
+                    .map_err(|e| {
+                        tracing::error!("Failed to fetch user role: {}", e);
+                        (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            "Authorization check failed".to_string(),
+                        )
+                    })?;
 
             // 仅管理员和审核员可以查看所有非公开作品
             if let Some(role) = user_role {
@@ -157,9 +170,9 @@ pub async fn handle_works_list(
     // Parse sort parameter and construct ORDER BY clause safely
     let sort = params.sort.as_deref().unwrap_or("created_at_desc");
     let (order_col, order_dir) = match sort {
-        "created_at_desc" => ("created_at", "DESC"),
-        "created_at_asc" => ("created_at", "ASC"),
-        "title_asc" => ("title", "ASC"),
+        "created_at_desc" => ("w.created_at", "DESC"),
+        "created_at_asc" => ("w.created_at", "ASC"),
+        "title_asc" => ("w.title", "ASC"),
         _ => {
             return Err((
                 StatusCode::BAD_REQUEST,
@@ -171,9 +184,10 @@ pub async fn handle_works_list(
 
     // Build WHERE clause with proper type casts for enums
     let mut where_conditions = vec![
-        "gallery = $1::gallery_kind".to_string(),
-        "status = $2::work_status".to_string(),
+        "w.gallery = $1::gallery_kind".to_string(),
+        "w.status = $2::work_status".to_string(),
     ];
+    let mut join_clause = String::new();
     let mut param_index = 3;
 
     if params.gallery == "meme" && params.origin.is_some() {
@@ -184,7 +198,36 @@ pub async fn handle_works_list(
                 "Invalid origin parameter. Must be one of: official, derived, fan_made".to_string(),
             ));
         }
-        where_conditions.push(format!("origin = ${}::meme_origin", param_index));
+        where_conditions.push(format!("w.origin = ${}::meme_origin", param_index));
+        param_index += 1;
+    }
+
+    // Art-specific filters: JOIN work_art_meta
+    if params.gallery == "art" {
+        join_clause = " LEFT JOIN work_art_meta am ON w.id = am.work_id".to_string();
+
+        if let Some(ref artist_val) = params.artist {
+            if !artist_val.trim().is_empty() {
+                where_conditions.push(format!("am.artist ILIKE ${}", param_index));
+                param_index += 1;
+            }
+        }
+        if let Some(ref medium_val) = params.medium {
+            if !medium_val.trim().is_empty() {
+                where_conditions.push(format!("am.medium ILIKE ${}", param_index));
+                param_index += 1;
+            }
+        }
+
+        // Rating filter: default to all_ages for unauthenticated users
+        let rating_val = params.rating.as_deref().unwrap_or("all_ages");
+        if !["all_ages", "r15", "r18"].contains(&rating_val) {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                "Invalid rating parameter. Must be one of: all_ages, r15, r18".to_string(),
+            ));
+        }
+        where_conditions.push(format!("am.rating = ${}::art_rating", param_index));
         param_index += 1;
     }
 
@@ -192,16 +235,29 @@ pub async fn handle_works_list(
 
     // Count total matching records
     let count_query = format!(
-        "SELECT COUNT(*) FROM works WHERE {}",
-        where_clause
+        "SELECT COUNT(*) FROM works w{} WHERE {}",
+        join_clause, where_clause
     );
 
-    let mut count_query_builder = sqlx::query(&count_query)
-        .bind(&params.gallery)
-        .bind(status);
+    let mut count_query_builder = sqlx::query(&count_query).bind(&params.gallery).bind(status);
 
     if params.gallery == "meme" && params.origin.is_some() {
         count_query_builder = count_query_builder.bind(params.origin.as_ref().unwrap());
+    }
+
+    if params.gallery == "art" {
+        if let Some(ref artist_val) = params.artist {
+            if !artist_val.trim().is_empty() {
+                count_query_builder = count_query_builder.bind(format!("%{}%", artist_val));
+            }
+        }
+        if let Some(ref medium_val) = params.medium {
+            if !medium_val.trim().is_empty() {
+                count_query_builder = count_query_builder.bind(format!("%{}%", medium_val));
+            }
+        }
+        let rating_val = params.rating.as_deref().unwrap_or("all_ages");
+        count_query_builder = count_query_builder.bind(rating_val);
     }
 
     let total: i64 = count_query_builder
@@ -228,11 +284,12 @@ pub async fn handle_works_list(
 
     // Fetch works
     let select_query = format!(
-        "SELECT id, gallery, origin, title, status, width, height, created_at, asset_file
-         FROM works
+        "SELECT w.id, w.gallery, w.origin, w.title, w.status, w.width, w.height, w.created_at, w.asset_file
+         FROM works w{}
          WHERE {}
          ORDER BY {}
          LIMIT ${} OFFSET ${}",
+        join_clause,
         where_clause,
         order_by,
         param_index,
@@ -247,20 +304,30 @@ pub async fn handle_works_list(
         query_builder = query_builder.bind(params.origin.as_ref().unwrap());
     }
 
-    query_builder = query_builder
-        .bind(limit as i64)
-        .bind(offset as i64);
+    if params.gallery == "art" {
+        if let Some(ref artist_val) = params.artist {
+            if !artist_val.trim().is_empty() {
+                query_builder = query_builder.bind(format!("%{}%", artist_val));
+            }
+        }
+        if let Some(ref medium_val) = params.medium {
+            if !medium_val.trim().is_empty() {
+                query_builder = query_builder.bind(format!("%{}%", medium_val));
+            }
+        }
+        let rating_val = params.rating.as_deref().unwrap_or("all_ages");
+        query_builder = query_builder.bind(rating_val);
+    }
 
-    let rows = query_builder
-        .fetch_all(&state.db)
-        .await
-        .map_err(|e| {
-            tracing::error!("Database error in select query: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Failed to fetch works".to_string(),
-            )
-        })?;
+    query_builder = query_builder.bind(limit as i64).bind(offset as i64);
+
+    let rows = query_builder.fetch_all(&state.db).await.map_err(|e| {
+        tracing::error!("Database error in select query: {}", e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Failed to fetch works".to_string(),
+        )
+    })?;
 
     // Map rows to WorkItem
     let works: Vec<WorkItem> = rows
@@ -273,7 +340,8 @@ pub async fn handle_works_list(
             let status: String = row.try_get("status").unwrap_or_default();
             let width: i32 = row.try_get("width").unwrap_or(0);
             let height: i32 = row.try_get("height").unwrap_or(0);
-            let created_at: chrono::DateTime<chrono::Utc> = row.try_get("created_at").unwrap_or_default();
+            let created_at: chrono::DateTime<chrono::Utc> =
+                row.try_get("created_at").unwrap_or_default();
             let asset_file: String = row.try_get("asset_file").unwrap_or_default();
 
             WorkItem {
@@ -291,6 +359,7 @@ pub async fn handle_works_list(
                 source: None,
                 source_url: None,
                 rights_note: None,
+                art_meta: None,
             }
         })
         .collect();
@@ -318,9 +387,11 @@ pub async fn handle_work_detail(
     // Query single work with all detail fields including uploader name
     let query = "SELECT w.id, w.gallery, w.origin, w.title, w.status, w.width, w.height,
                         w.source, w.source_url, w.rights_note, w.created_at, w.asset_file,
-                        w.uploader_id, u.display_name as uploader_name
+                        w.uploader_id, u.display_name as uploader_name,
+                        am.artist, am.medium, am.rating
                  FROM works w
                  LEFT JOIN users u ON w.uploader_id = u.id
+                 LEFT JOIN work_art_meta am ON w.id = am.work_id
                  WHERE w.id = $1";
 
     let row = sqlx::query(query)
@@ -346,12 +417,18 @@ pub async fn handle_work_detail(
     // Extract fields from row
     let work_id: String = row.try_get("id").map_err(|e| {
         tracing::error!("Failed to extract id: {}", e);
-        (StatusCode::INTERNAL_SERVER_ERROR, "Invalid work data".to_string())
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Invalid work data".to_string(),
+        )
     })?;
 
     let gallery: String = row.try_get("gallery").map_err(|e| {
         tracing::error!("Failed to extract gallery: {}", e);
-        (StatusCode::INTERNAL_SERVER_ERROR, "Invalid work data".to_string())
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Invalid work data".to_string(),
+        )
     })?;
 
     let origin: Option<String> = row.try_get("origin").ok();
@@ -367,6 +444,11 @@ pub async fn handle_work_detail(
     let created_at: chrono::DateTime<chrono::Utc> = row.try_get("created_at").unwrap_or_default();
     let asset_file: String = row.try_get("asset_file").unwrap_or_default();
 
+    // Extract art metadata (may be NULL for meme works)
+    let art_artist: Option<String> = row.try_get("artist").ok();
+    let art_medium: Option<String> = row.try_get("medium").ok();
+    let art_rating: Option<String> = row.try_get("rating").ok();
+
     // 访问控制：非 approved 状态需要验证权限
     if status_str != "approved" {
         let user_id: Option<i64> = session.get(SESSION_USER_ID_KEY).await.ok().flatten();
@@ -377,22 +459,25 @@ pub async fn handle_work_detail(
 
             if !is_owner {
                 // 不是上传者，检查是否为管理员或审核员
-                let user_role: Option<String> = sqlx::query_scalar(
-                    "SELECT role::text FROM users WHERE id = $1"
-                )
-                .bind(uid)
-                .fetch_optional(&state.db)
-                .await
-                .map_err(|e| {
-                    tracing::error!("Failed to fetch user role: {}", e);
-                    (StatusCode::INTERNAL_SERVER_ERROR, "Authorization check failed".to_string())
-                })?;
+                let user_role: Option<String> =
+                    sqlx::query_scalar("SELECT role::text FROM users WHERE id = $1")
+                        .bind(uid)
+                        .fetch_optional(&state.db)
+                        .await
+                        .map_err(|e| {
+                            tracing::error!("Failed to fetch user role: {}", e);
+                            (
+                                StatusCode::INTERNAL_SERVER_ERROR,
+                                "Authorization check failed".to_string(),
+                            )
+                        })?;
 
                 if let Some(role) = user_role {
                     if role != "admin" && role != "moderator" {
                         return Err((
                             StatusCode::FORBIDDEN,
-                            "Only the uploader, moderators, or admins can view non-approved works".to_string(),
+                            "Only the uploader, moderators, or admins can view non-approved works"
+                                .to_string(),
                         ));
                     }
                 } else {
@@ -424,6 +509,11 @@ pub async fn handle_work_detail(
         source,
         source_url,
         rights_note,
+        art_meta: art_artist.map(|artist| ArtMeta {
+            artist,
+            medium: art_medium,
+            rating: art_rating.unwrap_or_else(|| "all_ages".to_string()),
+        }),
     };
 
     Ok((StatusCode::OK, Json(work_item)))

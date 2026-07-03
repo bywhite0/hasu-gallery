@@ -116,6 +116,31 @@ export function WorkDetailPage() {
               </div>
             )}
 
+            {work.art_meta && (
+              <>
+                <div>
+                  <h2 className="text-sm font-medium text-muted-foreground mb-1">
+                    Artist
+                  </h2>
+                  <p className="text-base">{work.art_meta.artist}</p>
+                </div>
+                {work.art_meta.medium && (
+                  <div>
+                    <h2 className="text-sm font-medium text-muted-foreground mb-1">
+                      Medium
+                    </h2>
+                    <p className="text-base">{work.art_meta.medium}</p>
+                  </div>
+                )}
+                <div>
+                  <h2 className="text-sm font-medium text-muted-foreground mb-1">
+                    Rating
+                  </h2>
+                  <p className="text-base">{work.art_meta.rating}</p>
+                </div>
+              </>
+            )}
+
             {work.source_url && (
               <div>
                 <h2 className="text-sm font-medium text-muted-foreground mb-1">

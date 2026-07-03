@@ -8,6 +8,9 @@ export interface WorksListParams {
   page?: number;
   limit?: number;
   sort?: 'created_at_desc' | 'created_at_asc' | 'title_asc';
+  rating?: 'all_ages' | 'r15' | 'r18';
+  artist?: string;
+  medium?: string;
 }
 
 export async function listWorks(params: WorksListParams): Promise<WorksListResponse> {
@@ -18,6 +21,9 @@ export async function listWorks(params: WorksListParams): Promise<WorksListRespo
   if (params.page) searchParams.set('page', String(params.page));
   if (params.limit) searchParams.set('limit', String(params.limit));
   if (params.sort) searchParams.set('sort', params.sort);
+  if (params.rating) searchParams.set('rating', params.rating);
+  if (params.artist) searchParams.set('artist', params.artist);
+  if (params.medium) searchParams.set('medium', params.medium);
 
   return fetchJson<WorksListResponse>(`/api/works?${searchParams}`);
 }

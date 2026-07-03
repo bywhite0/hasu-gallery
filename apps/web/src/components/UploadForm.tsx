@@ -13,6 +13,9 @@ export function UploadForm({ file, onSubmit, isUploading }: UploadFormProps) {
   const [origin, setOrigin] = useState('');
   const [source, setSource] = useState('');
   const [sourceUrl, setSourceUrl] = useState('');
+  const [artist, setArtist] = useState('');
+  const [medium, setMedium] = useState('');
+  const [rating, setRating] = useState('all_ages');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const validateForm = (): boolean => {
@@ -30,6 +33,22 @@ export function UploadForm({ file, onSubmit, isUploading }: UploadFormProps) {
 
     if (gallery === 'meme' && !origin) {
       newErrors.origin = 'Origin is required for meme gallery';
+    }
+
+    if (gallery === 'meme' && (origin === 'derived' || origin === 'fan_made') && !source.trim()) {
+      newErrors.source = 'Source is required for derived or fan-made memes';
+    }
+
+    if (gallery === 'art') {
+      if (!artist.trim()) {
+        newErrors.artist = 'Artist is required for art gallery';
+      }
+      if (!rating) {
+        newErrors.rating = 'Rating is required for art gallery';
+      }
+      if (!sourceUrl.trim()) {
+        newErrors.sourceUrl = 'Source URL is required for art gallery';
+      }
     }
 
     if (sourceUrl && sourceUrl.trim()) {
@@ -57,6 +76,13 @@ export function UploadForm({ file, onSubmit, isUploading }: UploadFormProps) {
     formData.append('gallery', gallery);
     if (gallery === 'meme') {
       formData.append('origin', origin);
+    }
+    if (gallery === 'art') {
+      formData.append('artist', artist.trim());
+      if (medium.trim()) {
+        formData.append('medium', medium.trim());
+      }
+      formData.append('rating', rating);
     }
     if (source.trim()) {
       formData.append('source', source.trim());
@@ -129,6 +155,65 @@ export function UploadForm({ file, onSubmit, isUploading }: UploadFormProps) {
             <p className="text-sm text-red-600 mt-1">{errors.origin}</p>
           )}
         </div>
+      )}
+
+      {gallery === 'art' && (
+        <>
+          <div>
+            <label htmlFor="artist" className="block text-sm font-medium mb-1">
+              Artist *
+            </label>
+            <input
+              type="text"
+              id="artist"
+              value={artist}
+              onChange={(e) => setArtist(e.target.value)}
+              disabled={isUploading}
+              className="w-full px-3 py-2 border rounded-md disabled:opacity-50"
+              maxLength={200}
+              placeholder="Artist name"
+            />
+            {errors.artist && (
+              <p className="text-sm text-red-600 mt-1">{errors.artist}</p>
+            )}
+          </div>
+
+          <div>
+            <label htmlFor="medium" className="block text-sm font-medium mb-1">
+              Medium
+            </label>
+            <input
+              type="text"
+              id="medium"
+              value={medium}
+              onChange={(e) => setMedium(e.target.value)}
+              disabled={isUploading}
+              className="w-full px-3 py-2 border rounded-md disabled:opacity-50"
+              maxLength={100}
+              placeholder="e.g. Digital, Watercolor, Pencil"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="rating" className="block text-sm font-medium mb-1">
+              Rating *
+            </label>
+            <select
+              id="rating"
+              value={rating}
+              onChange={(e) => setRating(e.target.value)}
+              disabled={isUploading}
+              className="w-full px-3 py-2 border rounded-md disabled:opacity-50"
+            >
+              <option value="all_ages">All Ages</option>
+              <option value="r15">R-15</option>
+              <option value="r18">R-18</option>
+            </select>
+            {errors.rating && (
+              <p className="text-sm text-red-600 mt-1">{errors.rating}</p>
+            )}
+          </div>
+        </>
       )}
 
       <div>

@@ -3,6 +3,7 @@
 [根目录](./) > **hasu-gallery**
 
 **变更记录 (Changelog)**
+- 2026-06-22: Phase 3 完成 — 审核工作流全部实现（+824 行代码：后端 300 行 + 前端 524 行）
 - 2026-06-17: Phase 2 完成 — 前端画廊界面、上传流程、用户个人页全部实现（+2,562 行代码）
 - 2026-06-17: Phase 1 完成 — 数据库迁移、认证系统、上传流水线全部落地
 - 2026-06-14: 初始化项目架构，基于 linkura-apps 技术栈（Rspack + TanStack + Tailwind v4）
@@ -72,9 +73,11 @@ hasu-gallery/
 │       │   │   ├── GalleryPage.tsx      # 作品列表（meme/art）
 │       │   │   ├── WorkDetailPage.tsx   # 作品详情
 │       │   │   ├── UploadPage.tsx       # 上传界面
-│       │   │   └── ProfilePage.tsx      # 用户个人页
+│       │   │   ├── ProfilePage.tsx      # 用户个人页
+│       │   │   └── ModerationPage.tsx   # 审核仪表板
 │       │   ├── components/    # 业务组件
 │       │   │   ├── AuthGuard.tsx
+│       │   │   ├── ModeratorGuard.tsx   # 审核员权限保护
 │       │   │   ├── WorkCard.tsx         # 作品卡片
 │       │   │   ├── WorksGrid.tsx        # 作品网格
 │       │   │   ├── FilterPanel.tsx      # 筛选面板
@@ -83,13 +86,16 @@ hasu-gallery/
 │       │   │   ├── ImagePreview.tsx     # 图片预览
 │       │   │   ├── UploadForm.tsx       # 上传表单
 │       │   │   ├── StatsCard.tsx        # 统计卡片
-│       │   │   └── MyWorksList.tsx      # 我的作品列表
+│       │   │   ├── MyWorksList.tsx      # 我的作品列表
+│       │   │   ├── ModerationActions.tsx # 审核操作按钮
+│       │   │   └── ModerationLog.tsx    # 审核日志展示
 │       │   ├── api/           # API 客户端
 │       │   │   ├── client.ts   # fetchJson 封装
 │       │   │   ├── auth.ts     # 认证 API
 │       │   │   ├── works.ts    # 作品列表/详情 API
 │       │   │   ├── upload.ts   # 上传 API
-│       │   │   └── profile.ts  # 用户统计/我的作品 API
+│       │   │   ├── profile.ts  # 用户统计/我的作品 API
+│       │   │   └── moderation.ts # 审核队列/状态变更/日志 API
 │       │   └── styles/
 │       └── public/
 ├── packages/
@@ -115,6 +121,7 @@ hasu-gallery/
         ├── auth.rs             # argon2 密码哈希/验证
         ├── storage.rs          # S3 客户端 + 上传
         ├── image_processor.rs  # 缩略图生成 + 格式检测
+        ├── middleware.rs       # 权限中间件（require_moderator）
         ├── models/
         │   ├── mod.rs
         │   └── user.rs         # User 模型 + 注册/登录请求
@@ -123,7 +130,8 @@ hasu-gallery/
             ├── auth.rs         # register/login/logout/me
             ├── upload.rs       # multipart 上传 + 验证
             ├── works.rs        # 作品列表/详情 API
-            └── users.rs        # 用户统计/我的作品 API
+            ├── users.rs        # 用户统计/我的作品 API
+            └── moderation.rs   # 审核队列/状态变更/日志 API
 ```
 
 ---
@@ -262,6 +270,9 @@ chore: upgrade dependencies
 - `.ccg/spec/roadmap.md` - 项目路线图
 - `.ccg/spec/phase1-summary.md` - Phase 1 实施总结
 - `.ccg/spec/phase2-plan.md` - Phase 2 前端实施计划
+- `.ccg/spec/phase3-plan.md` - Phase 3 执行计划
+- `.ccg/spec/phase3-summary.md` - Phase 3 实施总结
+- `.ccg/spec/phase3-test-report.md` - Phase 3 测试报告
 - `docs/edge-server-setup.md` - 边缘服务器部署指南
 
 ### 前端关键文件
@@ -281,8 +292,10 @@ chore: upgrade dependencies
 - `backend/src/auth.rs` - argon2 密码哈希与验证
 - `backend/src/storage.rs` - S3 客户端与文件上传
 - `backend/src/image_processor.rs` - 缩略图生成（400x400 Lanczos3）
+- `backend/src/middleware.rs` - 权限中间件（require_moderator）
 - `backend/src/routes/auth.rs` - 认证 API（register/login/logout/me）
 - `backend/src/routes/upload.rs` - 上传 API（multipart + 验证）
+- `backend/src/routes/moderation.rs` - 审核 API（queue/status/log）
 - `backend/src/models/user.rs` - 用户模型与请求验证
 - `backend/migrations/001_initial.sql` - 数据库 DDL
 - `backend/Cargo.toml` - Rust 依赖声明
@@ -306,7 +319,24 @@ chore: upgrade dependencies
 - 上传流水线（S3/MinIO + 缩略图生成 + 格式验证）
 - 边缘服务器部署（PostgreSQL @ <edge-db-host>，MinIO @ <edge-s3-host>）
 
-✅ **Phase 2（前端画廊界面）已完成**（+2,562 行代码）：
+✅ **Phase 2（前端画廊界面）已完成**（+2,562 行代码）
+
+✅ **Phase 3（审核工作流）已完成**（+824 行代码）：
+
+**3.1 审核队列 API**（300 行后端）
+- middleware.rs - 权限中间件（require_moderator）
+- routes/moderation.rs - 审核队列、状态变更、日志 API
+- 角色权限控制（moderator/admin only）
+- 事务安全的状态变更 + 日志记录
+
+**3.2 审核仪表板**（524 行前端）
+- ModerationPage - 审核队列界面
+- ModeratorGuard - 权限路由保护
+- ModerationActions - 批准/拒绝/下架按钮
+- ModerationLog - 审核历史展示
+- api/moderation.ts - 审核 API 客户端
+
+**Phase 2 详情**：
 
 **2.1 认证界面**（543 行）
 - LoginPage + RegisterPage（表单验证 + 错误提示）
@@ -338,30 +368,34 @@ chore: upgrade dependencies
 - MyWorksList（状态徽章 + 筛选）
 - 后端 API：`GET /api/users/me/stats`、`GET /api/users/me/works`
 
-### 推荐下一步（Phase 3 - 审核工作流）
+### 推荐下一步（Phase 4 - Art Gallery）
 
-1. **管理员审核界面**
-   - 待审作品队列（pending works）
-   - 批量操作（批准/拒绝/撤销）
-   - 需新增 `PATCH /api/works/:id/status` API
+1. **画廊切换器**
+   - 顶层 tab/下拉菜单：Meme Gallery vs Art Gallery
+   - 复用现有组件（WorksGrid, FilterPanel）
+   - 切换数据源：`GET /api/works?gallery=art`
 
-2. **审核日志**
-   - 记录审核操作（moderation_log 表）
-   - 审核历史查看
+2. **Art 元数据增强**
+   - 上传表单支持 artist, medium, rating 字段
+   - 作品详情页显示 art 专属元数据
+   - Art 画廊筛选器：artist, medium, rating
 
-3. **权限控制**
-   - 角色检查（仅 admin/moderator 可访问）
-   - 路由级权限保护
+3. **内容过滤**
+   - Rating 系统（all_ages/r15/r18）
+   - 默认过滤（guest 只看 all_ages）
+   - 用户偏好设置（Cookie/Session 持久化）
 
 ---
 
 ## 技术债务
 
 1. ~~`frontend/` 尚未实现任何页面（仅骨架就位）~~ ✅ Phase 2 完成
-2. 缺少前端测试（Vitest + Testing Library 未配置）
-3. 缺少后端集成测试（仅有单元测试）
-4. 缺少 CI/CD 流水线（GitHub Actions 未配置）
-5. 缺少生产环境错误监控与性能指标收集
+2. ~~审核工作流未实现~~ ✅ Phase 3 完成
+3. 缺少前端测试（Vitest + Testing Library 未配置）
+4. 缺少后端集成测试（仅有单元测试）
+5. 缺少 CI/CD 流水线（GitHub Actions 未配置）
+6. 缺少生产环境错误监控与性能指标收集
+7. 缺少批量审核操作（Phase 3 计划中标记为可选）
 
 ---
 
@@ -393,6 +427,18 @@ chore: upgrade dependencies
 - `GET /api/users/me/works` - 我的上传列表（需要认证）
   - 参数：status（可选）, page, limit
   - 返回：{ works: WorkItem[], pagination: {...} }
+
+### 审核 API（需要 moderator/admin 权限）
+- `GET /api/moderation/queue` - 审核队列
+  - 参数：gallery（必填）, status, page, limit
+  - 返回：{ works: QueueWorkItem[], pagination: {...} }
+
+- `PATCH /api/works/:id/status` - 更新作品状态
+  - 请求体：{ status: "approved"|"rejected"|"takedown", note?: string }
+  - 返回：{ id, status, updated_at }
+
+- `GET /api/moderation/log/:work_id` - 审核日志
+  - 返回：{ work_id, logs: ModerationLogEntry[] }
 
 ### 健康检查
 - `GET /health` - 服务器健康检查

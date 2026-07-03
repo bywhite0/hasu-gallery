@@ -1,0 +1,13 @@
+{
+  "id": "phase4-art-gallery",
+  "title": "Phase 4: Art Gallery Launch — 画廊切换器 + Art 元数据增强 + 内容过滤",
+  "status": "completed",
+  "strategy": "full-collaborate",
+  "currentPhase": "done",
+  "nextAction": "等待后端数据库可用时进行完整 E2E 测试 (Playwright)",
+  "gate": null,
+  "branch": "master",
+  "scope": "phase4-art-gallery",
+  "createdAt": "2026-06-23T00:00:00+08:00",
+  "completedAt": "2026-06-23T00:00:00+08:00"
+}

@@ -58,4 +58,7 @@ export default defineConfig({
     ],
   },
   experiments: { css: true },
+  output: {
+    publicPath: '/',
+  },
 });

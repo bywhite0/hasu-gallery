@@ -11,9 +11,9 @@ use uuid::Uuid;
 /// Query parameters for moderation queue
 #[derive(Deserialize)]
 pub struct QueueParams {
-    pub gallery: String,          // "meme" or "art"
+    pub gallery: String, // "meme" or "art"
     #[serde(default = "default_status")]
-    pub status: String,            // "pending", "approved", "rejected", "takedown"
+    pub status: String, // "pending", "approved", "rejected", "takedown"
     #[serde(default = "default_page")]
     pub page: i32,
     #[serde(default = "default_limit")]
@@ -86,7 +86,7 @@ pub async fn get_queue(
     // Get total count
     let total: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM works
-         WHERE gallery::TEXT = $1 AND status::TEXT = $2"
+         WHERE gallery::TEXT = $1 AND status::TEXT = $2",
     )
     .bind(&params.gallery)
     .bind(&params.status)
@@ -97,24 +97,24 @@ pub async fn get_queue(
     // Get works with uploader info
     let works = sqlx::query_as::<_, QueueWorkItem>(
         "SELECT
-            w.id,
+            w.id::UUID as id,
             w.title,
             w.gallery::TEXT as gallery,
             w.status::TEXT as status,
             u.handle as uploader_handle,
-            w.thumbnail_url,
-            w.file_url,
+            w.thumbnail_asset_file as thumbnail_url,
+            w.asset_file as file_url,
             w.origin::TEXT as origin,
             w.source,
             w.source_url,
             w.created_at,
-            w.dimensions,
-            w.file_size_bytes
+            CONCAT(w.width, 'x', w.height) as dimensions,
+            NULL::BIGINT as file_size_bytes
          FROM works w
          JOIN users u ON w.uploader_id = u.id
          WHERE w.gallery::TEXT = $1 AND w.status::TEXT = $2
          ORDER BY w.created_at ASC
-         LIMIT $3 OFFSET $4"
+         LIMIT $3 OFFSET $4",
     )
     .bind(&params.gallery)
     .bind(&params.status)
@@ -140,7 +140,7 @@ pub async fn get_queue(
 /// Update work status request
 #[derive(Deserialize)]
 pub struct UpdateStatusRequest {
-    pub status: String,  // "approved", "rejected", "takedown"
+    pub status: String, // "approved", "rejected", "takedown"
     pub note: Option<String>,
 }
 
@@ -165,34 +165,38 @@ pub async fn update_status(
     }
 
     // Get moderator_id from session
-    let moderator_id: i32 = session
+    let moderator_id: i64 = session
         .get("user_id")
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
         .ok_or(StatusCode::UNAUTHORIZED)?;
+    let work_id_str = work_id.to_string();
 
     // Start transaction
-    let mut tx = pool.begin().await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let mut tx = pool
+        .begin()
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     // Update work status
     let updated_at: chrono::DateTime<chrono::Utc> = sqlx::query_scalar(
         "UPDATE works
          SET status = $1::work_status, updated_at = NOW()
          WHERE id = $2
-         RETURNING updated_at"
+         RETURNING updated_at",
     )
     .bind(&req.status)
-    .bind(work_id)
+    .bind(&work_id_str)
     .fetch_one(&mut *tx)
     .await
     .map_err(|_| StatusCode::NOT_FOUND)?;
 
     // Record in moderation_log
     sqlx::query(
-        "INSERT INTO moderation_log (work_id, moderator_id, action, note)
-         VALUES ($1, $2, $3::moderation_action, $4)"
+        "INSERT INTO moderation_log (work_id, actor_id, action, note)
+         VALUES ($1, $2, $3, $4)",
     )
-    .bind(work_id)
+    .bind(&work_id_str)
     .bind(moderator_id)
     .bind(&req.status)
     .bind(&req.note)
@@ -201,7 +205,9 @@ pub async fn update_status(
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     // Commit transaction
-    tx.commit().await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    tx.commit()
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Json(UpdateStatusResponse {
         id: work_id,
@@ -213,7 +219,7 @@ pub async fn update_status(
 /// Moderation log entry
 #[derive(Serialize, sqlx::FromRow)]
 pub struct ModerationLogEntry {
-    pub id: i32,
+    pub id: i64,
     pub action: String,
     pub moderator_handle: String,
     pub note: Option<String>,
@@ -240,17 +246,14 @@ pub async fn get_log(
             ml.note,
             ml.created_at
          FROM moderation_log ml
-         JOIN users u ON ml.moderator_id = u.id
+         JOIN users u ON ml.actor_id = u.id
          WHERE ml.work_id = $1
-         ORDER BY ml.created_at DESC"
+         ORDER BY ml.created_at DESC",
     )
-    .bind(work_id)
+    .bind(work_id.to_string())
     .fetch_all(&pool)
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    Ok(Json(ModerationLogResponse {
-        work_id,
-        logs,
-    }))
+    Ok(Json(ModerationLogResponse { work_id, logs }))
 }

@@ -8,9 +8,9 @@ use serde::{Deserialize, Serialize};
 use sqlx::Row;
 use tower_sessions::Session;
 
-use crate::AppState;
 use super::auth::SESSION_USER_ID_KEY;
-use super::works::{Pagination, WorkItem, WorksResponse, build_thumbnail_url, build_file_url};
+use super::works::{build_file_url, build_thumbnail_url, Pagination, WorkItem, WorksResponse};
+use crate::AppState;
 
 #[derive(Debug, Deserialize)]
 pub struct MyWorksQuery {
@@ -38,7 +38,10 @@ pub async fn handle_my_stats(
         .await
         .map_err(|e| {
             tracing::error!("Session error: {}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Session error".to_string())
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Session error".to_string(),
+            )
         })?
         .ok_or_else(|| (StatusCode::UNAUTHORIZED, "Not logged in".to_string()))?;
 
@@ -59,15 +62,21 @@ pub async fn handle_my_stats(
     .await
     .map_err(|e| {
         tracing::error!("Database error: {}", e);
-        (StatusCode::INTERNAL_SERVER_ERROR, "Failed to fetch stats".to_string())
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Failed to fetch stats".to_string(),
+        )
     })?;
 
-    Ok((StatusCode::OK, Json(StatsResponse {
-        total: stats.total,
-        pending: stats.pending,
-        approved: stats.approved,
-        rejected: stats.rejected,
-    })))
+    Ok((
+        StatusCode::OK,
+        Json(StatsResponse {
+            total: stats.total,
+            pending: stats.pending,
+            approved: stats.approved,
+            rejected: stats.rejected,
+        }),
+    ))
 }
 
 /// Handler for GET /api/users/me/works
@@ -82,7 +91,10 @@ pub async fn handle_my_works(
         .await
         .map_err(|e| {
             tracing::error!("Session error: {}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, "Session error".to_string())
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Session error".to_string(),
+            )
         })?
         .ok_or_else(|| (StatusCode::UNAUTHORIZED, "Not logged in".to_string()))?;
 
@@ -157,20 +169,15 @@ pub async fn handle_my_works(
         query_builder = query_builder.bind(status);
     }
 
-    query_builder = query_builder
-        .bind(limit as i64)
-        .bind(offset as i64);
+    query_builder = query_builder.bind(limit as i64).bind(offset as i64);
 
-    let rows = query_builder
-        .fetch_all(&state.db)
-        .await
-        .map_err(|e| {
-            tracing::error!("Database error in select query: {}", e);
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Failed to fetch works".to_string(),
-            )
-        })?;
+    let rows = query_builder.fetch_all(&state.db).await.map_err(|e| {
+        tracing::error!("Database error in select query: {}", e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Failed to fetch works".to_string(),
+        )
+    })?;
 
     // Map rows to WorkItem
     let works: Vec<WorkItem> = rows
@@ -183,7 +190,8 @@ pub async fn handle_my_works(
             let status: String = row.try_get("status").unwrap_or_default();
             let width: i32 = row.try_get("width").unwrap_or(0);
             let height: i32 = row.try_get("height").unwrap_or(0);
-            let created_at: chrono::DateTime<chrono::Utc> = row.try_get("created_at").unwrap_or_default();
+            let created_at: chrono::DateTime<chrono::Utc> =
+                row.try_get("created_at").unwrap_or_default();
             let asset_file: String = row.try_get("asset_file").unwrap_or_default();
 
             WorkItem {
@@ -201,6 +209,7 @@ pub async fn handle_my_works(
                 source: None,
                 source_url: None,
                 rights_note: None,
+                art_meta: None,
             }
         })
         .collect();
