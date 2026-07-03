@@ -4,10 +4,11 @@
   "status": "completed",
   "strategy": "full-collaborate",
   "currentPhase": "done",
-  "nextAction": "等待后端数据库可用时进行完整 E2E 测试 (Playwright)",
+  "nextAction": "进入 Phase 5 production hardening：补齐 rating 偏好持久化、Art facets、artist/medium 搜索体验、自动化 E2E 与安全加固",
   "gate": null,
   "branch": "master",
   "scope": "phase4-art-gallery",
   "createdAt": "2026-06-23T00:00:00+08:00",
-  "completedAt": "2026-06-23T00:00:00+08:00"
+  "updatedAt": "2026-07-03T00:00:00+08:00",
+  "completedAt": "2026-07-03T00:00:00+08:00"
 }

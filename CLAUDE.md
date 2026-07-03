@@ -3,6 +3,7 @@
 [根目录](./) > **hasu-gallery**
 
 **变更记录 (Changelog)**
+- 2026-07-03: Phase 1-4 审查与真实浏览器回归 — 修复后端 env 加载、注册 session、前端 auth 竞态、审核权限边界、Postgres enum 解码、开发代理本机连接与 review 字段写入
 - 2026-06-22: Phase 3 完成 — 审核工作流全部实现（+824 行代码：后端 300 行 + 前端 524 行）
 - 2026-06-17: Phase 2 完成 — 前端画廊界面、上传流程、用户个人页全部实现（+2,562 行代码）
 - 2026-06-17: Phase 1 完成 — 数据库迁移、认证系统、上传流水线全部落地
@@ -272,7 +273,6 @@ chore: upgrade dependencies
 - `.ccg/spec/phase2-plan.md` - Phase 2 前端实施计划
 - `.ccg/spec/phase3-plan.md` - Phase 3 执行计划
 - `.ccg/spec/phase3-summary.md` - Phase 3 实施总结
-- `.ccg/spec/phase3-test-report.md` - Phase 3 测试报告
 - `docs/edge-server-setup.md` - 边缘服务器部署指南
 
 ### 前端关键文件
@@ -336,6 +336,16 @@ chore: upgrade dependencies
 - ModerationLog - 审核历史展示
 - api/moderation.ts - 审核 API 客户端
 
+✅ **2026-07-03 回归补强已完成**：
+- `pnpm dev:api` 从仓库根目录可正确加载 `backend/.env`
+- 注册后后端 session 与前端 auth store 同步
+- AuthGuard / ModeratorGuard 等待首次认证恢复，避免刷新或慢查询时误跳转
+- 普通用户访问 `/moderation` 不会发起审核队列请求
+- 审核状态变更同步写入 `reviewed_by`、`reviewed_at`、`review_note`
+- Postgres enum 字段以 text 返回，避免详情页/列表页解码为 `String` 时 500
+- 本地开发 API 默认直连 `http://127.0.0.1:8787`，避免 Rspack dev proxy 在 Windows 上偶发 `/api/auth/me` EACCES
+- 真实浏览器回归通过：注册、Meme/Art MinIO 上传、owner pending 详情、审核批准、公开画廊、Art rating 筛选、个人页统计与审核日志均已验证
+
 **Phase 2 详情**：
 
 **2.1 认证界面**（543 行）
@@ -369,6 +379,8 @@ chore: upgrade dependencies
 - 后端 API：`GET /api/users/me/stats`、`GET /api/users/me/works`
 
 ### 推荐下一步（Phase 4 - Art Gallery）
+
+> 2026-07-03 审查：画廊切换、Art 上传元数据、rating 筛选已有基础实现并通过真实浏览器验收；偏好持久化、Art facets、artist/medium 搜索体验进入 Phase 5 production hardening。
 
 1. **画廊切换器**
    - 顶层 tab/下拉菜单：Meme Gallery vs Art Gallery

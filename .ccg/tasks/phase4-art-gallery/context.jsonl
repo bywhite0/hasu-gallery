@@ -4,3 +4,13 @@
 {"file": "packages/types/src/models.ts", "reason": "共享类型定义"}
 {"file": "apps/web/src/router.tsx", "reason": "前端路由配置"}
 {"file": "backend/src/main.rs", "reason": "后端入口 + 路由注册"}
+{"file": "CLAUDE.md", "reason": "2026-07-03 Phase 1-4 回归补强与 Phase 4 当前状态"}
+{"file": "apps/web/src/components/UploadForm.tsx", "reason": "Art 上传 artist/medium/rating/source_url 表单字段"}
+{"file": "apps/web/src/components/FilterPanel.tsx", "reason": "Art Gallery rating 筛选 UI"}
+{"file": "apps/web/src/pages/GalleryPage.tsx", "reason": "Meme/Art 画廊页面复用与查询入口"}
+{"file": "backend/src/routes/upload.rs", "reason": "Art 上传元数据验证与 work_art_meta 写入"}
+{"file": "backend/src/routes/works.rs", "reason": "Art 列表 rating/artist/medium 查询与详情 art_meta 返回"}
+{"file": "backend/src/routes/users.rs", "reason": "我的作品列表 enum 字段以 text 返回，真实浏览器 profile 验收覆盖"}
+{"file": "apps/web/src/api/client.ts", "reason": "本地开发直连 API，避免 Windows dev proxy 对 /api/auth/me 偶发 EACCES"}
+{"file": "apps/web/rspack.config.js", "reason": "dev proxy 指向 127.0.0.1；保留代理配置但本地客户端默认直连后端"}
+{"file": ".ccg/tasks/phase4-art-gallery/task.json", "reason": "Phase 4 baseline 验收通过，MinIO 上传 gate 已解除"}
