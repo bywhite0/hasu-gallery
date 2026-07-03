@@ -1,4 +1,4 @@
-import { fetchJson } from './client';
+import { ApiError, fetchJson } from './client';
 import type { User } from '@hasu-gallery/types';
 
 interface LoginRequest {
@@ -50,7 +50,7 @@ export async function me(): Promise<User | null> {
     return await fetchJson<User>('/api/auth/me');
   } catch (error) {
     // 401 means not authenticated - return null instead of throwing
-    if (error instanceof Error && error.message.includes('401')) {
+    if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
       return null;
     }
     throw error;

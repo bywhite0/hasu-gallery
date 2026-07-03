@@ -19,6 +19,7 @@ pub const SESSION_USER_ID_KEY: &str = "user_id";
 /// 注册新用户
 pub async fn register(
     State(state): State<AppState>,
+    session: Session,
     Json(req): Json<RegisterRequest>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
     // 验证输入
@@ -58,6 +59,12 @@ pub async fn register(
     )
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    // Keep frontend state and backend session in sync after successful signup.
+    session
+        .insert(SESSION_USER_ID_KEY, user.id)
+        .await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     Ok((
         StatusCode::CREATED,

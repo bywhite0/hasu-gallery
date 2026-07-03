@@ -3,7 +3,13 @@
  * Handles JSON requests/responses and authentication via cookies
  */
 
-export const BASE_URL = (import.meta.env?.VITE_API_BASE_URL as string | undefined) || '';
+const configuredBaseUrl = import.meta.env?.VITE_API_BASE_URL as string | undefined;
+const localApiBaseUrl =
+  typeof window !== 'undefined' && ['localhost', '127.0.0.1'].includes(window.location.hostname)
+    ? 'http://127.0.0.1:8787'
+    : '';
+
+export const BASE_URL = configuredBaseUrl || localApiBaseUrl;
 
 export class ApiError extends Error {
   constructor(

@@ -8,15 +8,19 @@ import { ModeratorGuard } from '../components/ModeratorGuard';
 import { ModerationActions } from '../components/ModerationActions';
 import { ModerationLog } from '../components/ModerationLog';
 import { getModerationQueue } from '../api/moderation';
+import { useAuthStore } from '../store/auth';
 
 export function ModerationPage() {
   const [gallery, setGallery] = useState<'meme' | 'art'>('meme');
   const [status, setStatus] = useState('pending');
   const [page, setPage] = useState(1);
+  const user = useAuthStore((state) => state.user);
+  const canModerate = user?.role === 'moderator' || user?.role === 'admin';
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['moderation-queue', gallery, status, page],
     queryFn: () => getModerationQueue({ gallery, status, page, limit: 20 }),
+    enabled: canModerate,
   });
 
   const currentWork = data?.works[0];

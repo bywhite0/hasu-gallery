@@ -27,8 +27,10 @@ struct AppState {
 
 #[tokio::main]
 async fn main() {
-    // Load environment variables
+    // Load environment variables. `pnpm dev:api` runs from the repo root,
+    // while direct cargo runs usually run from `backend/`.
     dotenv::dotenv().ok();
+    dotenv::from_filename("backend/.env").ok();
 
     // Initialize tracing
     tracing_subscriber::fmt::init();

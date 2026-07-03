@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Navigate } from '@tanstack/react-router';
 import { useAuthStore } from '../store/auth';
 
@@ -7,13 +7,9 @@ interface AuthGuardProps {
 }
 
 export function AuthGuard({ children }: AuthGuardProps) {
-  const { user, isLoading, checkAuth } = useAuthStore();
+  const { user, isLoading, hasCheckedAuth } = useAuthStore();
 
-  useEffect(() => {
-    checkAuth();
-  }, [checkAuth]);
-
-  if (isLoading) {
+  if (isLoading || !hasCheckedAuth) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">

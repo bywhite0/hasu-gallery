@@ -16,7 +16,7 @@ pub async fn require_moderator(
     next: Next,
 ) -> Result<Response, StatusCode> {
     // Get user_id from session
-    let user_id: i32 = session
+    let user_id: i64 = session
         .get("user_id")
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?

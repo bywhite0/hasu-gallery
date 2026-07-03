@@ -71,8 +71,6 @@ pub async fn get_queue(
     State(pool): State<PgPool>,
     Query(params): Query<QueueParams>,
 ) -> Result<Json<QueueResponse>, StatusCode> {
-    let offset = (params.page - 1) * params.limit;
-
     // Validate gallery
     if params.gallery != "meme" && params.gallery != "art" {
         return Err(StatusCode::BAD_REQUEST);
@@ -82,6 +80,12 @@ pub async fn get_queue(
     if !["pending", "approved", "rejected", "takedown"].contains(&params.status.as_str()) {
         return Err(StatusCode::BAD_REQUEST);
     }
+
+    if params.page < 1 || params.limit < 1 || params.limit > 100 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    let offset = (params.page - 1) * params.limit;
 
     // Get total count
     let total: i64 = sqlx::query_scalar(
@@ -181,12 +185,18 @@ pub async fn update_status(
     // Update work status
     let updated_at: chrono::DateTime<chrono::Utc> = sqlx::query_scalar(
         "UPDATE works
-         SET status = $1::work_status, updated_at = NOW()
+         SET status = $1::work_status,
+             reviewed_by = $3,
+             reviewed_at = NOW(),
+             review_note = $4,
+             updated_at = NOW()
          WHERE id = $2
          RETURNING updated_at",
     )
     .bind(&req.status)
     .bind(&work_id_str)
+    .bind(moderator_id)
+    .bind(&req.note)
     .fetch_one(&mut *tx)
     .await
     .map_err(|_| StatusCode::NOT_FOUND)?;

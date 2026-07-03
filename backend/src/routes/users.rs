@@ -153,7 +153,7 @@ pub async fn handle_my_works(
 
     // Fetch works
     let select_query = format!(
-        "SELECT id, gallery, origin, title, status, width, height, created_at, asset_file
+        "SELECT id, gallery::TEXT AS gallery, origin::TEXT AS origin, title, status::TEXT AS status, width, height, created_at, asset_file
          FROM works
          WHERE {}
          ORDER BY created_at DESC

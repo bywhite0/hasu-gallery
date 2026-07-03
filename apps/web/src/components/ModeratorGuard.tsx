@@ -12,9 +12,14 @@ interface ModeratorGuardProps {
 
 export function ModeratorGuard({ children }: ModeratorGuardProps) {
   const navigate = useNavigate();
-  const user = useAuthStore((state) => state.user);
+  const { user, isLoading, hasCheckedAuth } = useAuthStore();
+  const isModerator = user && (user.role === 'moderator' || user.role === 'admin');
 
   useEffect(() => {
+    if (isLoading || !hasCheckedAuth) {
+      return;
+    }
+
     if (!user) {
       // Not logged in, redirect to login
       navigate({ to: '/login' as any });
@@ -22,14 +27,25 @@ export function ModeratorGuard({ children }: ModeratorGuardProps) {
     }
 
     // Check if user is moderator or admin
-    if (user.role !== 'moderator' && user.role !== 'admin') {
+    if (!isModerator) {
       // Not authorized, redirect to home
       navigate({ to: '/' as any });
     }
-  }, [user, navigate]);
+  }, [user, isModerator, isLoading, hasCheckedAuth, navigate]);
+
+  if (isLoading || !hasCheckedAuth) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em]" />
+          <p className="mt-4 text-sm text-gray-600">Checking permissions...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Don't render children if not authorized
-  if (!user || (user.role !== 'moderator' && user.role !== 'admin')) {
+  if (!isModerator) {
     return null;
   }
 

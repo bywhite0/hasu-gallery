@@ -284,7 +284,7 @@ pub async fn handle_works_list(
 
     // Fetch works
     let select_query = format!(
-        "SELECT w.id, w.gallery, w.origin, w.title, w.status, w.width, w.height, w.created_at, w.asset_file
+        "SELECT w.id, w.gallery::TEXT AS gallery, w.origin::TEXT AS origin, w.title, w.status::TEXT AS status, w.width, w.height, w.created_at, w.asset_file
          FROM works w{}
          WHERE {}
          ORDER BY {}
@@ -385,10 +385,10 @@ pub async fn handle_work_detail(
     session: Session,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
     // Query single work with all detail fields including uploader name
-    let query = "SELECT w.id, w.gallery, w.origin, w.title, w.status, w.width, w.height,
+    let query = "SELECT w.id, w.gallery::TEXT AS gallery, w.origin::TEXT AS origin, w.title, w.status::TEXT AS status, w.width, w.height,
                         w.source, w.source_url, w.rights_note, w.created_at, w.asset_file,
                         w.uploader_id, u.display_name as uploader_name,
-                        am.artist, am.medium, am.rating
+                        am.artist, am.medium, am.rating::TEXT AS rating
                  FROM works w
                  LEFT JOIN users u ON w.uploader_id = u.id
                  LEFT JOIN work_art_meta am ON w.id = am.work_id
