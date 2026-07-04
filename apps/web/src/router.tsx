@@ -7,6 +7,14 @@ import {
   useRouterState,
 } from "@tanstack/react-router";
 import { Button } from "@hasu-gallery/ui";
+import {
+  Images,
+  Palette,
+  ShieldCheck,
+  Upload,
+  User,
+  type LucideIcon,
+} from "lucide-react";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { GalleryPage } from "./pages/GalleryPage";
@@ -17,6 +25,29 @@ import { ModerationPage } from "./pages/ModerationPage";
 import { AuthGuard } from "./components/AuthGuard";
 import { useAuthStore } from "./store/auth";
 
+type NavPath = "/gallery/meme" | "/gallery/art" | "/upload" | "/profile" | "/moderation";
+
+interface NavItem {
+  to: NavPath;
+  desktopLabel: string;
+  mobileLabel: string;
+  Icon: LucideIcon;
+}
+
+const primaryNavItems: NavItem[] = [
+  { to: "/gallery/meme", desktopLabel: "Meme", mobileLabel: "Meme", Icon: Images },
+  { to: "/gallery/art", desktopLabel: "Art", mobileLabel: "Art", Icon: Palette },
+  { to: "/upload", desktopLabel: "Upload", mobileLabel: "Upload", Icon: Upload },
+  { to: "/profile", desktopLabel: "Profile", mobileLabel: "Profile", Icon: User },
+];
+
+const moderationNavItem: NavItem = {
+  to: "/moderation",
+  desktopLabel: "Moderation",
+  mobileLabel: "Review",
+  Icon: ShieldCheck,
+};
+
 // Root layout
 const rootRoute = createRootRoute({
   component: () => {
@@ -24,53 +55,61 @@ const rootRoute = createRootRoute({
     const isModerator = user && (user.role === 'moderator' || user.role === 'admin');
     const routerState = useRouterState();
     const currentPath = routerState.location.pathname;
+    const navItems = isModerator ? [...primaryNavItems, moderationNavItem] : primaryNavItems;
 
-    const navLinkClass = (path: string) =>
+    const navLinkClass = (path: NavPath) =>
       currentPath === path
         ? "bg-ink text-paper"
         : "";
 
     return (
       <div className="min-h-screen bg-paper text-ink">
-        <header className="border-b border-ink p-4">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold">Hasu Gallery</h1>
+        <header className="border-b border-ink px-4 py-3 md:p-4">
+          <div className="flex items-center justify-between gap-3">
+            <h1 className="shrink-0 text-xl font-bold md:text-2xl">Hasu Gallery</h1>
             {user && (
-              <nav className="flex gap-4">
-                <Link to="/gallery/meme">
-                  <Button variant="ghost" size="sm" className={navLinkClass('/gallery/meme')}>
-                    Meme
-                  </Button>
-                </Link>
-                <Link to="/gallery/art">
-                  <Button variant="ghost" size="sm" className={navLinkClass('/gallery/art')}>
-                    Art
-                  </Button>
-                </Link>
-                <Link to="/upload">
-                  <Button variant="ghost" size="sm" className={navLinkClass('/upload')}>
-                    Upload
-                  </Button>
-                </Link>
-                <Link to="/profile">
-                  <Button variant="ghost" size="sm" className={navLinkClass('/profile')}>
-                    Profile
-                  </Button>
-                </Link>
-                {isModerator && (
-                  <Link to="/moderation">
-                    <Button variant="ghost" size="sm" className={navLinkClass('/moderation')}>
-                      Moderation
+              <nav className="hidden max-w-full flex-wrap justify-end gap-4 md:flex" aria-label="Primary navigation">
+                {navItems.map((item) => (
+                  <Link key={item.to} to={item.to} aria-current={currentPath === item.to ? "page" : undefined}>
+                    <Button variant="ghost" size="sm" className={navLinkClass(item.to)}>
+                      {item.desktopLabel}
                     </Button>
                   </Link>
-                )}
+                ))}
               </nav>
             )}
           </div>
         </header>
-        <main className="container mx-auto p-4">
+        <main className={user ? "container mx-auto p-4 pb-[calc(env(safe-area-inset-bottom)+6rem)] md:pb-4" : "container mx-auto p-4"}>
           <Outlet />
         </main>
+        {user && (
+          <nav
+            className="fixed inset-x-0 bottom-0 z-50 flex gap-1 border-t border-ink bg-paper px-2 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] md:hidden"
+            aria-label="Primary navigation"
+          >
+            {navItems.map((item) => {
+              const Icon = item.Icon;
+              const isActive = currentPath === item.to;
+
+              return (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  aria-current={isActive ? "page" : undefined}
+                  className={[
+                    "flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-md px-1 py-2 text-xs font-medium transition-colors",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-paper",
+                    isActive ? "bg-ink text-paper" : "text-ink hover:bg-accent",
+                  ].join(" ")}
+                >
+                  <Icon className="h-5 w-5 shrink-0" aria-hidden="true" strokeWidth={2} />
+                  <span className="max-w-full truncate">{item.mobileLabel}</span>
+                </Link>
+              );
+            })}
+          </nav>
+        )}
       </div>
     );
   },

@@ -5,18 +5,27 @@ interface FilterPanelProps {
     origin?: "official" | "derived" | "fan_made";
     sort?: "created_at_desc" | "created_at_asc" | "title_asc";
     rating?: "all_ages" | "r15" | "r18";
+    artist?: string;
+    medium?: string;
   };
   onFilterChange: (filters: {
     status?: "pending" | "approved" | "rejected";
     origin?: "official" | "derived" | "fan_made";
     sort?: "created_at_desc" | "created_at_asc" | "title_asc";
     rating?: "all_ages" | "r15" | "r18";
+    artist?: string;
+    medium?: string;
   }) => void;
 }
 
 export function FilterPanel({ gallery, filters, onFilterChange }: FilterPanelProps) {
   const handleChange = (key: string, value: string) => {
     const newValue = value === 'all' ? undefined : value;
+    onFilterChange({ ...filters, [key]: newValue });
+  };
+
+  const handleTextChange = (key: 'artist' | 'medium', value: string) => {
+    const newValue = /\S/.test(value) ? value : undefined;
     onFilterChange({ ...filters, [key]: newValue });
   };
 
@@ -86,21 +95,49 @@ export function FilterPanel({ gallery, filters, onFilterChange }: FilterPanelPro
       </div>
 
       {gallery === 'art' && (
-        <div className="flex items-center gap-2">
-          <label htmlFor="rating-filter" className="text-sm font-medium">
-            Rating:
-          </label>
-          <select
-            id="rating-filter"
-            value={filters.rating || 'all_ages'}
-            onChange={(e) => handleChange('rating', e.target.value)}
-            className="px-3 py-1.5 border border-ink rounded bg-surface text-sm"
-          >
-            <option value="all_ages">All Ages</option>
-            <option value="r15">R-15</option>
-            <option value="r18">R-18</option>
-          </select>
-        </div>
+        <>
+          <div className="flex items-center gap-2">
+            <label htmlFor="rating-filter" className="text-sm font-medium">
+              Rating:
+            </label>
+            <select
+              id="rating-filter"
+              value={filters.rating || 'all_ages'}
+              onChange={(e) => handleChange('rating', e.target.value)}
+              className="px-3 py-1.5 border border-ink rounded bg-surface text-sm"
+            >
+              <option value="all_ages">All Ages</option>
+              <option value="r15">R-15</option>
+              <option value="r18">R-18</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label htmlFor="artist-filter" className="text-sm font-medium">
+              Artist:
+            </label>
+            <input
+              id="artist-filter"
+              type="search"
+              value={filters.artist || ''}
+              onChange={(e) => handleTextChange('artist', e.target.value)}
+              className="w-40 px-3 py-1.5 border border-ink rounded bg-surface text-sm"
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label htmlFor="medium-filter" className="text-sm font-medium">
+              Medium:
+            </label>
+            <input
+              id="medium-filter"
+              type="search"
+              value={filters.medium || ''}
+              onChange={(e) => handleTextChange('medium', e.target.value)}
+              className="w-40 px-3 py-1.5 border border-ink rounded bg-surface text-sm"
+            />
+          </div>
+        </>
       )}
     </div>
   );

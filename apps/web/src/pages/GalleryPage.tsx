@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { listWorks } from '../api/works';
 import { FilterPanel } from '../components/FilterPanel';
 import { WorksGrid } from '../components/WorksGrid';
 import { Pagination } from '../components/Pagination';
+import { useAppStore, type ArtRatingPreference } from '../store';
 
 interface GalleryPageProps {
   gallery: 'meme' | 'art';
@@ -14,13 +15,45 @@ type Filters = {
   status?: "pending" | "approved" | "rejected";
   origin?: "official" | "derived" | "fan_made";
   sort?: "created_at_desc" | "created_at_asc" | "title_asc";
-  rating?: "all_ages" | "r15" | "r18";
+  rating?: ArtRatingPreference;
+  artist?: string;
+  medium?: string;
 };
+
+const getInitialFilters = (
+  gallery: GalleryPageProps['gallery'],
+  artRatingPreference: ArtRatingPreference,
+): Filters => (gallery === 'art' ? { rating: artRatingPreference } : {});
 
 export function GalleryPage({ gallery }: GalleryPageProps) {
   const navigate = useNavigate();
+  const artRatingPreference = useAppStore((state) => state.artRatingPreference);
+  const setArtRatingPreference = useAppStore((state) => state.setArtRatingPreference);
   const [page, setPage] = useState(1);
-  const [filters, setFilters] = useState<Filters>({});
+  const [filters, setFilters] = useState<Filters>(() =>
+    getInitialFilters(gallery, artRatingPreference),
+  );
+
+  useEffect(() => {
+    setFilters((currentFilters) => {
+      if (gallery === 'art') {
+        return {
+          status: currentFilters.status,
+          sort: currentFilters.sort,
+          rating: artRatingPreference,
+          artist: currentFilters.artist,
+          medium: currentFilters.medium,
+        };
+      }
+
+      return {
+        status: currentFilters.status,
+        origin: currentFilters.origin,
+        sort: currentFilters.sort,
+      };
+    });
+    setPage(1);
+  }, [artRatingPreference, gallery]);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['works', gallery, page, filters],
@@ -28,7 +61,17 @@ export function GalleryPage({ gallery }: GalleryPageProps) {
   });
 
   const handleFilterChange = (newFilters: Filters) => {
-    setFilters(newFilters);
+    const nextRating = newFilters.rating ?? artRatingPreference;
+    const nextFilters: Filters =
+      gallery === 'art'
+        ? { ...newFilters, rating: nextRating }
+        : newFilters;
+
+    if (gallery === 'art' && nextRating !== artRatingPreference) {
+      setArtRatingPreference(nextRating);
+    }
+
+    setFilters(nextFilters);
     setPage(1);
   };
 
