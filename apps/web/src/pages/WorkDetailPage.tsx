@@ -1,17 +1,64 @@
+import { useState, type ReactNode } from 'react';
 import { useParams, useNavigate, Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
-import { Button } from '@hasu-gallery/ui';
+import { Button, ErrorState, StateMessage } from '@hasu-gallery/ui';
 import { getWork } from '../api/works';
 import { ArrowLeft, Download, ExternalLink } from 'lucide-react';
+
+const galleryLabel = {
+  meme: 'Meme Gallery',
+  art: 'Art Gallery',
+} as const;
+
+const originLabel = {
+  official: 'Official',
+  derived: 'Derived',
+  fan_made: 'Fan made',
+} as const;
+
+const ratingLabel = {
+  all_ages: 'All Ages',
+  r15: 'R-15',
+  r18: 'R-18',
+} as const;
+
+const statusLabel = {
+  pending: 'Waiting for review',
+  approved: 'Published',
+  rejected: 'Not accepted',
+  takedown: 'Removed',
+} as const;
+
+const getErrorDescription = (error: unknown) => {
+  const message = error instanceof Error ? error.message : '';
+
+  if (message === 'Failed to fetch') {
+    return 'The gallery is not reachable right now. Please try again in a moment.';
+  }
+
+  return message || 'This work could not be opened. It may have been removed or the link may be out of date.';
+};
+
+function InfoRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="space-y-1">
+      <h2 className="text-xs font-semibold uppercase tracking-normal text-ink-3">{label}</h2>
+      <div className="text-sm leading-6 text-ink">{children}</div>
+    </div>
+  );
+}
 
 export function WorkDetailPage() {
   const { id } = useParams({ strict: false });
   const navigate = useNavigate();
+  const [imageFailed, setImageFailed] = useState(false);
 
   const {
     data: work,
     isLoading,
     error,
+    refetch,
+    isFetching,
   } = useQuery({
     queryKey: ['work', id],
     queryFn: () => getWork(id as string),
@@ -20,21 +67,35 @@ export function WorkDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p className="text-lg text-muted-foreground">Loading work...</p>
+      <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center">
+        <StateMessage
+          title="Loading work"
+          description="Fetching the image and details for this public gallery item."
+          tone="info"
+        />
       </div>
     );
   }
 
   if (error || !work) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen space-y-4">
-        <p className="text-lg text-destructive">
-          {error instanceof Error ? error.message : 'Failed to load work'}
-        </p>
-        <Link to="/gallery/meme">
-          <Button variant="outline">Back to gallery</Button>
-        </Link>
+      <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center">
+        <ErrorState
+          title="Work unavailable"
+          description={getErrorDescription(error)}
+          action={
+            <>
+              <Button type="button" onClick={() => void refetch()} disabled={isFetching}>
+                {isFetching ? 'Retrying...' : 'Retry'}
+              </Button>
+              <Link to="/gallery/meme">
+                <Button type="button" variant="outline">
+                  Back to Meme Gallery
+                </Button>
+              </Link>
+            </>
+          }
+        />
       </div>
     );
   }
@@ -49,10 +110,13 @@ export function WorkDetailPage() {
     document.body.removeChild(link);
   };
 
+  const hasImage = Boolean(work.file_url) && !imageFailed;
+  const title = work.title || 'Untitled work';
+  const galleryName = galleryLabel[work.gallery];
+
   return (
-    <div className="container mx-auto px-4 py-8 space-y-6">
-      {/* Back button */}
-      <div>
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <Button
           variant="ghost"
           size="sm"
@@ -60,135 +124,105 @@ export function WorkDetailPage() {
           className="gap-2"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to {work.gallery}
+          Back to {galleryName}
         </Button>
+        {work.status !== 'approved' && (
+          <span className="rounded-full bg-warning/10 px-3 py-1 text-xs font-medium text-warning">
+            {statusLabel[work.status]}
+          </span>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Image section */}
-        <div className="lg:col-span-2">
-          <div className="bg-muted rounded-lg p-4">
-            <img
-              src={work.file_url}
-              alt={work.title || 'Work image'}
-              className="w-full h-auto max-w-4xl mx-auto rounded"
-              loading="eager"
-            />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <div className="min-w-0">
+          <div className="overflow-hidden rounded-md border border-ink/15 bg-surface">
+            {hasImage ? (
+              <img
+                src={work.file_url}
+                alt={title}
+                className="mx-auto max-h-[72vh] w-full object-contain"
+                loading="eager"
+                decoding="async"
+                onError={() => setImageFailed(true)}
+              />
+            ) : (
+              <div className="flex min-h-[24rem] items-center justify-center px-6 text-center text-sm text-ink-2">
+                Image unavailable
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Metadata panel */}
-        <div className="space-y-6">
+        <aside className="space-y-6 rounded-md border border-ink/15 bg-surface p-5">
           <div>
-            <h1 className="text-3xl font-bold mb-4">
-              {work.title || 'Untitled'}
-            </h1>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-normal text-ink-3">
+              {galleryName}
+            </p>
+            <h1 className="text-2xl font-semibold leading-tight text-ink">{title}</h1>
           </div>
 
-          <div className="space-y-4">
-            <div>
-              <h2 className="text-sm font-medium text-muted-foreground mb-1">
-                Dimensions
-              </h2>
-              <p className="text-base">
-                {work.width} × {work.height}
-              </p>
-            </div>
+          <div className="space-y-5">
+            <InfoRow label="Dimensions">
+              {work.width} × {work.height}
+            </InfoRow>
 
-            <div>
-              <h2 className="text-sm font-medium text-muted-foreground mb-1">
-                Gallery
-              </h2>
+            <InfoRow label="Gallery">
               <Link
                 to={`/gallery/${work.gallery}`}
-                className="text-base text-primary hover:underline"
+                className="font-medium text-info underline underline-offset-4 hover:text-ink"
               >
-                {work.gallery}
+                {galleryName}
               </Link>
-            </div>
+            </InfoRow>
 
             {work.origin && (
-              <div>
-                <h2 className="text-sm font-medium text-muted-foreground mb-1">
-                  Origin
-                </h2>
-                <p className="text-base">{work.origin}</p>
-              </div>
+              <InfoRow label="Origin">{originLabel[work.origin]}</InfoRow>
             )}
 
             {work.art_meta && (
               <>
-                <div>
-                  <h2 className="text-sm font-medium text-muted-foreground mb-1">
-                    Artist
-                  </h2>
-                  <p className="text-base">{work.art_meta.artist}</p>
-                </div>
+                <InfoRow label="Artist">{work.art_meta.artist}</InfoRow>
                 {work.art_meta.medium && (
-                  <div>
-                    <h2 className="text-sm font-medium text-muted-foreground mb-1">
-                      Medium
-                    </h2>
-                    <p className="text-base">{work.art_meta.medium}</p>
-                  </div>
+                  <InfoRow label="Medium">{work.art_meta.medium}</InfoRow>
                 )}
-                <div>
-                  <h2 className="text-sm font-medium text-muted-foreground mb-1">
-                    Rating
-                  </h2>
-                  <p className="text-base">{work.art_meta.rating}</p>
-                </div>
+                <InfoRow label="Rating">{ratingLabel[work.art_meta.rating]}</InfoRow>
               </>
             )}
 
+            {work.uploader_name && <InfoRow label="Submitted by">{work.uploader_name}</InfoRow>}
+
             {work.source_url && (
-              <div>
-                <h2 className="text-sm font-medium text-muted-foreground mb-1">
-                  Source
-                </h2>
+              <InfoRow label="Source">
                 <a
                   href={work.source_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-base text-primary hover:underline"
+                  className="inline-flex items-center gap-1 font-medium text-info underline underline-offset-4 hover:text-ink"
                 >
                   View source
                   <ExternalLink className="h-3 w-3" />
                 </a>
-              </div>
+              </InfoRow>
             )}
 
             {work.rights_note && (
-              <div>
-                <h2 className="text-sm font-medium text-muted-foreground mb-1">
-                  Rights
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  {work.rights_note}
-                </p>
-              </div>
+              <InfoRow label="Rights">{work.rights_note}</InfoRow>
             )}
 
-            <div>
-              <h2 className="text-sm font-medium text-muted-foreground mb-1">
-                Uploaded
-              </h2>
-              <p className="text-base">
-                {new Date(work.created_at).toLocaleDateString('en-US', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                })}
-              </p>
-            </div>
+            <InfoRow label="Uploaded">
+              {new Date(work.created_at).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}
+            </InfoRow>
           </div>
 
-          {/* Download button */}
-          <Button onClick={handleDownload} className="w-full gap-2">
+          <Button onClick={handleDownload} className="w-full gap-2" disabled={!work.file_url}>
             <Download className="h-4 w-4" />
-            Download
+            {work.file_url ? 'Download' : 'File unavailable'}
           </Button>
-        </div>
+        </aside>
       </div>
     </div>
   );
