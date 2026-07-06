@@ -1,4 +1,4 @@
-use axum::{extract::State, http::StatusCode, response::IntoResponse, Json};
+use axum::{extract::State, http::{StatusCode, Uri}, response::IntoResponse, Json};
 use axum_extra::extract::Multipart;
 use serde_json::json;
 use sqlx::Row;
@@ -13,6 +13,11 @@ use crate::{
 const SESSION_USER_ID_KEY: &str = "user_id";
 const MAX_FILE_SIZE: usize = 10 * 1024 * 1024; // 10MB
 const THUMBNAIL_SIZE: u32 = 400;
+const MAX_TITLE_LEN: usize = 200;
+const MAX_ARTIST_LEN: usize = 200;
+const MAX_MEDIUM_LEN: usize = 100;
+const MAX_SOURCE_LEN: usize = 2_000;
+const MAX_SOURCE_URL_LEN: usize = 2_048;
 
 /// 上传作品
 pub async fn upload_work(
@@ -147,9 +152,14 @@ pub async fn upload_work(
     // 验证必填字段
     let file_data =
         file_data.ok_or_else(|| (StatusCode::BAD_REQUEST, "File is required".to_string()))?;
-    let title = title.ok_or_else(|| (StatusCode::BAD_REQUEST, "Title is required".to_string()))?;
-    let gallery_kind =
-        gallery.ok_or_else(|| (StatusCode::BAD_REQUEST, "Gallery is required".to_string()))?;
+    let title = normalize_required_text(title, "Title", MAX_TITLE_LEN)?;
+    let gallery_kind = normalize_required_text(gallery, "Gallery", 16)?;
+    let origin = normalize_optional_text(origin, "Origin", 32)?;
+    let source = normalize_optional_text(source, "Source", MAX_SOURCE_LEN)?;
+    let source_url = normalize_optional_text(source_url, "Source URL", MAX_SOURCE_URL_LEN)?;
+    let artist = normalize_optional_text(artist, "Artist", MAX_ARTIST_LEN)?;
+    let medium = normalize_optional_text(medium, "Medium", MAX_MEDIUM_LEN)?;
+    let rating = normalize_optional_text(rating, "Rating", 32)?;
 
     // 验证 gallery 值
     if gallery_kind != "meme" && gallery_kind != "art" {
@@ -159,25 +169,25 @@ pub async fn upload_work(
         ));
     }
 
-    let source = source.unwrap_or_default().trim().to_string();
-    let source_url = source_url.unwrap_or_default().trim().to_string();
+    if !source_url.is_empty() {
+        validate_http_url(&source_url, "Source URL")?;
+    }
 
     // meme 必须提供 origin
     if gallery_kind == "meme" {
-        let origin_val = origin.as_deref().unwrap_or("");
-        if origin_val.is_empty() {
+        if origin.is_empty() {
             return Err((
                 StatusCode::BAD_REQUEST,
                 "Origin is required for meme gallery".to_string(),
             ));
         }
-        if !["official", "derived", "fan_made"].contains(&origin_val) {
+        if !["official", "derived", "fan_made"].contains(&origin.as_str()) {
             return Err((
                 StatusCode::BAD_REQUEST,
                 "Origin must be one of: official, derived, fan_made".to_string(),
             ));
         }
-        if ["derived", "fan_made"].contains(&origin_val) && source.is_empty() {
+        if ["derived", "fan_made"].contains(&origin.as_str()) && source.is_empty() {
             return Err((
                 StatusCode::BAD_REQUEST,
                 "Source is required for derived or fan-made memes".to_string(),
@@ -186,7 +196,7 @@ pub async fn upload_work(
     }
 
     // art 不能有 origin
-    if gallery_kind == "art" && origin.is_some() {
+    if gallery_kind == "art" && !origin.is_empty() {
         return Err((
             StatusCode::BAD_REQUEST,
             "Origin must not be provided for art gallery".to_string(),
@@ -195,14 +205,13 @@ pub async fn upload_work(
 
     // art 必须提供 artist 和 rating
     if gallery_kind == "art" {
-        if artist.as_deref().map_or(true, |a| a.trim().is_empty()) {
+        if artist.is_empty() {
             return Err((
                 StatusCode::BAD_REQUEST,
                 "Artist is required for art gallery".to_string(),
             ));
         }
-        let rating_val = rating.as_deref().unwrap_or("");
-        if !["all_ages", "r15", "r18"].contains(&rating_val) {
+        if !["all_ages", "r15", "r18"].contains(&rating.as_str()) {
             return Err((
                 StatusCode::BAD_REQUEST,
                 "Rating must be one of: all_ages, r15, r18".to_string(),
@@ -299,7 +308,7 @@ pub async fn upload_work(
     let work = sqlx::query(query_str)
         .bind(&work_id)
         .bind(&gallery_kind)
-        .bind(origin.as_deref()) // None 会自动转换为 NULL
+        .bind(non_empty_str(&origin)) // None 会自动转换为 NULL
         .bind(&title)
         .bind(&source)
         .bind(&source_url)
@@ -318,9 +327,9 @@ pub async fn upload_work(
             "INSERT INTO work_art_meta (work_id, artist, medium, rating) VALUES ($1, $2, $3, $4::art_rating)"
         )
         .bind(&work_id)
-        .bind(artist.as_deref().unwrap_or(""))
-        .bind(medium.as_deref())
-        .bind(rating.as_deref().unwrap_or("all_ages"))
+        .bind(&artist)
+        .bind(non_empty_str(&medium))
+        .bind(&rating)
         .execute(&state.db)
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
@@ -348,4 +357,108 @@ pub async fn upload_work(
             "height": height,
         })),
     ))
+}
+
+fn normalize_required_text(
+    value: Option<String>,
+    field_name: &str,
+    max_len: usize,
+) -> Result<String, (StatusCode, String)> {
+    let value = normalize_optional_text(value, field_name, max_len)?;
+    if value.is_empty() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            format!("{} is required", field_name),
+        ));
+    }
+
+    Ok(value)
+}
+
+fn normalize_optional_text(
+    value: Option<String>,
+    field_name: &str,
+    max_len: usize,
+) -> Result<String, (StatusCode, String)> {
+    let value = value.unwrap_or_default().trim().to_string();
+    if value.chars().count() > max_len {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            format!("{} must be {} characters or less", field_name, max_len),
+        ));
+    }
+
+    Ok(value)
+}
+
+fn validate_http_url(value: &str, field_name: &str) -> Result<(), (StatusCode, String)> {
+    let uri = value.parse::<Uri>().map_err(|_| {
+        (
+            StatusCode::BAD_REQUEST,
+            format!("{} must be a valid URL", field_name),
+        )
+    })?;
+
+    let scheme = uri.scheme_str();
+    if !matches!(scheme, Some("http" | "https")) || uri.authority().is_none() {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            format!("{} must be an absolute HTTP(S) URL", field_name),
+        ));
+    }
+
+    Ok(())
+}
+
+fn non_empty_str(value: &str) -> Option<&str> {
+    if value.is_empty() {
+        None
+    } else {
+        Some(value)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn normalize_required_text_trims_and_rejects_blank() {
+        assert_eq!(
+            normalize_required_text(Some("  Lotus Art  ".to_string()), "Title", 200).unwrap(),
+            "Lotus Art"
+        );
+
+        let error = normalize_required_text(Some("   ".to_string()), "Title", 200)
+            .expect_err("blank required text should fail");
+        assert_eq!(error.0, StatusCode::BAD_REQUEST);
+        assert_eq!(error.1, "Title is required");
+    }
+
+    #[test]
+    fn normalize_optional_text_enforces_character_limit() {
+        let error = normalize_optional_text(Some("abcd".to_string()), "Medium", 3)
+            .expect_err("overlong text should fail");
+
+        assert_eq!(error.0, StatusCode::BAD_REQUEST);
+        assert_eq!(error.1, "Medium must be 3 characters or less");
+    }
+
+    #[test]
+    fn validate_http_url_requires_absolute_http_url() {
+        assert!(validate_http_url("https://example.com/source", "Source URL").is_ok());
+        assert!(validate_http_url("http://example.com/source", "Source URL").is_ok());
+
+        let relative = validate_http_url("/relative/path", "Source URL")
+            .expect_err("relative URL should fail");
+        assert_eq!(relative.0, StatusCode::BAD_REQUEST);
+        assert_eq!(
+            relative.1,
+            "Source URL must be an absolute HTTP(S) URL"
+        );
+
+        let javascript = validate_http_url("javascript:alert(1)", "Source URL")
+            .expect_err("non-http URL should fail");
+        assert_eq!(javascript.0, StatusCode::BAD_REQUEST);
+    }
 }

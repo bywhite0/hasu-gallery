@@ -45,6 +45,8 @@
 
 **2026-07-07 上传/审核 E2E 切片**: 新增本地 Playwright smoke，使用 mock API 串起 Art 上传提交、pending 审核队列展示、审核批准与队列刷新为空。E2E 继续保持本地脚本，不进入 CI。
 
+**2026-07-07 上传输入校验切片**: 后端上传入口补齐服务端字段规范化：必填字段 trim 后校验、标题/artist/medium/source/source_url 长度限制，以及 source_url 必须为绝对 HTTP(S) URL；新增纯单元测试覆盖边界。
+
 **方向已确定**：方案 C（双轨拆仓）。hasu-memes 保持只读画廊终态，hasu-gallery 为新建 UGC 平台。
 
 ---
@@ -354,7 +356,7 @@ backend/src/
 
 - Rate limiting (upload, login attempts)
 - CSRF protection
-- Input sanitization audit
+- 🔄 Input sanitization audit: upload text normalization, length limits, source URL scheme/authority validation
 - SQL injection prevention (use parameterized queries)
 - File upload restrictions (extension whitelist, magic byte validation)
 
@@ -397,7 +399,7 @@ backend/src/
 
 **Immediate Next Steps**:
 1. 在可用测试数据库环境下扩展 API 集成测试：facets moderator/admin 聚合路径、上传入库、审核状态流转。
-2. 生产化安全加固：上传/登录限流、CSRF、防刷、输入与上传校验审计。
+2. 生产化安全加固：上传/登录限流、CSRF、防刷、继续补齐输入与上传校验审计。
 3. 文档与可观测性：部署环境变量、内容政策/审核指南、错误监控与基础指标。
 
 **Long-term Priorities**:
