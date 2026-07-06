@@ -149,6 +149,25 @@ Allowed status values: `approved`, `rejected`, `takedown`.
 
 Returns moderation log entries for a work.
 
+### `GET /api/monitoring/summary`
+
+Moderator/admin only. Returns operational counters for basic monitoring.
+
+Response:
+
+```json
+{
+  "total_uploads": 120,
+  "approved_uploads": 100,
+  "pending_backlog": 12,
+  "upload_success_rate": 0.8333333333333334,
+  "pending_by_gallery": [
+    { "gallery": "art", "count": 7 },
+    { "gallery": "meme", "count": 5 }
+  ]
+}
+```
+
 ## CSRF And CORS
 
 Unsafe methods validate browser `Origin` or `Referer` against

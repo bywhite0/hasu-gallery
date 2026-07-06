@@ -95,6 +95,10 @@ async fn main() {
         .route("/api/moderation/queue", get(routes::moderation::get_queue))
         .route("/api/works/:id/status", patch(routes::moderation::update_status))
         .route("/api/moderation/log/:work_id", get(routes::moderation::get_log))
+        .route(
+            "/api/monitoring/summary",
+            get(routes::moderation::get_monitoring_summary),
+        )
         .with_state(state.db.clone())
         .layer(from_fn_with_state(
             state.db.clone(),

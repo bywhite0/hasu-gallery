@@ -271,6 +271,28 @@ pub struct ModerationLogResponse {
     pub logs: Vec<ModerationLogEntry>,
 }
 
+#[derive(Serialize, sqlx::FromRow)]
+pub struct PendingBacklogItem {
+    pub gallery: String,
+    pub count: i64,
+}
+
+#[derive(Serialize)]
+pub struct MonitoringSummary {
+    pub total_uploads: i64,
+    pub approved_uploads: i64,
+    pub pending_backlog: i64,
+    pub upload_success_rate: f64,
+    pub pending_by_gallery: Vec<PendingBacklogItem>,
+}
+
+#[derive(sqlx::FromRow)]
+struct MonitoringCounts {
+    total_uploads: i64,
+    approved_uploads: i64,
+    pending_backlog: i64,
+}
+
 /// Get moderation log for a work
 pub async fn get_log(
     State(pool): State<PgPool>,
@@ -294,6 +316,52 @@ pub async fn get_log(
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Json(ModerationLogResponse { work_id, logs }))
+}
+
+pub async fn get_monitoring_summary(
+    State(pool): State<PgPool>,
+) -> Result<Json<MonitoringSummary>, StatusCode> {
+    let counts = sqlx::query_as::<_, MonitoringCounts>(
+        r#"
+        SELECT
+          COUNT(*)::BIGINT AS total_uploads,
+          COUNT(*) FILTER (WHERE status = 'approved'::work_status)::BIGINT AS approved_uploads,
+          COUNT(*) FILTER (WHERE status = 'pending'::work_status)::BIGINT AS pending_backlog
+        FROM works
+        "#
+    )
+    .fetch_one(&pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let pending_by_gallery = sqlx::query_as::<_, PendingBacklogItem>(
+        r#"
+        SELECT gallery::TEXT AS gallery, COUNT(*)::BIGINT AS count
+        FROM works
+        WHERE status = 'pending'::work_status
+        GROUP BY gallery
+        ORDER BY gallery
+        "#
+    )
+    .fetch_all(&pool)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(MonitoringSummary {
+        total_uploads: counts.total_uploads,
+        approved_uploads: counts.approved_uploads,
+        pending_backlog: counts.pending_backlog,
+        upload_success_rate: upload_success_rate(counts.approved_uploads, counts.total_uploads),
+        pending_by_gallery,
+    }))
+}
+
+fn upload_success_rate(approved_uploads: i64, total_uploads: i64) -> f64 {
+    if total_uploads == 0 {
+        0.0
+    } else {
+        approved_uploads as f64 / total_uploads as f64
+    }
 }
 
 #[cfg(test)]
@@ -357,5 +425,11 @@ mod tests {
             normalize_review_note(Some("x".repeat(MAX_REVIEW_NOTE_LEN + 1))).unwrap_err(),
             StatusCode::BAD_REQUEST
         );
+    }
+
+    #[test]
+    fn upload_success_rate_handles_empty_and_non_empty_counts() {
+        assert_eq!(upload_success_rate(0, 0), 0.0);
+        assert_eq!(upload_success_rate(3, 4), 0.75);
     }
 }

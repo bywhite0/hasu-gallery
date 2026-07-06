@@ -75,6 +75,8 @@
 
 **2026-07-07 基础可观测性切片**: 新增全局 request observability middleware，记录 method/path/status/duration，并为响应附加 `x-request-duration-ms`；为后续 Sentry/APM 与指标采集保留统一入口。
 
+**2026-07-07 监控摘要 API 切片**: 新增 moderator/admin 保护的 `GET /api/monitoring/summary`，返回 total uploads、approved uploads、pending backlog、upload success rate 与按 gallery 分组的 pending backlog；API 文档同步记录响应结构。
+
 **方向已确定**：方案 C（双轨拆仓）。hasu-memes 保持只读画廊终态，hasu-gallery 为新建 UGC 平台。
 
 ---
@@ -417,7 +419,7 @@ backend/src/
 - 🔄 Error tracking (Sentry or similar): request observability hook ready
 - ✅ Performance monitoring baseline: request duration logs and response header
 - Database query profiling
-- User analytics (upload success rate, moderation queue backlog)
+- ✅ User analytics (upload success rate, moderation queue backlog)
 
 ---
 
