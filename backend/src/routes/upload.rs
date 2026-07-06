@@ -33,6 +33,7 @@ pub async fn upload_work(
         .ok_or_else(|| (StatusCode::UNAUTHORIZED, "Not authenticated".to_string()))?;
 
     let mut file_data: Option<Vec<u8>> = None;
+    let mut file_name: Option<String> = None;
     let mut title: Option<String> = None;
     let mut gallery: Option<String> = None;
     let mut origin: Option<String> = None;
@@ -53,6 +54,7 @@ pub async fn upload_work(
 
         match name.as_str() {
             "file" => {
+                file_name = field.file_name().map(ToString::to_string);
                 let data = field
                     .bytes()
                     .await
@@ -227,6 +229,7 @@ pub async fn upload_work(
 
     // 检测图片格式
     let content_type = detect_image_format(&file_data).map_err(|e| (StatusCode::BAD_REQUEST, e))?;
+    validate_file_extension(file_name.as_deref(), &content_type)?;
 
     // 获取图片尺寸
     let (width, height) =
@@ -418,6 +421,45 @@ fn non_empty_str(value: &str) -> Option<&str> {
     }
 }
 
+fn validate_file_extension(
+    file_name: Option<&str>,
+    content_type: &str,
+) -> Result<(), (StatusCode, String)> {
+    let Some(file_name) = file_name else {
+        return Ok(());
+    };
+    let extension = file_name
+        .rsplit_once('.')
+        .map(|(_, extension)| extension.trim().to_ascii_lowercase())
+        .filter(|extension| !extension.is_empty())
+        .ok_or_else(|| {
+            (
+                StatusCode::BAD_REQUEST,
+                "File extension is required for image uploads".to_string(),
+            )
+        })?;
+
+    let allowed_extensions = match content_type {
+        "image/png" => &["png"][..],
+        "image/jpeg" => &["jpg", "jpeg"][..],
+        "image/gif" => &["gif"][..],
+        "image/webp" => &["webp"][..],
+        _ => &[][..],
+    };
+
+    if allowed_extensions.contains(&extension.as_str()) {
+        return Ok(());
+    }
+
+    Err((
+        StatusCode::BAD_REQUEST,
+        format!(
+            "File extension .{} does not match detected image type {}",
+            extension, content_type
+        ),
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -460,5 +502,21 @@ mod tests {
         let javascript = validate_http_url("javascript:alert(1)", "Source URL")
             .expect_err("non-http URL should fail");
         assert_eq!(javascript.0, StatusCode::BAD_REQUEST);
+    }
+
+    #[test]
+    fn validate_file_extension_matches_detected_image_type() {
+        assert!(validate_file_extension(Some("lotus.PNG"), "image/png").is_ok());
+        assert!(validate_file_extension(Some("scan.jpeg"), "image/jpeg").is_ok());
+        assert!(validate_file_extension(Some("animation.gif"), "image/gif").is_ok());
+        assert!(validate_file_extension(Some("upload"), "image/png").is_err());
+
+        let error = validate_file_extension(Some("payload.exe"), "image/png")
+            .expect_err("executable extension should fail");
+        assert_eq!(error.0, StatusCode::BAD_REQUEST);
+        assert_eq!(
+            error.1,
+            "File extension .exe does not match detected image type image/png"
+        );
     }
 }

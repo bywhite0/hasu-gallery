@@ -51,6 +51,8 @@
 
 **2026-07-07 CSRF 来源校验切片**: 新增 Origin/Referer guard，复用 `CORS_ALLOWED_ORIGINS` 作为可信浏览器来源列表；非安全方法在携带不可信浏览器来源时返回 403，无来源头的脚本/服务端调用保持兼容。
 
+**2026-07-07 上传扩展名限制切片**: 后端上传入口读取 multipart 原始文件名，并在 magic byte MIME 检测后校验扩展名白名单；`.png/.jpg/.jpeg/.gif/.webp` 必须与检测出的图片类型匹配。
+
 **方向已确定**：方案 C（双轨拆仓）。hasu-memes 保持只读画廊终态，hasu-gallery 为新建 UGC 平台。
 
 ---
@@ -362,7 +364,7 @@ backend/src/
 - ✅ CSRF protection: unsafe-method Origin/Referer validation against configured allowed origins
 - 🔄 Input sanitization audit: upload text normalization, length limits, source URL scheme/authority validation
 - SQL injection prevention (use parameterized queries)
-- File upload restrictions (extension whitelist, magic byte validation)
+- ✅ File upload restrictions: extension whitelist plus magic byte validation
 
 #### 5.2 Performance Optimization
 
