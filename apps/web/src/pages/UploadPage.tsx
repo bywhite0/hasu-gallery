@@ -58,10 +58,10 @@ export function UploadPage() {
             <CheckCircle2 className="w-16 h-16 mx-auto text-green-500" />
             <div className="space-y-2">
               <h2 className="text-xl font-semibold text-foreground">
-                Upload Successful!
+                Upload submitted
               </h2>
               <p className="text-muted-foreground">
-                Your work has been uploaded and is pending approval.
+                Your work is now waiting for review.
               </p>
             </div>
             <div className="flex justify-center gap-3 pt-4">
@@ -69,7 +69,7 @@ export function UploadPage() {
                 View Work
               </Button>
               <Button onClick={handleUploadAnother} variant="outline">
-                <Upload className="w-4 h-4 mr-2" />
+                <Upload className="w-4 h-4 mr-2" aria-hidden="true" />
                 Upload Another
               </Button>
             </div>
@@ -77,7 +77,7 @@ export function UploadPage() {
         ) : (
           <>
             {mutation.error && (
-              <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 flex items-start justify-between">
+              <div role="alert" aria-live="assertive" className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 flex items-start justify-between">
                 <div className="flex-1">
                   <p className="text-sm font-medium text-destructive">
                     Upload failed
@@ -91,7 +91,7 @@ export function UploadPage() {
                   className="text-destructive hover:text-destructive/80 transition-colors"
                   aria-label="Dismiss error"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-5 h-5" aria-hidden="true" />
                 </button>
               </div>
             )}

@@ -17,6 +17,7 @@ export function UploadForm({ file, onSubmit, isUploading }: UploadFormProps) {
   const [medium, setMedium] = useState('');
   const [rating, setRating] = useState('all_ages');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const errorMessages = Object.values(errors);
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -95,7 +96,17 @@ export function UploadForm({ file, onSubmit, isUploading }: UploadFormProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+      {errorMessages.length > 0 && (
+        <div
+          role="alert"
+          aria-live="assertive"
+          className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
+        >
+          Please fix {errorMessages.length} upload detail{errorMessages.length === 1 ? '' : 's'} before submitting.
+        </div>
+      )}
+
       <div>
         <label htmlFor="title" className="block text-sm font-medium mb-1">
           Title *
@@ -108,9 +119,11 @@ export function UploadForm({ file, onSubmit, isUploading }: UploadFormProps) {
           disabled={isUploading}
           className="w-full px-3 py-2 border rounded-md disabled:opacity-50"
           maxLength={200}
+          aria-invalid={Boolean(errors.title)}
+          aria-describedby={errors.title ? 'title-error' : undefined}
         />
         {errors.title && (
-          <p className="text-sm text-red-600 mt-1">{errors.title}</p>
+          <p id="title-error" className="text-sm text-red-600 mt-1">{errors.title}</p>
         )}
       </div>
 
@@ -124,13 +137,15 @@ export function UploadForm({ file, onSubmit, isUploading }: UploadFormProps) {
           onChange={(e) => setGallery(e.target.value)}
           disabled={isUploading}
           className="w-full px-3 py-2 border rounded-md disabled:opacity-50"
+          aria-invalid={Boolean(errors.gallery)}
+          aria-describedby={errors.gallery ? 'gallery-error' : undefined}
         >
           <option value="">Select gallery type</option>
           <option value="meme">Meme</option>
           <option value="art">Art</option>
         </select>
         {errors.gallery && (
-          <p className="text-sm text-red-600 mt-1">{errors.gallery}</p>
+          <p id="gallery-error" className="text-sm text-red-600 mt-1">{errors.gallery}</p>
         )}
       </div>
 
@@ -145,6 +160,8 @@ export function UploadForm({ file, onSubmit, isUploading }: UploadFormProps) {
             onChange={(e) => setOrigin(e.target.value)}
             disabled={isUploading}
             className="w-full px-3 py-2 border rounded-md disabled:opacity-50"
+            aria-invalid={Boolean(errors.origin)}
+            aria-describedby={errors.origin ? 'origin-error' : undefined}
           >
             <option value="">Select origin</option>
             <option value="official">Official</option>
@@ -152,7 +169,7 @@ export function UploadForm({ file, onSubmit, isUploading }: UploadFormProps) {
             <option value="fan_made">Fan Made</option>
           </select>
           {errors.origin && (
-            <p className="text-sm text-red-600 mt-1">{errors.origin}</p>
+            <p id="origin-error" className="text-sm text-red-600 mt-1">{errors.origin}</p>
           )}
         </div>
       )}
@@ -172,9 +189,11 @@ export function UploadForm({ file, onSubmit, isUploading }: UploadFormProps) {
               className="w-full px-3 py-2 border rounded-md disabled:opacity-50"
               maxLength={200}
               placeholder="Artist name"
+              aria-invalid={Boolean(errors.artist)}
+              aria-describedby={errors.artist ? 'artist-error' : undefined}
             />
             {errors.artist && (
-              <p className="text-sm text-red-600 mt-1">{errors.artist}</p>
+              <p id="artist-error" className="text-sm text-red-600 mt-1">{errors.artist}</p>
             )}
           </div>
 
@@ -204,13 +223,15 @@ export function UploadForm({ file, onSubmit, isUploading }: UploadFormProps) {
               onChange={(e) => setRating(e.target.value)}
               disabled={isUploading}
               className="w-full px-3 py-2 border rounded-md disabled:opacity-50"
+              aria-invalid={Boolean(errors.rating)}
+              aria-describedby={errors.rating ? 'rating-error' : undefined}
             >
               <option value="all_ages">All Ages</option>
               <option value="r15">R-15</option>
               <option value="r18">R-18</option>
             </select>
             {errors.rating && (
-              <p className="text-sm text-red-600 mt-1">{errors.rating}</p>
+              <p id="rating-error" className="text-sm text-red-600 mt-1">{errors.rating}</p>
             )}
           </div>
         </>
@@ -243,14 +264,16 @@ export function UploadForm({ file, onSubmit, isUploading }: UploadFormProps) {
           disabled={isUploading}
           className="w-full px-3 py-2 border rounded-md disabled:opacity-50"
           placeholder="https://example.com"
+          aria-invalid={Boolean(errors.sourceUrl)}
+          aria-describedby={errors.sourceUrl ? 'source-url-error' : undefined}
         />
         {errors.sourceUrl && (
-          <p className="text-sm text-red-600 mt-1">{errors.sourceUrl}</p>
+          <p id="source-url-error" className="text-sm text-red-600 mt-1">{errors.sourceUrl}</p>
         )}
       </div>
 
       <Button type="submit" disabled={isUploading} className="w-full">
-        {isUploading ? 'Uploading...' : 'Upload'}
+        {isUploading ? 'Submitting...' : 'Submit for review'}
       </Button>
     </form>
   );

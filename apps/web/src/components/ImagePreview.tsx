@@ -40,19 +40,21 @@ export function ImagePreview({ file, onRemove }: ImagePreviewProps) {
   return (
     <div className="relative rounded-lg overflow-hidden border border-border bg-card">
       <Button
+        type="button"
         variant="ghost"
         size="sm"
         className="absolute top-2 right-2 h-8 w-8 z-10"
         onClick={onRemove}
+        aria-label="Remove selected file"
       >
-        <X className="h-4 w-4" />
+        <X className="h-4 w-4" aria-hidden="true" />
       </Button>
 
       <div className="flex justify-center items-center p-4 bg-muted/30">
         {objectUrl && (
           <img
             src={objectUrl}
-            alt={file.name}
+            alt={`Selected upload preview: ${file.name}`}
             className="max-h-64 w-auto object-contain"
           />
         )}

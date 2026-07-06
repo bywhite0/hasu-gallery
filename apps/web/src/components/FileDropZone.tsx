@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
+import type { KeyboardEvent } from 'react';
 import { Upload } from 'lucide-react';
 
 interface FileDropZoneProps {
@@ -14,6 +15,9 @@ export function FileDropZone({
   disabled = false,
   accept = 'image/*',
 }: FileDropZoneProps) {
+  const inputId = useId();
+  const hintId = useId();
+  const errorId = useId();
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -68,9 +72,16 @@ export function FileDropZone({
     }
   };
 
-  const handleClick = () => {
+  const openFilePicker = () => {
     if (!disabled && inputRef.current) {
       inputRef.current.click();
+    }
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLLabelElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      openFilePicker();
     }
   };
 
@@ -80,48 +91,62 @@ export function FileDropZone({
       const file = files[0];
       if (validateFile(file)) {
         onFileSelect(file);
+        e.target.value = '';
       }
     }
   };
 
   return (
-    <div
-      onDragEnter={handleDragEnter}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-      onClick={handleClick}
-      className={`
-        bg-surface border-2 rounded-lg p-8 text-center cursor-pointer
-        transition-all duration-200
-        ${isDragging ? 'border-solid border-primary bg-primary/5' : 'border-dashed border-border'}
-        ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-solid hover:border-primary'}
-      `}
-    >
+    <div>
       <input
+        id={inputId}
         ref={inputRef}
         type="file"
         accept={accept}
         onChange={handleInputChange}
         disabled={disabled}
-        className="hidden"
+        aria-label="Choose an image file to upload"
+        aria-invalid={Boolean(error)}
+        aria-describedby={`${hintId}${error ? ` ${errorId}` : ''}`}
+        tabIndex={-1}
+        className="sr-only"
       />
 
-      <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+      <label
+        htmlFor={inputId}
+        role="button"
+        tabIndex={disabled ? -1 : 0}
+        aria-disabled={disabled}
+        aria-describedby={`${hintId}${error ? ` ${errorId}` : ''}`}
+        onDragEnter={handleDragEnter}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        onKeyDown={handleKeyDown}
+        className={`
+          bg-surface border-2 rounded-lg p-8 text-center cursor-pointer
+          transition-all duration-200 block
+          focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2
+          ${isDragging ? 'border-solid border-primary bg-primary/5' : 'border-dashed border-border'}
+          ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-solid hover:border-primary'}
+        `}
+      >
+        <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" aria-hidden="true" />
 
-      <p className="text-base text-foreground mb-2">
-        Drag & drop an image here, or click to select
-      </p>
-
-      <p className="text-sm text-muted-foreground">
-        Maximum file size: 10MB
-      </p>
-
-      {error && (
-        <p className="text-sm text-destructive mt-4">
-          {error}
+        <p className="text-base text-foreground mb-2">
+          Drag an image here, or choose a file
         </p>
-      )}
+
+        <p id={hintId} className="text-sm text-muted-foreground">
+          Maximum file size: 10MB
+        </p>
+
+        {error && (
+          <p id={errorId} role="alert" aria-live="assertive" className="text-sm text-destructive mt-4">
+            {error}
+          </p>
+        )}
+      </label>
     </div>
   );
 }
