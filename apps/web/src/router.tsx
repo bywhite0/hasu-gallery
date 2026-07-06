@@ -125,7 +125,7 @@ const indexRoute = createRoute({
       <div className="space-y-4">
         <h2 className="text-xl font-semibold">Welcome to Hasu Gallery</h2>
         <p className="text-ink-2">
-          双画廊 UGC 平台 - Phase 2 功能完整
+          A community gallery for memes and fan art, with review before publishing.
         </p>
         <div className="flex gap-4">
           {user ? (

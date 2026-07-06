@@ -1,29 +1,39 @@
 import { useState, FormEvent } from 'react';
-import { Button } from '@hasu-gallery/ui';
+import { Link } from '@tanstack/react-router';
+import { Button, Field, FormMessage, Input } from '@hasu-gallery/ui';
 import { useAuthStore } from '../store/auth';
+import { getAuthErrorMessage, isRecoverableAuthError } from './authErrorCopy';
 
 export function RegisterForm() {
-  const { register, isLoading, error } = useAuthStore();
+  const { register, clearError } = useAuthStore();
   const [handle, setHandle] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [validationError, setValidationError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const clearFormErrors = () => {
+    if (validationError) setValidationError('');
+    if (submitError) setSubmitError(null);
+    clearError();
+  };
 
   const validateForm = (): boolean => {
     if (!handle.trim() || !email.trim() || !password) {
-      setValidationError('Handle, email, and password are required');
+      setValidationError('Handle, email, and password are required.');
       return false;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      setValidationError('Invalid email format');
+      setValidationError('Enter a valid email address.');
       return false;
     }
 
     if (password.length < 8) {
-      setValidationError('Password must be at least 8 characters');
+      setValidationError('Password must be at least 8 characters.');
       return false;
     }
 
@@ -35,89 +45,105 @@ export function RegisterForm() {
     e.preventDefault();
     if (!validateForm()) return;
 
-    await register(handle, email, password, displayName || handle);
+    try {
+      setIsSubmitting(true);
+      setSubmitError(null);
+      await register(handle.trim(), email.trim(), password, displayName.trim() || handle.trim());
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Registration failed.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const displayError = validationError || error;
+  const displayError = validationError || getAuthErrorMessage(submitError, 'register');
+  const canSubmit = Boolean(handle.trim() && email.trim() && password);
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 w-full max-w-md">
-      <div>
-        <label htmlFor="handle" className="block text-sm font-medium mb-1">
-          Handle *
-        </label>
-        <input
+    <form onSubmit={handleSubmit} className="w-full space-y-4">
+      <Field label="Handle" htmlFor="handle" required>
+        <Input
           id="handle"
           type="text"
           value={handle}
-          onChange={(e) => setHandle(e.target.value)}
-          disabled={isLoading}
-          className="w-full px-3 py-2 border rounded-md"
+          onChange={(e) => {
+            setHandle(e.target.value);
+            clearFormErrors();
+          }}
+          disabled={isSubmitting}
           required
+          autoComplete="username"
         />
-      </div>
+      </Field>
 
-      <div>
-        <label htmlFor="email" className="block text-sm font-medium mb-1">
-          Email *
-        </label>
-        <input
+      <Field label="Email" htmlFor="email" required>
+        <Input
           id="email"
           type="email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          disabled={isLoading}
-          className="w-full px-3 py-2 border rounded-md"
+          onChange={(e) => {
+            setEmail(e.target.value);
+            clearFormErrors();
+          }}
+          disabled={isSubmitting}
           required
+          autoComplete="email"
         />
-      </div>
+      </Field>
 
-      <div>
-        <label htmlFor="password" className="block text-sm font-medium mb-1">
-          Password *
-        </label>
-        <input
+      <Field label="Password" htmlFor="password" required hint="Use at least 8 characters.">
+        <Input
           id="password"
           type="password"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          disabled={isLoading}
-          className="w-full px-3 py-2 border rounded-md"
+          onChange={(e) => {
+            setPassword(e.target.value);
+            clearFormErrors();
+          }}
+          disabled={isSubmitting}
           required
           minLength={8}
+          autoComplete="new-password"
         />
-      </div>
+      </Field>
 
-      <div>
-        <label htmlFor="displayName" className="block text-sm font-medium mb-1">
-          Display Name (optional)
-        </label>
-        <input
+      <Field label="Display name" htmlFor="displayName" hint="Defaults to your handle.">
+        <Input
           id="displayName"
           type="text"
           value={displayName}
-          onChange={(e) => setDisplayName(e.target.value)}
-          disabled={isLoading}
-          className="w-full px-3 py-2 border rounded-md"
-          placeholder="Defaults to handle"
+          onChange={(e) => {
+            setDisplayName(e.target.value);
+            clearFormErrors();
+          }}
+          disabled={isSubmitting}
+          autoComplete="name"
         />
-      </div>
+      </Field>
 
       {displayError && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-md text-red-700 text-sm">
+        <FormMessage
+          action={
+            isRecoverableAuthError(submitError) ? (
+              <Button type="submit" variant="outline" size="sm" disabled={isSubmitting || !canSubmit}>
+                Try again
+              </Button>
+            ) : undefined
+          }
+        >
           {displayError}
-        </div>
+        </FormMessage>
       )}
 
-      <Button type="submit" disabled={isLoading} className="w-full">
-        {isLoading ? 'Creating account...' : 'Register'}
+      <Button type="submit" disabled={isSubmitting || !canSubmit} className="w-full">
+        {isSubmitting ? 'Creating account...' : 'Register'}
       </Button>
 
-      <div className="text-center text-sm">
+      <div className="text-center text-sm text-ink-2">
         Already have an account?{' '}
-        <a href="/login" className="text-blue-600 hover:underline">
+        <Link to="/login" className="font-medium text-ink underline underline-offset-4 hover:text-ink-2">
           Login
-        </a>
+        </Link>
       </div>
     </form>
   );
