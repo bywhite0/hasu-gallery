@@ -77,6 +77,8 @@
 
 **2026-07-07 监控摘要 API 切片**: 新增 moderator/admin 保护的 `GET /api/monitoring/summary`，返回 total uploads、approved uploads、pending backlog、upload success rate 与按 gallery 分组的 pending backlog；API 文档同步记录响应结构。
 
+**2026-07-07 监控 Runbook 切片**: 新增 `docs/monitoring.md`，覆盖 request duration 日志/响应头、错误追踪日志接入、`GET /api/monitoring/summary` 运维探针、Postgres `pg_stat_statements` 查询 profiling 与发布后检查。
+
 **方向已确定**：方案 C（双轨拆仓）。hasu-memes 保持只读画廊终态，hasu-gallery 为新建 UGC 平台。
 
 ---
@@ -416,9 +418,9 @@ backend/src/
 
 #### 5.5 Monitoring
 
-- 🔄 Error tracking (Sentry or similar): request observability hook ready
+- ✅ Error tracking (Sentry or similar): log-drain baseline and SDK hook point documented
 - ✅ Performance monitoring baseline: request duration logs and response header
-- Database query profiling
+- ✅ Database query profiling
 - ✅ User analytics (upload success rate, moderation queue backlog)
 
 ---

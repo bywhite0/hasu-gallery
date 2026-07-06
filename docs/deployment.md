@@ -77,6 +77,12 @@ npx pnpm@10.26.2 e2e
 E2E tests are local-only by design. CI remains lightweight and does not install
 Playwright browsers.
 
+## Monitoring
+
+See [Monitoring Runbook](monitoring.md) for request duration logs, the
+moderator/admin monitoring summary API, error tracking log-drain expectations,
+and Postgres query profiling.
+
 ## Media And CDN
 
 Uploaded objects are stored in S3 using UUID-based keys. Public URLs are

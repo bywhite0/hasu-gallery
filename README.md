@@ -46,6 +46,7 @@ hasu-gallery/
 - [API Reference](docs/api.md)
 - [Deployment Guide](docs/deployment.md)
 - [Moderation Guidelines](docs/moderation-guidelines.md)
+- [Monitoring Runbook](docs/monitoring.md)
 - [User Guide](docs/user-guide.md)
 - [Edge Server Setup](docs/edge-server-setup.md)
 
