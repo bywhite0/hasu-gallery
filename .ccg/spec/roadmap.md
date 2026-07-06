@@ -59,6 +59,8 @@
 
 **2026-07-07 数据库索引切片**: 新增 `002_performance_indexes.sql`，覆盖 gallery/status/created_at、gallery/status/title、uploader/created_at 与 Art metadata facets/filter 索引；审核队列查询改为 enum 参数 cast，避免 `gallery::TEXT/status::TEXT` 绕开索引。
 
+**2026-07-07 缩略图编码切片**: 缩略图生成改为显式 `JpegEncoder::new_with_quality(..., 82)` 并统一转 RGB，避免默认 JPEG 质量不可控，同时覆盖 alpha PNG 输入测试。当前 `image` crate 未提供 progressive JPEG encoder 开关，progressive 可在后续通过专用 encoder/CDN 处理。
+
 **方向已确定**：方案 C（双轨拆仓）。hasu-memes 保持只读画廊终态，hasu-gallery 为新建 UGC 平台。
 
 ---
@@ -375,7 +377,7 @@ backend/src/
 #### 5.2 Performance Optimization
 
 - ✅ Database indexing (on `gallery`, `status`, `created_at`, `phash`)
-- Image optimization (thumbnail generation, progressive JPEG)
+- ✅ Image optimization (thumbnail generation with fixed JPEG quality; progressive JPEG deferred to encoder/CDN support)
 - CDN integration for static assets
 - Lazy loading for gallery grids
 

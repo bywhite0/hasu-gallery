@@ -1,5 +1,7 @@
-use image::{imageops::FilterType, ImageFormat, GenericImageView};
+use image::{codecs::jpeg::JpegEncoder, imageops::FilterType, GenericImageView, ImageFormat};
 use std::io::Cursor;
+
+const JPEG_THUMBNAIL_QUALITY: u8 = 82;
 
 /// 生成缩略图
 ///
@@ -17,10 +19,12 @@ pub fn generate_thumbnail(image_data: &[u8], max_size: u32) -> Result<Vec<u8>, S
         img
     };
 
-    // 编码为 JPEG
+    // 编码为固定质量的 JPEG，避免依赖 image crate 的默认质量。
     let mut buffer = Vec::new();
-    thumbnail
-        .write_to(&mut Cursor::new(&mut buffer), ImageFormat::Jpeg)
+    let thumbnail_rgb = thumbnail.to_rgb8();
+    let mut encoder = JpegEncoder::new_with_quality(&mut buffer, JPEG_THUMBNAIL_QUALITY);
+    encoder
+        .encode_image(&thumbnail_rgb)
         .map_err(|e| format!("Failed to encode thumbnail: {}", e))?;
 
     Ok(buffer)
@@ -68,6 +72,21 @@ mod tests {
 
         // 验证缩略图可以加载
         assert!(image::load_from_memory(&thumbnail).is_ok());
+        assert_eq!(&thumbnail[..2], &[0xFF, 0xD8]);
+        assert_eq!(image::guess_format(&thumbnail).unwrap(), ImageFormat::Jpeg);
+    }
+
+    #[test]
+    fn test_generate_thumbnail_from_alpha_image() {
+        let img = DynamicImage::new_rgba8(2, 2);
+        let mut buffer = Vec::new();
+        img.write_to(&mut Cursor::new(&mut buffer), ImageFormat::Png)
+            .unwrap();
+
+        let thumbnail = generate_thumbnail(&buffer, 400).unwrap();
+        let decoded = image::load_from_memory(&thumbnail).unwrap();
+
+        assert_eq!(decoded.color().channel_count(), 3);
     }
 
     #[test]
