@@ -9,7 +9,7 @@ use sqlx::Row;
 use tower_sessions::Session;
 
 use super::auth::SESSION_USER_ID_KEY;
-use crate::AppState;
+use crate::{storage::public_media_base_url, AppState};
 
 /// Query parameters for works listing
 #[derive(Debug, Deserialize)]
@@ -100,12 +100,6 @@ pub struct ArtFacetsResponse {
     pub ratings: Vec<FacetItem>,
 }
 
-/// Get public media base URL from environment or use default
-fn get_media_base_url() -> String {
-    std::env::var("PUBLIC_MEDIA_BASE_URL")
-        .unwrap_or_else(|_| "https://cdn.example.com/hasu-gallery".to_string())
-}
-
 /// Extract file extension from asset_file path
 fn extract_extension(asset_file: &str) -> &str {
     asset_file.rsplit('.').next().unwrap_or("jpg")
@@ -113,13 +107,13 @@ fn extract_extension(asset_file: &str) -> &str {
 
 /// Build thumbnail URL for a work (always .jpg since thumbnails are JPEG)
 pub fn build_thumbnail_url(id: &str, _asset_file: &str) -> String {
-    let base = get_media_base_url();
+    let base = public_media_base_url();
     format!("{}/{}_thumb.jpg", base, id)
 }
 
 /// Build file URL for a work
 pub fn build_file_url(id: &str, asset_file: &str) -> String {
-    let base = get_media_base_url();
+    let base = public_media_base_url();
     let ext = extract_extension(asset_file);
     format!("{}/{}.{}", base, id, ext)
 }

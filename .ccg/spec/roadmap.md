@@ -63,6 +63,8 @@
 
 **2026-07-07 前端懒加载切片**: Gallery/Home 已使用 lazy image；个人页 `MyWorksList` 从 CSS background-image 改为 `<img loading="lazy" decoding="async">`，让缩略图加载行为统一受浏览器懒加载控制。
 
+**2026-07-07 CDN base URL 切片**: 统一 `PUBLIC_MEDIA_BASE_URL` 解析到 `storage::public_media_base_url()`，上传返回 URL 与作品列表/详情 URL 共用同一 CDN base，默认值为 `https://cdn.example.com/hasu-gallery` 并自动去除尾斜杠。
+
 **方向已确定**：方案 C（双轨拆仓）。hasu-memes 保持只读画廊终态，hasu-gallery 为新建 UGC 平台。
 
 ---
@@ -380,7 +382,7 @@ backend/src/
 
 - ✅ Database indexing (on `gallery`, `status`, `created_at`, `phash`)
 - ✅ Image optimization (thumbnail generation with fixed JPEG quality; progressive JPEG deferred to encoder/CDN support)
-- CDN integration for static assets
+- ✅ CDN integration for static assets
 - ✅ Lazy loading for gallery/profile grids
 
 #### 5.3 Testing & CI
