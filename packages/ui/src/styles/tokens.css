@@ -6,6 +6,7 @@
   --color-ink: #383834;
   --color-ink-2: #6b6b62;
   --color-ink-3: #95948a;
+  --color-ink-secondary: var(--color-ink-2);
 
   /* Accent */
   --color-accent: #fce8e6;
@@ -17,14 +18,25 @@
   --color-danger: #ba2636;
   --color-info: #5383c3;
 
+  /* Legacy semantic aliases used by the current app surface */
+  --color-foreground: var(--color-ink);
+  --color-muted: #efefe8;
+  --color-muted-foreground: var(--color-ink-2);
+  --color-card: var(--color-surface);
+  --color-border: #d8d8d0;
+  --color-primary: var(--color-info);
+  --color-destructive: var(--color-danger);
+
   /* Typography */
   --font-sans: "Inter", system-ui, sans-serif;
   --font-serif: "Noto Serif JP", serif;
+}
 
-  /* Spacing */
-  --spacing-xs: 0.25rem;
-  --spacing-sm: 0.5rem;
-  --spacing-md: 1rem;
-  --spacing-lg: 1.5rem;
-  --spacing-xl: 2rem;
+:root {
+  /* App spacing tokens kept outside Tailwind's utility scale namespace. */
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
 }
