@@ -61,6 +61,8 @@
 
 **2026-07-07 缩略图编码切片**: 缩略图生成改为显式 `JpegEncoder::new_with_quality(..., 82)` 并统一转 RGB，避免默认 JPEG 质量不可控，同时覆盖 alpha PNG 输入测试。当前 `image` crate 未提供 progressive JPEG encoder 开关，progressive 可在后续通过专用 encoder/CDN 处理。
 
+**2026-07-07 前端懒加载切片**: Gallery/Home 已使用 lazy image；个人页 `MyWorksList` 从 CSS background-image 改为 `<img loading="lazy" decoding="async">`，让缩略图加载行为统一受浏览器懒加载控制。
+
 **方向已确定**：方案 C（双轨拆仓）。hasu-memes 保持只读画廊终态，hasu-gallery 为新建 UGC 平台。
 
 ---
@@ -379,7 +381,7 @@ backend/src/
 - ✅ Database indexing (on `gallery`, `status`, `created_at`, `phash`)
 - ✅ Image optimization (thumbnail generation with fixed JPEG quality; progressive JPEG deferred to encoder/CDN support)
 - CDN integration for static assets
-- Lazy loading for gallery grids
+- ✅ Lazy loading for gallery/profile grids
 
 #### 5.3 Testing & CI
 

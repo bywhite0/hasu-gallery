@@ -60,10 +60,19 @@ export function MyWorksList({ works, onWorkClick }: MyWorksListProps) {
             }}
           >
             <div className="relative">
-              <div
-                className="aspect-square bg-cover bg-center"
-                style={{ backgroundImage: `url(${work.thumbnail_url})` }}
-              />
+              {work.thumbnail_url ? (
+                <img
+                  src={work.thumbnail_url}
+                  alt={`${work.title} thumbnail`}
+                  loading="lazy"
+                  decoding="async"
+                  className="aspect-square h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex aspect-square items-center justify-center bg-accent/40 px-3 text-center text-xs text-ink-2">
+                  Image unavailable
+                </div>
+              )}
               <div className={`absolute top-2 right-2 flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${config.className}`}>
                 <Icon className="w-3 h-3" />
                 <span>{config.label}</span>
