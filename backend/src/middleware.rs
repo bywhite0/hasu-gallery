@@ -1,7 +1,7 @@
 use axum::{
     body::Body,
     extract::State,
-    http::{HeaderMap, Method, Request, StatusCode, Uri},
+    http::{HeaderMap, HeaderValue, Method, Request, StatusCode, Uri},
     middleware::Next,
     response::Response,
 };
@@ -12,6 +12,31 @@ use std::{
     time::{Duration, Instant},
 };
 use tower_sessions::Session;
+
+pub async fn request_observability(request: Request<Body>, next: Next) -> Response {
+    let method = request.method().clone();
+    let path = request.uri().path().to_string();
+    let started_at = Instant::now();
+    let mut response = next.run(request).await;
+    let status = response.status();
+    let duration_ms = started_at.elapsed().as_millis();
+
+    if let Ok(value) = HeaderValue::from_str(&duration_ms.to_string()) {
+        response
+            .headers_mut()
+            .insert("x-request-duration-ms", value);
+    }
+
+    tracing::info!(
+        method = %method,
+        path = %path,
+        status = status.as_u16(),
+        duration_ms,
+        "request completed"
+    );
+
+    response
+}
 
 #[derive(Clone)]
 pub struct CsrfOriginGuard {

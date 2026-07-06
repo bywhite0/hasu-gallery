@@ -73,6 +73,8 @@
 
 **2026-07-07 文档切片**: 新增 `docs/api.md`、`docs/deployment.md`、`docs/moderation-guidelines.md`、`docs/user-guide.md`，并在 README 增加文档入口；覆盖 API 契约、部署环境变量/迁移/CDN、本地 E2E、审核政策与上传指南。
 
+**2026-07-07 基础可观测性切片**: 新增全局 request observability middleware，记录 method/path/status/duration，并为响应附加 `x-request-duration-ms`；为后续 Sentry/APM 与指标采集保留统一入口。
+
 **方向已确定**：方案 C（双轨拆仓）。hasu-memes 保持只读画廊终态，hasu-gallery 为新建 UGC 平台。
 
 ---
@@ -412,8 +414,8 @@ backend/src/
 
 #### 5.5 Monitoring
 
-- Error tracking (Sentry or similar)
-- Performance monitoring (APM)
+- 🔄 Error tracking (Sentry or similar): request observability hook ready
+- ✅ Performance monitoring baseline: request duration logs and response header
 - Database query profiling
 - User analytics (upload success rate, moderation queue backlog)
 

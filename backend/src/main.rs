@@ -4,7 +4,7 @@ use axum::{
     response::IntoResponse,
     http::StatusCode,
     extract::State,
-    middleware::from_fn_with_state,
+    middleware::{from_fn, from_fn_with_state},
 };
 use std::net::SocketAddr;
 use std::time::Duration;
@@ -129,6 +129,7 @@ async fn main() {
         .merge(moderation_routes)
         .with_state(state)
         .layer(session_layer)
+        .layer(from_fn(middleware::request_observability))
         .layer(from_fn_with_state(
             csrf_guard,
             middleware::csrf_origin_guard,
@@ -247,6 +248,26 @@ mod tests {
 
         assert_eq!(status, StatusCode::BAD_REQUEST);
         assert!(body.contains("art gallery only"));
+    }
+
+    #[tokio::test]
+    async fn request_observability_adds_duration_header() {
+        let app = Router::new()
+            .route("/ok", get(|| async { "ok" }))
+            .layer(from_fn(middleware::request_observability));
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/ok")
+                    .body(Body::empty())
+                    .expect("request should build"),
+            )
+            .await
+            .expect("request should complete");
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert!(response.headers().contains_key("x-request-duration-ms"));
     }
 
     #[tokio::test]
