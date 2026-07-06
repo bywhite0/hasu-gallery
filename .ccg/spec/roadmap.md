@@ -4,7 +4,7 @@
 **Vision**: Dual-gallery UGC platform (Meme Gallery + Art Gallery) with upload & moderation  
 **Created**: 2026-06-09  
 **Last Synced**: 2026-07-07
-**Status**: ✅ Phase 1-4 baseline 已完成真实浏览器验收；Phase 5 production hardening 已开始
+**Status**: ✅ Phase 1-5 已完成；production hardening baseline 已通过本地验证
 
 > **架构更新 (2026-06-14)**: 基于 linkura-apps 分析，采用 Rspack + TanStack Router/Query + zustand + Tailwind v4 技术栈
 
@@ -29,7 +29,7 @@
 | **3.1 审核队列 API** | ✅ COMPLETE | ✅ middleware.rs + routes/moderation.rs（300 行），3 个 API 端点 | — |
 | **3.2 审核仪表板** | ✅ COMPLETE | ✅ ModerationPage + ModerationActions + ModerationLog（524 行）| — |
 | **4: Art Gallery** | ✅ BASELINE COMPLETE | ✅ Baseline launch 已验证：Meme/Art 导航、Art upload metadata、rating 筛选、`work_art_meta` 写入、MinIO 上传成功路径与审核发布均通过真实浏览器验收 | 自动化 E2E 与 production hardening 已转入 Phase 5 |
-| **5: Polish & Hardening** | 🔄 STARTED | 🔄 已开始：rating 偏好持久化、`GET /api/works/facets`、Art rating 计数、artist/medium 建议搜索已落地并通过真实 API + 浏览器验收 | E2E/集成测试、安全加固、部署/监控文档待补 |
+| **5: Polish & Hardening** | ✅ COMPLETE | ✅ Art polish、轻量 CI、后端测试、安全加固、性能索引/媒体优化、部署/审核/监控文档与监控摘要 API 均已落地；Playwright E2E 作为本地脚本保留 | 后续仅剩外部 APM/Sentry、发布自动化与前端组件测试等增强项 |
 
 **Phase 2 总计**: +2,562 行前端代码，11 个 API 端点，完整的画廊浏览和上传功能。
 
@@ -376,7 +376,7 @@ backend/src/
 
 **Goal**: Production readiness
 
-#### 5.0 Art Gallery Production Polish ✅ STARTED
+#### 5.0 Art Gallery Production Polish ✅ COMPLETE
 
 - ✅ Rating preference persistence via `hasu-gallery-preferences` local storage
 - ✅ Art facets API: `GET /api/works/facets?gallery=art`
@@ -406,7 +406,7 @@ backend/src/
 - ✅ Backend HTTP tests: `GET /api/works/facets` gallery/status validation and pending auth boundary
 - ✅ Unit tests (backend: auth, upload, moderation logic)
 - ✅ Integration tests (API endpoints)
-- E2E tests (upload flow, moderation flow)
+- ✅ E2E tests (upload flow, moderation flow; local Playwright script, not CI)
 - ✅ GitHub Actions CI pipeline (lightweight; no Playwright E2E)
 
 #### 5.4 Documentation
@@ -427,16 +427,16 @@ backend/src/
 
 ## Next Actions
 
-> **Current Status (2026-07-06)**: Phase 1-4 baseline 已完成真实浏览器验收；Phase 5 已完成 Art facets/search polish 的第一个切片，进入自动化测试与安全加固收尾。
+> **Current Status (2026-07-07)**: Phase 1-5 baseline 已完成。CI 保持轻量，仅覆盖前端 typecheck/build 与后端 Postgres + `cargo test`；Playwright E2E 作为本地脚本用于发布前验收。
 
 **Immediate Next Steps**:
-1. 在可用测试数据库环境下扩展 API 集成测试：facets moderator/admin 聚合路径、上传入库、审核状态流转。
-2. 生产化安全加固：上传/登录限流、CSRF、防刷、继续补齐输入与上传校验审计。
-3. 文档与可观测性：部署环境变量、内容政策/审核指南、错误监控与基础指标。
+1. 发布前本地验收：运行 `pnpm typecheck`、`pnpm build`、`cargo test --manifest-path backend/Cargo.toml` 与 `pnpm e2e`。
+2. 生产环境接入：按 `docs/deployment.md` 与 `docs/monitoring.md` 配置 Postgres、S3/MinIO、CDN、日志采集与监控摘要探针。
+3. 增强项规划：外部 APM/Sentry SDK、发布自动化、前端 Vitest/Testing Library 组件测试、专用 progressive JPEG/CDN 转码。
 
 **Long-term Priorities**:
-- Phase 5: 生产化加固（性能、安全、监控、自动化验收）
-- Phase 5 follow-up: 自动化验收、限流/CSRF、部署与监控文档
+- Phase 5 follow-up: 外部监控平台、发布流水线与前端组件测试
+- Future product work: 批量审核、通知、搜索体验与运营后台增强
 
 ---
 
@@ -444,9 +444,9 @@ backend/src/
 
 1. ~~Frontend 尚未实现~~ ✅ Phase 2 完成
 2. 缺少前端组件/单元测试（Vitest + Testing Library 未配置）
-3. 缺少后端集成测试
-4. 缺少发布/部署流水线（基础 CI 已覆盖 typecheck/build/cargo test；E2E 作为本地脚本）
-5. 缺少生产环境监控
+3. ~~缺少后端集成测试~~ ✅ Phase 5 已补 facets API HTTP 集成路径
+4. 缺少发布/部署流水线（轻量 CI 已覆盖 typecheck/build/cargo test；E2E 作为本地脚本）
+5. ~~缺少生产环境监控~~ ✅ Phase 5 已补日志/响应头/监控摘要 API 与监控 runbook；外部 APM/Sentry 接入为后续增强
 
 ---
 
