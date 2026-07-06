@@ -80,6 +80,12 @@ async fn main() {
         .split(',')
         .filter_map(|s| s.trim().parse().ok())
         .collect();
+    let csrf_guard = middleware::CsrfOriginGuard::new(
+        allowed_origins_str
+            .split(',')
+            .map(|origin| origin.to_string())
+            .collect(),
+    );
 
     tracing::info!("CORS allowed origins: {:?}", allowed_origins);
 
@@ -123,6 +129,10 @@ async fn main() {
         .merge(moderation_routes)
         .with_state(state)
         .layer(session_layer)
+        .layer(from_fn_with_state(
+            csrf_guard,
+            middleware::csrf_origin_guard,
+        ))
         .layer(
             CorsLayer::new()
                 .allow_origin(allowed_origins)

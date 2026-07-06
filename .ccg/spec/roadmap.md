@@ -49,6 +49,8 @@
 
 **2026-07-07 登录/上传限流切片**: 新增轻量内存限流 middleware，并挂载到 `POST /api/auth/login` 与 `POST /api/works/upload`；默认登录每分钟 10 次、上传每小时 20 次，按 forwarded/client 指纹 + 方法 + 路径分桶，超限返回 429。
 
+**2026-07-07 CSRF 来源校验切片**: 新增 Origin/Referer guard，复用 `CORS_ALLOWED_ORIGINS` 作为可信浏览器来源列表；非安全方法在携带不可信浏览器来源时返回 403，无来源头的脚本/服务端调用保持兼容。
+
 **方向已确定**：方案 C（双轨拆仓）。hasu-memes 保持只读画廊终态，hasu-gallery 为新建 UGC 平台。
 
 ---
@@ -357,7 +359,7 @@ backend/src/
 #### 5.1 Security Hardening
 
 - ✅ Rate limiting (upload, login attempts): in-memory per-client route buckets with 429 responses
-- CSRF protection
+- ✅ CSRF protection: unsafe-method Origin/Referer validation against configured allowed origins
 - 🔄 Input sanitization audit: upload text normalization, length limits, source URL scheme/authority validation
 - SQL injection prevention (use parameterized queries)
 - File upload restrictions (extension whitelist, magic byte validation)

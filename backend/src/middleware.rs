@@ -1,7 +1,7 @@
 use axum::{
     body::Body,
     extract::State,
-    http::{HeaderMap, Request, StatusCode},
+    http::{HeaderMap, Method, Request, StatusCode, Uri},
     middleware::Next,
     response::Response,
 };
@@ -12,6 +12,60 @@ use std::{
     time::{Duration, Instant},
 };
 use tower_sessions::Session;
+
+#[derive(Clone)]
+pub struct CsrfOriginGuard {
+    allowed_origins: Arc<Vec<String>>,
+}
+
+impl CsrfOriginGuard {
+    pub fn new(allowed_origins: Vec<String>) -> Self {
+        let allowed_origins = allowed_origins
+            .into_iter()
+            .map(|origin| origin.trim().trim_end_matches('/').to_string())
+            .filter(|origin| !origin.is_empty())
+            .collect();
+
+        Self {
+            allowed_origins: Arc::new(allowed_origins),
+        }
+    }
+
+    fn allows(&self, method: &Method, headers: &HeaderMap) -> bool {
+        if matches!(method, &Method::GET | &Method::HEAD | &Method::OPTIONS) {
+            return true;
+        }
+
+        if let Some(origin) = header_value(headers, "origin") {
+            return self.is_allowed_origin(&origin);
+        }
+
+        if let Some(referer) = header_value(headers, "referer") {
+            return referer_origin(&referer)
+                .map(|origin| self.is_allowed_origin(&origin))
+                .unwrap_or(false);
+        }
+
+        true
+    }
+
+    fn is_allowed_origin(&self, origin: &str) -> bool {
+        let origin = origin.trim().trim_end_matches('/');
+        self.allowed_origins.iter().any(|allowed| allowed == origin)
+    }
+}
+
+pub async fn csrf_origin_guard(
+    State(guard): State<CsrfOriginGuard>,
+    request: Request<Body>,
+    next: Next,
+) -> Result<Response, StatusCode> {
+    if !guard.allows(request.method(), request.headers()) {
+        return Err(StatusCode::FORBIDDEN);
+    }
+
+    Ok(next.run(request).await)
+}
 
 #[derive(Clone)]
 pub struct RateLimiter {
@@ -98,6 +152,20 @@ fn client_fingerprint(headers: &HeaderMap) -> String {
         .to_string()
 }
 
+fn header_value(headers: &HeaderMap, name: &str) -> Option<String> {
+    headers
+        .get(name)
+        .and_then(|value| value.to_str().ok())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToString::to_string)
+}
+
+fn referer_origin(value: &str) -> Option<String> {
+    let uri = value.parse::<Uri>().ok()?;
+    Some(format!("{}://{}", uri.scheme_str()?, uri.authority()?))
+}
+
 /// Middleware to require moderator or admin role
 pub async fn require_moderator(
     session: Session,
@@ -165,5 +233,42 @@ mod tests {
         );
 
         assert_eq!(client_fingerprint(&headers), "203.0.113.7");
+    }
+
+    #[test]
+    fn csrf_guard_allows_safe_methods_and_missing_browser_origin() {
+        let guard = CsrfOriginGuard::new(vec!["http://localhost:5173".to_string()]);
+        let headers = HeaderMap::new();
+
+        assert!(guard.allows(&Method::GET, &headers));
+        assert!(guard.allows(&Method::POST, &headers));
+    }
+
+    #[test]
+    fn csrf_guard_checks_origin_and_referer_for_unsafe_methods() {
+        let guard = CsrfOriginGuard::new(vec!["http://localhost:5173".to_string()]);
+        let mut headers = HeaderMap::new();
+        headers.insert("origin", "http://localhost:5173".parse().unwrap());
+
+        assert!(guard.allows(&Method::POST, &headers));
+
+        headers.insert("origin", "https://evil.example".parse().unwrap());
+        assert!(!guard.allows(&Method::POST, &headers));
+
+        headers.remove("origin");
+        headers.insert(
+            "referer",
+            "http://localhost:5173/upload?next=1".parse().unwrap(),
+        );
+        assert!(guard.allows(&Method::PATCH, &headers));
+    }
+
+    #[test]
+    fn csrf_guard_rejects_malformed_referer_for_unsafe_methods() {
+        let guard = CsrfOriginGuard::new(vec!["http://localhost:5173".to_string()]);
+        let mut headers = HeaderMap::new();
+        headers.insert("referer", "/relative".parse().unwrap());
+
+        assert!(!guard.allows(&Method::POST, &headers));
     }
 }
