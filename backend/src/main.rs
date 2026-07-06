@@ -187,10 +187,7 @@ mod tests {
     use tower::ServiceExt;
     use tower_sessions::{MemoryStore, SessionManagerLayer};
 
-    fn test_state() -> AppState {
-        let db = PgPoolOptions::new()
-            .connect_lazy("postgres://hasu_user:hasu_pass@localhost:5432/hasu_gallery_test")
-            .expect("test database URL should parse");
+    fn test_s3_client() -> aws_sdk_s3::Client {
         let s3_config = aws_sdk_s3::Config::builder()
             .behavior_version(BehaviorVersion::latest())
             .region(Region::new("us-east-1"))
@@ -204,9 +201,17 @@ mod tests {
             .endpoint_url("http://localhost:9000")
             .build();
 
+        aws_sdk_s3::Client::from_conf(s3_config)
+    }
+
+    fn test_state() -> AppState {
+        let db = PgPoolOptions::new()
+            .connect_lazy("postgres://hasu_user:hasu_pass@localhost:5432/hasu_gallery_test")
+            .expect("test database URL should parse");
+
         AppState {
             db,
-            s3_client: aws_sdk_s3::Client::from_conf(s3_config),
+            s3_client: test_s3_client(),
         }
     }
 
@@ -260,5 +265,113 @@ mod tests {
 
         assert_eq!(status, StatusCode::UNAUTHORIZED);
         assert!(body.contains("Authentication required to view non-approved facets"));
+    }
+
+    #[tokio::test]
+    async fn work_facets_reads_counts_from_database_when_configured() {
+        let Ok(database_url) = std::env::var("DATABASE_URL") else {
+            return;
+        };
+
+        let db = PgPoolOptions::new()
+            .max_connections(5)
+            .connect(&database_url)
+            .await
+            .expect("DATABASE_URL should point to an available test database");
+        let work_a = uuid::Uuid::new_v4().to_string();
+        let work_b = uuid::Uuid::new_v4().to_string();
+        let artist = format!("Integration Artist {}", uuid::Uuid::new_v4());
+        let medium = format!("Integration Medium {}", uuid::Uuid::new_v4());
+
+        seed_art_work(&db, &work_a, &artist, &medium)
+            .await
+            .expect("first seed work should insert");
+        seed_art_work(&db, &work_b, &artist, &medium)
+            .await
+            .expect("second seed work should insert");
+
+        let app = Router::new()
+            .route("/api/works/facets", get(routes::works::handle_work_facets))
+            .with_state(AppState {
+                db: db.clone(),
+                s3_client: test_s3_client(),
+            })
+            .layer(SessionManagerLayer::new(MemoryStore::default()));
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/works/facets?gallery=art")
+                    .body(Body::empty())
+                    .expect("request should build"),
+            )
+            .await
+            .expect("request should complete");
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("body should read");
+        let json: serde_json::Value =
+            serde_json::from_slice(&body).expect("facets response should be JSON");
+
+        assert_eq!(facet_count(&json, "artists", &artist), Some(2));
+        assert_eq!(facet_count(&json, "media", &medium), Some(2));
+
+        cleanup_seeded_works(&db, &[work_a, work_b])
+            .await
+            .expect("seed works should clean up");
+    }
+
+    async fn seed_art_work(
+        db: &crate::db::DbPool,
+        work_id: &str,
+        artist: &str,
+        medium: &str,
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query(
+            "INSERT INTO works (id, gallery, title, status, asset_file, width, height, source_url)
+             VALUES ($1, 'art'::gallery_kind, $2, 'approved'::work_status, $3, 32, 32, $4)",
+        )
+        .bind(work_id)
+        .bind(format!("Integration Work {}", work_id))
+        .bind(format!("{}.png", work_id))
+        .bind("https://example.com/source")
+        .execute(db)
+        .await?;
+
+        sqlx::query(
+            "INSERT INTO work_art_meta (work_id, artist, medium, rating)
+             VALUES ($1, $2, $3, 'all_ages'::art_rating)",
+        )
+        .bind(work_id)
+        .bind(artist)
+        .bind(medium)
+        .execute(db)
+        .await?;
+
+        Ok(())
+    }
+
+    async fn cleanup_seeded_works(
+        db: &crate::db::DbPool,
+        work_ids: &[String],
+    ) -> Result<(), sqlx::Error> {
+        sqlx::query("DELETE FROM works WHERE id = ANY($1)")
+            .bind(work_ids)
+            .execute(db)
+            .await?;
+
+        Ok(())
+    }
+
+    fn facet_count(json: &serde_json::Value, facet_name: &str, value: &str) -> Option<i64> {
+        json.get(facet_name)?
+            .as_array()?
+            .iter()
+            .find(|item| item.get("value").and_then(|value| value.as_str()) == Some(value))?
+            .get("count")?
+            .as_i64()
     }
 }

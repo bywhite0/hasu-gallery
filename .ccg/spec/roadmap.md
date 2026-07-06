@@ -69,6 +69,8 @@
 
 **2026-07-07 轻量 CI 迁移切片**: GitHub Actions 后端任务仍只跑 Postgres + `cargo test`，但数据库初始化从硬编码 `001_initial.sql` 改为按顺序执行 `backend/migrations/*.sql`，避免新增迁移后 CI schema 落后；E2E 继续只作为本地脚本。
 
+**2026-07-07 API 集成测试切片**: 新增可选 Postgres HTTP 集成测试，CI 设置 `DATABASE_URL` 时会插入唯一 Art seed 数据并通过 `GET /api/works/facets?gallery=art` 验证 artist/medium 聚合计数；本地无 `DATABASE_URL` 时快速跳过真实 DB 部分。
+
 **方向已确定**：方案 C（双轨拆仓）。hasu-memes 保持只读画廊终态，hasu-gallery 为新建 UGC 平台。
 
 ---
@@ -395,7 +397,7 @@ backend/src/
 - ✅ Playwright E2E smoke: upload submission, moderation queue, approve flow
 - ✅ Backend HTTP tests: `GET /api/works/facets` gallery/status validation and pending auth boundary
 - ✅ Unit tests (backend: auth, upload, moderation logic)
-- Integration tests (API endpoints)
+- ✅ Integration tests (API endpoints)
 - E2E tests (upload flow, moderation flow)
 - ✅ GitHub Actions CI pipeline (lightweight; no Playwright E2E)
 
