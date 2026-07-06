@@ -1,3 +1,5 @@
+import { Button } from '@hasu-gallery/ui';
+
 interface FilterPanelProps {
   gallery: 'meme' | 'art';
   filters: {
@@ -16,9 +18,17 @@ interface FilterPanelProps {
     artist?: string;
     medium?: string;
   }) => void;
+  hasActiveFilters?: boolean;
+  onReset?: () => void;
 }
 
-export function FilterPanel({ gallery, filters, onFilterChange }: FilterPanelProps) {
+export function FilterPanel({
+  gallery,
+  filters,
+  onFilterChange,
+  hasActiveFilters = false,
+  onReset,
+}: FilterPanelProps) {
   const handleChange = (key: string, value: string) => {
     const newValue = value === 'all' ? undefined : value;
     onFilterChange({ ...filters, [key]: newValue });
@@ -41,16 +51,16 @@ export function FilterPanel({ gallery, filters, onFilterChange }: FilterPanelPro
   )?.[0] || 'newest';
 
   return (
-    <div className="flex gap-4 items-center flex-wrap mb-6">
+    <div className="mb-6 flex flex-wrap items-end gap-4 rounded-md border border-ink/15 bg-surface p-4">
       <div className="flex items-center gap-2">
         <label htmlFor="status-filter" className="text-sm font-medium">
-          Status:
+          Status
         </label>
         <select
           id="status-filter"
           value={filters.status || 'all'}
           onChange={(e) => handleChange('status', e.target.value)}
-          className="px-3 py-1.5 border border-ink rounded bg-surface text-sm"
+          className="rounded border border-ink/30 bg-paper px-3 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink focus:ring-offset-2 focus:ring-offset-surface"
         >
           <option value="all">All</option>
           <option value="pending">Pending</option>
@@ -62,13 +72,13 @@ export function FilterPanel({ gallery, filters, onFilterChange }: FilterPanelPro
       {gallery === 'meme' && (
         <div className="flex items-center gap-2">
           <label htmlFor="origin-filter" className="text-sm font-medium">
-            Origin:
+            Origin
           </label>
           <select
             id="origin-filter"
             value={filters.origin || 'all'}
             onChange={(e) => handleChange('origin', e.target.value)}
-            className="px-3 py-1.5 border border-ink rounded bg-surface text-sm"
+            className="rounded border border-ink/30 bg-paper px-3 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink focus:ring-offset-2 focus:ring-offset-surface"
           >
             <option value="all">All</option>
             <option value="official">Official</option>
@@ -80,13 +90,13 @@ export function FilterPanel({ gallery, filters, onFilterChange }: FilterPanelPro
 
       <div className="flex items-center gap-2">
         <label htmlFor="sort-filter" className="text-sm font-medium">
-          Sort:
+          Sort
         </label>
         <select
           id="sort-filter"
           value={currentSortDisplay}
           onChange={(e) => handleChange('sort', sortValueMap[e.target.value])}
-          className="px-3 py-1.5 border border-ink rounded bg-surface text-sm"
+          className="rounded border border-ink/30 bg-paper px-3 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink focus:ring-offset-2 focus:ring-offset-surface"
         >
           <option value="newest">Newest</option>
           <option value="oldest">Oldest</option>
@@ -98,13 +108,13 @@ export function FilterPanel({ gallery, filters, onFilterChange }: FilterPanelPro
         <>
           <div className="flex items-center gap-2">
             <label htmlFor="rating-filter" className="text-sm font-medium">
-              Rating:
+              Rating
             </label>
             <select
               id="rating-filter"
               value={filters.rating || 'all_ages'}
               onChange={(e) => handleChange('rating', e.target.value)}
-              className="px-3 py-1.5 border border-ink rounded bg-surface text-sm"
+              className="rounded border border-ink/30 bg-paper px-3 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink focus:ring-offset-2 focus:ring-offset-surface"
             >
               <option value="all_ages">All Ages</option>
               <option value="r15">R-15</option>
@@ -114,30 +124,38 @@ export function FilterPanel({ gallery, filters, onFilterChange }: FilterPanelPro
 
           <div className="flex items-center gap-2">
             <label htmlFor="artist-filter" className="text-sm font-medium">
-              Artist:
+              Artist
             </label>
             <input
               id="artist-filter"
               type="search"
               value={filters.artist || ''}
               onChange={(e) => handleTextChange('artist', e.target.value)}
-              className="w-40 px-3 py-1.5 border border-ink rounded bg-surface text-sm"
+              placeholder="Name"
+              className="w-40 rounded border border-ink/30 bg-paper px-3 py-1.5 text-sm text-ink placeholder:text-ink-3 focus:outline-none focus:ring-2 focus:ring-ink focus:ring-offset-2 focus:ring-offset-surface"
             />
           </div>
 
           <div className="flex items-center gap-2">
             <label htmlFor="medium-filter" className="text-sm font-medium">
-              Medium:
+              Medium
             </label>
             <input
               id="medium-filter"
               type="search"
               value={filters.medium || ''}
               onChange={(e) => handleTextChange('medium', e.target.value)}
-              className="w-40 px-3 py-1.5 border border-ink rounded bg-surface text-sm"
+              placeholder="Digital, scan..."
+              className="w-40 rounded border border-ink/30 bg-paper px-3 py-1.5 text-sm text-ink placeholder:text-ink-3 focus:outline-none focus:ring-2 focus:ring-ink focus:ring-offset-2 focus:ring-offset-surface"
             />
           </div>
         </>
+      )}
+
+      {hasActiveFilters && onReset && (
+        <Button type="button" variant="ghost" size="sm" onClick={onReset}>
+          Clear filters
+        </Button>
       )}
     </div>
   );
