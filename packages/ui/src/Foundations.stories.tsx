@@ -270,11 +270,11 @@ export const ComponentStoryPlan: Story = {
     <StoryShell>
       <div className="mx-auto max-w-4xl space-y-5">
         <header>
-          <p className="text-sm font-semibold uppercase tracking-wide text-info">Phase 5 scope guard</p>
+          <p className="text-sm font-semibold uppercase tracking-wide text-info">Documentation scope guard</p>
           <h1 className="mt-2 text-3xl font-bold text-ink">Component story plan</h1>
           <p className="mt-3 text-ink-2">
-            Shared primitives and gallery state components are being stabilized by earlier UI repair
-            phases. Keep Phase 5 focused on executable documentation until those files settle.
+            Shared primitives and gallery state components are being stabilized by focused UI repair
+            work. Keep this story focused on executable documentation until those files settle.
           </p>
         </header>
 
@@ -293,12 +293,12 @@ export const ComponentStoryPlan: Story = {
             {
               component: "Field, Input, Select",
               status: "Wait for primitive stabilization",
-              notes: "Add form stories after Phase 2 owns final labels, errors, focus, and helper text.",
+              notes: "Add form stories after final labels, errors, focus, and helper text settle.",
             },
             {
               component: "WorkCard",
               status: "Wait for gallery stabilization",
-              notes: "Add card stories after Phase 3 replaces background thumbnails with semantic images.",
+              notes: "Add card stories after gallery cards settle on semantic image behavior.",
             },
             {
               component: "Loading, empty, error states",

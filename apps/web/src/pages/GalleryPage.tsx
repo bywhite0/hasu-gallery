@@ -6,14 +6,14 @@ import { listWorks } from '../api/works';
 import { FilterPanel } from '../components/FilterPanel';
 import { WorksGrid } from '../components/WorksGrid';
 import { Pagination } from '../components/Pagination';
-import { useAppStore, type ArtRatingPreference } from '../store';
+import { useAppStore, useAuthStore, type ArtRatingPreference } from '../store';
 
 interface GalleryPageProps {
   gallery: 'meme' | 'art';
 }
 
 type Filters = {
-  status?: "pending" | "approved" | "rejected";
+  status?: "pending" | "approved" | "rejected" | "takedown";
   origin?: "official" | "derived" | "fan_made";
   sort?: "created_at_desc" | "created_at_asc" | "title_asc";
   rating?: ArtRatingPreference;
@@ -40,6 +40,7 @@ const getErrorDescription = (error: unknown) => {
 };
 
 export function GalleryPage({ gallery }: GalleryPageProps) {
+  const user = useAuthStore((state) => state.user);
   const artRatingPreference = useAppStore((state) => state.artRatingPreference);
   const setArtRatingPreference = useAppStore((state) => state.setArtRatingPreference);
   const [page, setPage] = useState(1);
@@ -68,9 +69,12 @@ export function GalleryPage({ gallery }: GalleryPageProps) {
     setPage(1);
   }, [artRatingPreference, gallery]);
 
+  const isGuest = !user;
+  const queryFilters: Filters = isGuest ? { ...filters, status: 'approved' } : filters;
+
   const { data, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ['works', gallery, page, filters],
-    queryFn: () => listWorks({ gallery, page, ...filters }),
+    queryKey: ['works', gallery, page, queryFilters],
+    queryFn: () => listWorks({ gallery, page, ...queryFilters }),
   });
 
   const handleFilterChange = (newFilters: Filters) => {
@@ -124,6 +128,7 @@ export function GalleryPage({ gallery }: GalleryPageProps) {
         onFilterChange={handleFilterChange}
         hasActiveFilters={hasActiveFilters}
         onReset={handleResetFilters}
+        isGuest={isGuest}
       />
 
       {isLoading && (

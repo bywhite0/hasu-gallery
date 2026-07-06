@@ -3,7 +3,7 @@ import { Button } from '@hasu-gallery/ui';
 interface FilterPanelProps {
   gallery: 'meme' | 'art';
   filters: {
-    status?: "pending" | "approved" | "rejected";
+    status?: "pending" | "approved" | "rejected" | "takedown";
     origin?: "official" | "derived" | "fan_made";
     sort?: "created_at_desc" | "created_at_asc" | "title_asc";
     rating?: "all_ages" | "r15" | "r18";
@@ -11,7 +11,7 @@ interface FilterPanelProps {
     medium?: string;
   };
   onFilterChange: (filters: {
-    status?: "pending" | "approved" | "rejected";
+    status?: "pending" | "approved" | "rejected" | "takedown";
     origin?: "official" | "derived" | "fan_made";
     sort?: "created_at_desc" | "created_at_asc" | "title_asc";
     rating?: "all_ages" | "r15" | "r18";
@@ -20,6 +20,7 @@ interface FilterPanelProps {
   }) => void;
   hasActiveFilters?: boolean;
   onReset?: () => void;
+  isGuest?: boolean;
 }
 
 export function FilterPanel({
@@ -28,6 +29,7 @@ export function FilterPanel({
   onFilterChange,
   hasActiveFilters = false,
   onReset,
+  isGuest = false,
 }: FilterPanelProps) {
   const handleChange = (key: string, value: string) => {
     const newValue = value === 'all' ? undefined : value;
@@ -52,22 +54,25 @@ export function FilterPanel({
 
   return (
     <div className="mb-6 flex flex-wrap items-end gap-4 rounded-md border border-ink/15 bg-surface p-4">
-      <div className="flex items-center gap-2">
-        <label htmlFor="status-filter" className="text-sm font-medium">
-          Status
-        </label>
-        <select
-          id="status-filter"
-          value={filters.status || 'all'}
-          onChange={(e) => handleChange('status', e.target.value)}
-          className="rounded border border-ink/30 bg-paper px-3 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink focus:ring-offset-2 focus:ring-offset-surface"
-        >
-          <option value="all">All</option>
-          <option value="pending">Pending</option>
-          <option value="approved">Approved</option>
-          <option value="rejected">Rejected</option>
-        </select>
-      </div>
+      {!isGuest && (
+        <div className="flex items-center gap-2">
+          <label htmlFor="status-filter" className="text-sm font-medium">
+            Status
+          </label>
+          <select
+            id="status-filter"
+            value={filters.status || 'all'}
+            onChange={(e) => handleChange('status', e.target.value)}
+            className="rounded border border-ink/30 bg-paper px-3 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink focus:ring-offset-2 focus:ring-offset-surface"
+          >
+            <option value="all">All</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+            <option value="takedown">Removed</option>
+          </select>
+        </div>
+      )}
 
       {gallery === 'meme' && (
         <div className="flex items-center gap-2">
@@ -121,6 +126,12 @@ export function FilterPanel({
               <option value="r18">R-18</option>
             </select>
           </div>
+
+          {isGuest && (
+            <p className="max-w-xs text-xs leading-5 text-ink-2">
+              Guest browsing shows All Ages art by default.
+            </p>
+          )}
 
           <div className="flex items-center gap-2">
             <label htmlFor="artist-filter" className="text-sm font-medium">

@@ -3,8 +3,14 @@ import { Link } from '@tanstack/react-router';
 import { Button, Field, FormMessage, Input } from '@hasu-gallery/ui';
 import { useAuthStore } from '../store/auth';
 import { getAuthErrorMessage, isRecoverableAuthError } from './authErrorCopy';
+import type { AuthIntentReason } from './authIntent';
 
-export function RegisterForm() {
+interface RegisterFormProps {
+  next?: string;
+  reason?: AuthIntentReason;
+}
+
+export function RegisterForm({ next, reason }: RegisterFormProps) {
   const { register, clearError } = useAuthStore();
   const [handle, setHandle] = useState('');
   const [email, setEmail] = useState('');
@@ -58,6 +64,7 @@ export function RegisterForm() {
 
   const displayError = validationError || getAuthErrorMessage(submitError, 'register');
   const canSubmit = Boolean(handle.trim() && email.trim() && password);
+  const authSearch = next ? ({ next, reason } as never) : undefined;
 
   return (
     <form onSubmit={handleSubmit} className="w-full space-y-4">
@@ -141,7 +148,11 @@ export function RegisterForm() {
 
       <div className="text-center text-sm text-ink-2">
         Already have an account?{' '}
-        <Link to="/login" className="font-medium text-ink underline underline-offset-4 hover:text-ink-2">
+        <Link
+          to="/login"
+          search={authSearch}
+          className="font-medium text-ink underline underline-offset-4 hover:text-ink-2"
+        >
           Login
         </Link>
       </div>

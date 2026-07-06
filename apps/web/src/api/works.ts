@@ -3,7 +3,7 @@ import { WorksListResponse, Work } from '@hasu-gallery/types';
 
 export interface WorksListParams {
   gallery: 'meme' | 'art';
-  status?: 'pending' | 'approved' | 'rejected';
+  status?: 'pending' | 'approved' | 'rejected' | 'takedown';
   origin?: 'official' | 'derived' | 'fan_made';
   page?: number;
   limit?: number;

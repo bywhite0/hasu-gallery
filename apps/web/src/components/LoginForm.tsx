@@ -3,8 +3,14 @@ import { Link } from '@tanstack/react-router';
 import { Button, Field, FormMessage, Input } from '@hasu-gallery/ui';
 import { useAuthStore } from '../store/auth';
 import { getAuthErrorMessage, isRecoverableAuthError } from './authErrorCopy';
+import type { AuthIntentReason } from './authIntent';
 
-export function LoginForm() {
+interface LoginFormProps {
+  next?: string;
+  reason?: AuthIntentReason;
+}
+
+export function LoginForm({ next, reason }: LoginFormProps) {
   const [handle, setHandle] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -12,6 +18,7 @@ export function LoginForm() {
   const { login, clearError } = useAuthStore();
   const displayError = getAuthErrorMessage(submitError, 'login');
   const canSubmit = Boolean(handle.trim() && password.trim());
+  const authSearch = next ? ({ next, reason } as never) : undefined;
 
   const updateHandle = (value: string) => {
     setHandle(value);
@@ -89,7 +96,11 @@ export function LoginForm() {
 
       <p className="text-center text-sm text-ink-2">
         Don't have an account?{' '}
-        <Link to="/register" className="font-medium text-ink underline underline-offset-4 hover:text-ink-2">
+        <Link
+          to="/register"
+          search={authSearch}
+          className="font-medium text-ink underline underline-offset-4 hover:text-ink-2"
+        >
           Register
         </Link>
       </p>

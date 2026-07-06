@@ -8,6 +8,7 @@ import {
 } from "@tanstack/react-router";
 import { Button } from "@hasu-gallery/ui";
 import {
+  House,
   Images,
   Palette,
   ShieldCheck,
@@ -15,6 +16,7 @@ import {
   User,
   type LucideIcon,
 } from "lucide-react";
+import { HomePage } from "./pages/HomePage";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import { GalleryPage } from "./pages/GalleryPage";
@@ -25,7 +27,7 @@ import { ModerationPage } from "./pages/ModerationPage";
 import { AuthGuard } from "./components/AuthGuard";
 import { useAuthStore } from "./store/auth";
 
-type NavPath = "/gallery/meme" | "/gallery/art" | "/upload" | "/profile" | "/moderation";
+type NavPath = "/" | "/gallery/meme" | "/gallery/art" | "/upload" | "/profile" | "/moderation";
 
 interface NavItem {
   to: NavPath;
@@ -34,11 +36,15 @@ interface NavItem {
   Icon: LucideIcon;
 }
 
-const primaryNavItems: NavItem[] = [
+const publicNavItems: NavItem[] = [
+  { to: "/", desktopLabel: "Home", mobileLabel: "Home", Icon: House },
   { to: "/gallery/meme", desktopLabel: "Meme", mobileLabel: "Meme", Icon: Images },
   { to: "/gallery/art", desktopLabel: "Art", mobileLabel: "Art", Icon: Palette },
+];
+
+const signedInTaskNavItems: NavItem[] = [
   { to: "/upload", desktopLabel: "Upload", mobileLabel: "Upload", Icon: Upload },
-  { to: "/profile", desktopLabel: "Profile", mobileLabel: "Profile", Icon: User },
+  { to: "/profile", desktopLabel: "Profile", mobileLabel: "Me", Icon: User },
 ];
 
 const moderationNavItem: NavItem = {
@@ -55,7 +61,10 @@ const rootRoute = createRootRoute({
     const isModerator = user && (user.role === 'moderator' || user.role === 'admin');
     const routerState = useRouterState();
     const currentPath = routerState.location.pathname;
-    const navItems = isModerator ? [...primaryNavItems, moderationNavItem] : primaryNavItems;
+    const desktopNavItems = user
+      ? [...publicNavItems, ...signedInTaskNavItems, ...(isModerator ? [moderationNavItem] : [])]
+      : publicNavItems;
+    const mobileNavItems = user ? [...publicNavItems, ...signedInTaskNavItems] : publicNavItems;
 
     const navLinkClass = (path: NavPath) =>
       currentPath === path
@@ -66,10 +75,12 @@ const rootRoute = createRootRoute({
       <div className="min-h-screen bg-paper text-ink">
         <header className="border-b border-ink px-4 py-3 md:p-4">
           <div className="flex items-center justify-between gap-3">
-            <h1 className="shrink-0 text-xl font-bold md:text-2xl">Hasu Gallery</h1>
-            {user && (
-              <nav className="hidden max-w-full flex-wrap justify-end gap-4 md:flex" aria-label="Primary navigation">
-                {navItems.map((item) => (
+            <Link to="/" className="shrink-0 text-xl font-bold md:text-2xl">
+              Hasu Gallery
+            </Link>
+            <div className="flex items-center gap-3">
+              <nav className="hidden max-w-full flex-wrap justify-end gap-2 md:flex" aria-label="Primary navigation">
+                {desktopNavItems.map((item) => (
                   <Link key={item.to} to={item.to} aria-current={currentPath === item.to ? "page" : undefined}>
                     <Button variant="ghost" size="sm" className={navLinkClass(item.to)}>
                       {item.desktopLabel}
@@ -77,39 +88,42 @@ const rootRoute = createRootRoute({
                   </Link>
                 ))}
               </nav>
-            )}
+              {!user && (
+                <Link to="/login" className="shrink-0">
+                  <Button size="sm">Sign in</Button>
+                </Link>
+              )}
+            </div>
           </div>
         </header>
-        <main className={user ? "container mx-auto p-4 pb-[calc(env(safe-area-inset-bottom)+6rem)] md:pb-4" : "container mx-auto p-4"}>
+        <main className="container mx-auto p-4 pb-[calc(env(safe-area-inset-bottom)+6rem)] md:pb-4">
           <Outlet />
         </main>
-        {user && (
-          <nav
-            className="fixed inset-x-0 bottom-0 z-50 flex gap-1 border-t border-ink bg-paper px-2 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] md:hidden"
-            aria-label="Primary navigation"
-          >
-            {navItems.map((item) => {
-              const Icon = item.Icon;
-              const isActive = currentPath === item.to;
+        <nav
+          className="fixed inset-x-0 bottom-0 z-50 flex gap-1 border-t border-ink bg-paper px-2 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] md:hidden"
+          aria-label="Primary navigation"
+        >
+          {mobileNavItems.map((item) => {
+            const Icon = item.Icon;
+            const isActive = currentPath === item.to;
 
-              return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  aria-current={isActive ? "page" : undefined}
-                  className={[
-                    "flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-md px-1 py-2 text-xs font-medium transition-colors",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-paper",
-                    isActive ? "bg-ink text-paper" : "text-ink hover:bg-accent",
-                  ].join(" ")}
-                >
-                  <Icon className="h-5 w-5 shrink-0" aria-hidden="true" strokeWidth={2} />
-                  <span className="max-w-full truncate">{item.mobileLabel}</span>
-                </Link>
-              );
-            })}
-          </nav>
-        )}
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                aria-current={isActive ? "page" : undefined}
+                className={[
+                  "flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-md px-1 py-2 text-xs font-medium transition-colors",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-paper",
+                  isActive ? "bg-ink text-paper" : "text-ink hover:bg-accent",
+                ].join(" ")}
+              >
+                <Icon className="h-5 w-5 shrink-0" aria-hidden="true" strokeWidth={2} />
+                <span className="max-w-full truncate">{item.mobileLabel}</span>
+              </Link>
+            );
+          })}
+        </nav>
       </div>
     );
   },
@@ -119,41 +133,7 @@ const rootRoute = createRootRoute({
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
-  component: () => {
-    const user = useAuthStore((state) => state.user);
-    return (
-      <div className="space-y-4">
-        <h2 className="text-xl font-semibold">Welcome to Hasu Gallery</h2>
-        <p className="text-ink-2">
-          A community gallery for memes and fan art, with review before publishing.
-        </p>
-        <div className="flex gap-4">
-          {user ? (
-            <>
-              <Link to="/gallery/meme">
-                <Button>Meme Gallery</Button>
-              </Link>
-              <Link to="/gallery/art">
-                <Button>Art Gallery</Button>
-              </Link>
-              <Link to="/upload">
-                <Button variant="outline">Upload</Button>
-              </Link>
-            </>
-          ) : (
-            <>
-              <Link to="/login">
-                <Button>Login</Button>
-              </Link>
-              <Link to="/register">
-                <Button variant="outline">Register</Button>
-              </Link>
-            </>
-          )}
-        </div>
-      </div>
-    );
-  },
+  component: HomePage,
 });
 
 // Login route
@@ -170,36 +150,24 @@ const registerRoute = createRoute({
   component: RegisterPage,
 });
 
-// Protected gallery routes
+// Public gallery routes
 const memeGalleryRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/gallery/meme",
-  component: () => (
-    <AuthGuard>
-      <GalleryPage gallery="meme" />
-    </AuthGuard>
-  ),
+  component: () => <GalleryPage gallery="meme" />,
 });
 
 const artGalleryRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/gallery/art",
-  component: () => (
-    <AuthGuard>
-      <GalleryPage gallery="art" />
-    </AuthGuard>
-  ),
+  component: () => <GalleryPage gallery="art" />,
 });
 
 // Work detail route
 const workDetailRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/works/$id",
-  component: () => (
-    <AuthGuard>
-      <WorkDetailPage />
-    </AuthGuard>
-  ),
+  component: WorkDetailPage,
 });
 
 // Upload route
@@ -207,7 +175,7 @@ const uploadRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/upload",
   component: () => (
-    <AuthGuard>
+    <AuthGuard reason="upload" next="/upload">
       <UploadPage />
     </AuthGuard>
   ),
@@ -218,7 +186,7 @@ const profileRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/profile",
   component: () => (
-    <AuthGuard>
+    <AuthGuard reason="profile" next="/profile">
       <ProfilePage />
     </AuthGuard>
   ),
@@ -228,7 +196,11 @@ const profileRoute = createRoute({
 const moderationRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/moderation",
-  component: ModerationPage,
+  component: () => (
+    <AuthGuard reason="moderation" next="/moderation">
+      <ModerationPage />
+    </AuthGuard>
+  ),
 });
 
 // Create route tree
