@@ -41,6 +41,14 @@ hasu-gallery/
 └── backend/              # Rust API 服务
 ```
 
+## 文档
+
+- [API Reference](docs/api.md)
+- [Deployment Guide](docs/deployment.md)
+- [Moderation Guidelines](docs/moderation-guidelines.md)
+- [User Guide](docs/user-guide.md)
+- [Edge Server Setup](docs/edge-server-setup.md)
+
 ## 环境要求
 
 - Node.js 20+

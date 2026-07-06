@@ -71,6 +71,8 @@
 
 **2026-07-07 API 集成测试切片**: 新增可选 Postgres HTTP 集成测试，CI 设置 `DATABASE_URL` 时会插入唯一 Art seed 数据并通过 `GET /api/works/facets?gallery=art` 验证 artist/medium 聚合计数；本地无 `DATABASE_URL` 时快速跳过真实 DB 部分。
 
+**2026-07-07 文档切片**: 新增 `docs/api.md`、`docs/deployment.md`、`docs/moderation-guidelines.md`、`docs/user-guide.md`，并在 README 增加文档入口；覆盖 API 契约、部署环境变量/迁移/CDN、本地 E2E、审核政策与上传指南。
+
 **方向已确定**：方案 C（双轨拆仓）。hasu-memes 保持只读画廊终态，hasu-gallery 为新建 UGC 平台。
 
 ---
@@ -403,10 +405,10 @@ backend/src/
 
 #### 5.4 Documentation
 
-- API documentation (OpenAPI/Swagger)
-- Deployment guide (Docker Compose, environment variables)
-- Moderation guidelines
-- User guide (how to upload, content policy)
+- ✅ API documentation
+- ✅ Deployment guide (environment variables, migrations, CDN, verification)
+- ✅ Moderation guidelines
+- ✅ User guide (how to upload, content policy)
 
 #### 5.5 Monitoring
 
