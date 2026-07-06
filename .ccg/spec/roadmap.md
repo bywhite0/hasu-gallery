@@ -53,6 +53,8 @@
 
 **2026-07-07 上传扩展名限制切片**: 后端上传入口读取 multipart 原始文件名，并在 magic byte MIME 检测后校验扩展名白名单；`.png/.jpg/.jpeg/.gif/.webp` 必须与检测出的图片类型匹配。
 
+**2026-07-07 SQL 注入防护审计切片**: 将作品列表 `sort` 到 `ORDER BY` 的映射收紧为静态 SQL 白名单 helper，并补测试覆盖注入式 sort 被拒绝；筛选值继续通过 sqlx bind 绑定。
+
 **方向已确定**：方案 C（双轨拆仓）。hasu-memes 保持只读画廊终态，hasu-gallery 为新建 UGC 平台。
 
 ---
@@ -363,7 +365,7 @@ backend/src/
 - ✅ Rate limiting (upload, login attempts): in-memory per-client route buckets with 429 responses
 - ✅ CSRF protection: unsafe-method Origin/Referer validation against configured allowed origins
 - 🔄 Input sanitization audit: upload text normalization, length limits, source URL scheme/authority validation
-- SQL injection prevention (use parameterized queries)
+- ✅ SQL injection prevention: parameterized filters plus static ORDER BY whitelist
 - ✅ File upload restrictions: extension whitelist plus magic byte validation
 
 #### 5.2 Performance Optimization

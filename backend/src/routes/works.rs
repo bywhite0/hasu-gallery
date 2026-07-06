@@ -191,19 +191,7 @@ pub async fn handle_works_list(
     let offset = (page - 1) * limit;
 
     // Parse sort parameter and construct ORDER BY clause safely
-    let sort = params.sort.as_deref().unwrap_or("created_at_desc");
-    let (order_col, order_dir) = match sort {
-        "created_at_desc" => ("w.created_at", "DESC"),
-        "created_at_asc" => ("w.created_at", "ASC"),
-        "title_asc" => ("w.title", "ASC"),
-        _ => {
-            return Err((
-                StatusCode::BAD_REQUEST,
-                "Invalid sort parameter. Must be one of: created_at_desc, created_at_asc, title_asc".to_string(),
-            ));
-        }
-    };
-    let order_by = format!("{} {}", order_col, order_dir);
+    let order_by = work_order_by(params.sort.as_deref())?;
 
     // Build WHERE clause with proper type casts for enums
     let mut where_conditions = vec![
@@ -554,6 +542,19 @@ async fn fetch_art_facet(
         .collect())
 }
 
+fn work_order_by(sort: Option<&str>) -> Result<&'static str, (StatusCode, String)> {
+    match sort.unwrap_or("created_at_desc") {
+        "created_at_desc" => Ok("w.created_at DESC"),
+        "created_at_asc" => Ok("w.created_at ASC"),
+        "title_asc" => Ok("w.title ASC"),
+        _ => Err((
+            StatusCode::BAD_REQUEST,
+            "Invalid sort parameter. Must be one of: created_at_desc, created_at_asc, title_asc"
+                .to_string(),
+        )),
+    }
+}
+
 /// Handler for GET /api/works/:id
 pub async fn handle_work_detail(
     Path(id): Path<String>,
@@ -693,4 +694,28 @@ pub async fn handle_work_detail(
     };
 
     Ok((StatusCode::OK, Json(work_item)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn work_order_by_maps_known_sorts_to_static_sql() {
+        assert_eq!(work_order_by(None).unwrap(), "w.created_at DESC");
+        assert_eq!(
+            work_order_by(Some("created_at_asc")).unwrap(),
+            "w.created_at ASC"
+        );
+        assert_eq!(work_order_by(Some("title_asc")).unwrap(), "w.title ASC");
+    }
+
+    #[test]
+    fn work_order_by_rejects_untrusted_sort_sql() {
+        let error = work_order_by(Some("title_asc; DROP TABLE works"))
+            .expect_err("untrusted sort should fail");
+
+        assert_eq!(error.0, StatusCode::BAD_REQUEST);
+        assert!(error.1.contains("Invalid sort parameter"));
+    }
 }
