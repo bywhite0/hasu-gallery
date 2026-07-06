@@ -5,6 +5,8 @@ node_modules/
 dist/
 .rspack/
 storybook-static/
+playwright-report/
+test-results/
 
 # Rust
 target/

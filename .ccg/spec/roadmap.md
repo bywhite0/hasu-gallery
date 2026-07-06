@@ -39,6 +39,8 @@
 
 **2026-07-06 Phase 5 首个切片**: 新增 Art facets API 与前端消费链路，`GET /api/works/facets?gallery=art` 返回 artist/medium/rating 聚合计数；Art 筛选面板显示 rating 计数并为 artist/medium 提供现有数据建议。已验证 `pnpm typecheck`、`cargo check --manifest-path backend/Cargo.toml`、真实 API 返回与 Playwright 浏览器筛选行为。
 
+**2026-07-07 自动化验收切片**: 引入 `@playwright/test` 与 root `pnpm e2e` 本地脚本，新增 Art Gallery E2E：mock API 响应覆盖 facets 计数、rating 切换、`hasu-gallery-preferences` 持久化与 reload 恢复。CI 保持轻量，E2E 暂不纳入 GitHub Actions。
+
 **方向已确定**：方案 C（双轨拆仓）。hasu-memes 保持只读画廊终态，hasu-gallery 为新建 UGC 平台。
 
 ---
@@ -342,7 +344,7 @@ backend/src/
 - ✅ Art facets API: `GET /api/works/facets?gallery=art`
 - ✅ Rating option counts in Art filters
 - ✅ Artist/medium suggestions backed by server-side facets
-- ⏳ Follow-up: fold this flow into automated E2E coverage
+- ✅ Automated E2E coverage for Art facets and rating preference restore
 
 #### 5.1 Security Hardening
 
@@ -361,6 +363,7 @@ backend/src/
 
 #### 5.3 Testing & CI
 
+- ✅ Playwright E2E smoke: Art facets, rating filter, persisted preference restore
 - Unit tests (backend: auth, upload, moderation logic)
 - Integration tests (API endpoints)
 - E2E tests (upload flow, moderation flow)
@@ -387,7 +390,7 @@ backend/src/
 > **Current Status (2026-07-06)**: Phase 1-4 baseline 已完成真实浏览器验收；Phase 5 已完成 Art facets/search polish 的第一个切片，进入自动化测试与安全加固收尾。
 
 **Immediate Next Steps**:
-1. 补齐自动化 E2E/集成测试：覆盖 Art facets、rating 偏好恢复、上传、审核发布链路。
+1. 继续补齐自动化 E2E/集成测试：覆盖上传、审核发布链路，以及 `GET /api/works/facets` 权限边界。
 2. 生产化安全加固：上传/登录限流、CSRF、防刷、输入与上传校验审计。
 3. 文档与可观测性：部署环境变量、内容政策/审核指南、错误监控与基础指标。
 
@@ -400,9 +403,9 @@ backend/src/
 ## Technical Debt
 
 1. ~~Frontend 尚未实现~~ ✅ Phase 2 完成
-2. 缺少前端测试（Vitest + Testing Library 未配置）
+2. 缺少前端组件/单元测试（Vitest + Testing Library 未配置）
 3. 缺少后端集成测试
-4. 缺少 CI/CD 流水线
+4. 缺少发布/部署流水线（基础 CI 已覆盖 typecheck/build/cargo test；E2E 作为本地脚本）
 5. 缺少生产环境监控
 
 ---
