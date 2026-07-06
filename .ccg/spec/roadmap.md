@@ -3,14 +3,14 @@
 **Project**: hasu-gallery (新仓独立项目)  
 **Vision**: Dual-gallery UGC platform (Meme Gallery + Art Gallery) with upload & moderation  
 **Created**: 2026-06-09  
-**Last Synced**: 2026-07-03  
-**Status**: ✅ Phase 1-4 baseline 已完成真实浏览器验收；Phase 5 production hardening 待开始
+**Last Synced**: 2026-07-06  
+**Status**: ✅ Phase 1-4 baseline 已完成真实浏览器验收；Phase 5 production hardening 已开始
 
 > **架构更新 (2026-06-14)**: 基于 linkura-apps 分析，采用 Rspack + TanStack Router/Query + zustand + Tailwind v4 技术栈
 
 ---
 
-## 状态快照（2026-07-03 对照）
+## 状态快照（2026-07-06 对照）
 
 > 本节由 `master` 分支 + `backend/src/` + `apps/web/src/` + 真实浏览器回归客观核对得出。
 
@@ -28,14 +28,16 @@
 | **2.5 用户个人页** | ✅ COMPLETE | ✅ ProfilePage + StatsCard + MyWorksList（609 行），后端 `GET /api/users/me/{stats,works}` | — |
 | **3.1 审核队列 API** | ✅ COMPLETE | ✅ middleware.rs + routes/moderation.rs（300 行），3 个 API 端点 | — |
 | **3.2 审核仪表板** | ✅ COMPLETE | ✅ ModerationPage + ModerationActions + ModerationLog（524 行）| — |
-| **4: Art Gallery** | ⏳ 未完成 | ✅ Baseline launch 已验证：Meme/Art 导航、Art upload metadata、rating 筛选、`work_art_meta` 写入、MinIO 上传成功路径与审核发布均通过真实浏览器验收 | rating 偏好持久化、artist/medium facets 与搜索体验转入 Phase 5/production polish |
-| **5: Polish & Hardening** | ⏳ 未开始 | ⏳ 未开始 | — |
+| **4: Art Gallery** | ⏳ 未完成 | ✅ Baseline launch 已验证：Meme/Art 导航、Art upload metadata、rating 筛选、`work_art_meta` 写入、MinIO 上传成功路径与审核发布均通过真实浏览器验收 | 自动化 E2E 与 production hardening 转入 Phase 5 |
+| **5: Polish & Hardening** | ⏳ 未开始 | 🔄 已开始：rating 偏好持久化、`GET /api/works/facets`、Art rating 计数、artist/medium 建议搜索已落地并通过真实 API + 浏览器验收 | E2E/集成测试、安全加固、部署/监控文档待补 |
 
 **Phase 2 总计**: +2,562 行前端代码，11 个 API 端点，完整的画廊浏览和上传功能。
 
 **Phase 3 总计**: +824 行代码（后端 300 行 + 前端 524 行），审核工作流完整实现。
 
 **2026-07-03 回归补强**: 修复根目录启动后端 env 加载、注册 session 同步、前端 auth 竞态、favicon 路径、审核页权限请求边界、Postgres enum 解码、开发代理本机连接稳定性，并补写 `reviewed_by/reviewed_at/review_note`。真实浏览器验收已覆盖注册、MinIO 上传、owner pending 详情、审核批准、公开画廊、Art rating 筛选、个人页统计与审核日志。
+
+**2026-07-06 Phase 5 首个切片**: 新增 Art facets API 与前端消费链路，`GET /api/works/facets?gallery=art` 返回 artist/medium/rating 聚合计数；Art 筛选面板显示 rating 计数并为 artist/medium 提供现有数据建议。已验证 `pnpm typecheck`、`cargo check --manifest-path backend/Cargo.toml`、真实 API 返回与 Playwright 浏览器筛选行为。
 
 **方向已确定**：方案 C（双轨拆仓）。hasu-memes 保持只读画廊终态，hasu-gallery 为新建 UGC 平台。
 
@@ -334,6 +336,14 @@ backend/src/
 
 **Goal**: Production readiness
 
+#### 5.0 Art Gallery Production Polish ✅ STARTED
+
+- ✅ Rating preference persistence via `hasu-gallery-preferences` local storage
+- ✅ Art facets API: `GET /api/works/facets?gallery=art`
+- ✅ Rating option counts in Art filters
+- ✅ Artist/medium suggestions backed by server-side facets
+- ⏳ Follow-up: fold this flow into automated E2E coverage
+
 #### 5.1 Security Hardening
 
 - Rate limiting (upload, login attempts)
@@ -374,16 +384,16 @@ backend/src/
 
 ## Next Actions
 
-> **Current Status (2026-07-03)**: Phase 1-4 baseline 已完成真实浏览器验收；MinIO 上传成功路径已恢复并通过。Phase 5 进入 production-ready 收尾。
+> **Current Status (2026-07-06)**: Phase 1-4 baseline 已完成真实浏览器验收；Phase 5 已完成 Art facets/search polish 的第一个切片，进入自动化测试与安全加固收尾。
 
 **Immediate Next Steps**:
-1. Phase 5 收尾：rating 偏好持久化、Art facets、artist/medium 搜索体验。
-2. 补齐自动化 E2E/集成测试，避免真实浏览器验收只依赖人工脚本。
-3. 生产化加固：上传/登录限流、CSRF、防刷、错误监控与部署文档。
+1. 补齐自动化 E2E/集成测试：覆盖 Art facets、rating 偏好恢复、上传、审核发布链路。
+2. 生产化安全加固：上传/登录限流、CSRF、防刷、输入与上传校验审计。
+3. 文档与可观测性：部署环境变量、内容政策/审核指南、错误监控与基础指标。
 
 **Long-term Priorities**:
 - Phase 5: 生产化加固（性能、安全、监控、自动化验收）
-- Phase 5 follow-up: rating 偏好持久化、Art facets、artist/medium 搜索体验
+- Phase 5 follow-up: 自动化验收、限流/CSRF、部署与监控文档
 
 ---
 
