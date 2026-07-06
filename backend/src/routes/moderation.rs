@@ -8,6 +8,8 @@ use sqlx::PgPool;
 use tower_sessions::Session;
 use uuid::Uuid;
 
+const MAX_REVIEW_NOTE_LEN: usize = 1_000;
+
 /// Query parameters for moderation queue
 #[derive(Deserialize)]
 pub struct QueueParams {
@@ -71,19 +73,7 @@ pub async fn get_queue(
     State(pool): State<PgPool>,
     Query(params): Query<QueueParams>,
 ) -> Result<Json<QueueResponse>, StatusCode> {
-    // Validate gallery
-    if params.gallery != "meme" && params.gallery != "art" {
-        return Err(StatusCode::BAD_REQUEST);
-    }
-
-    // Validate status
-    if !["pending", "approved", "rejected", "takedown"].contains(&params.status.as_str()) {
-        return Err(StatusCode::BAD_REQUEST);
-    }
-
-    if params.page < 1 || params.limit < 1 || params.limit > 100 {
-        return Err(StatusCode::BAD_REQUEST);
-    }
+    validate_queue_params(&params)?;
 
     let offset = (params.page - 1) * params.limit;
 
@@ -163,10 +153,9 @@ pub async fn update_status(
     Path(work_id): Path<Uuid>,
     Json(req): Json<UpdateStatusRequest>,
 ) -> Result<Json<UpdateStatusResponse>, StatusCode> {
-    // Validate status
-    if !["approved", "rejected", "takedown"].contains(&req.status.as_str()) {
-        return Err(StatusCode::BAD_REQUEST);
-    }
+    let UpdateStatusRequest { status, note } = req;
+    validate_update_status(&status)?;
+    let note = normalize_review_note(note)?;
 
     // Get moderator_id from session
     let moderator_id: i64 = session
@@ -193,10 +182,10 @@ pub async fn update_status(
          WHERE id = $2
          RETURNING updated_at",
     )
-    .bind(&req.status)
+    .bind(&status)
     .bind(&work_id_str)
     .bind(moderator_id)
-    .bind(&req.note)
+    .bind(&note)
     .fetch_one(&mut *tx)
     .await
     .map_err(|_| StatusCode::NOT_FOUND)?;
@@ -208,8 +197,8 @@ pub async fn update_status(
     )
     .bind(&work_id_str)
     .bind(moderator_id)
-    .bind(&req.status)
-    .bind(&req.note)
+    .bind(&status)
+    .bind(&note)
     .execute(&mut *tx)
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -221,9 +210,48 @@ pub async fn update_status(
 
     Ok(Json(UpdateStatusResponse {
         id: work_id,
-        status: req.status,
+        status,
         updated_at,
     }))
+}
+
+fn validate_queue_params(params: &QueueParams) -> Result<(), StatusCode> {
+    if params.gallery != "meme" && params.gallery != "art" {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    if !["pending", "approved", "rejected", "takedown"].contains(&params.status.as_str()) {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    if params.page < 1 || params.limit < 1 || params.limit > 100 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    Ok(())
+}
+
+fn validate_update_status(status: &str) -> Result<(), StatusCode> {
+    if ["approved", "rejected", "takedown"].contains(&status) {
+        Ok(())
+    } else {
+        Err(StatusCode::BAD_REQUEST)
+    }
+}
+
+fn normalize_review_note(note: Option<String>) -> Result<Option<String>, StatusCode> {
+    let Some(note) = note else {
+        return Ok(None);
+    };
+    let note = note.trim().to_string();
+    if note.is_empty() {
+        return Ok(None);
+    }
+    if note.chars().count() > MAX_REVIEW_NOTE_LEN {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    Ok(Some(note))
 }
 
 /// Moderation log entry
@@ -266,4 +294,68 @@ pub async fn get_log(
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Json(ModerationLogResponse { work_id, logs }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn validate_queue_params_accepts_expected_values() {
+        let params = QueueParams {
+            gallery: "art".to_string(),
+            status: "pending".to_string(),
+            page: 1,
+            limit: 20,
+        };
+
+        assert!(validate_queue_params(&params).is_ok());
+    }
+
+    #[test]
+    fn validate_queue_params_rejects_invalid_values() {
+        let bad_gallery = QueueParams {
+            gallery: "all".to_string(),
+            status: "pending".to_string(),
+            page: 1,
+            limit: 20,
+        };
+        assert_eq!(
+            validate_queue_params(&bad_gallery).unwrap_err(),
+            StatusCode::BAD_REQUEST
+        );
+
+        let bad_limit = QueueParams {
+            gallery: "art".to_string(),
+            status: "pending".to_string(),
+            page: 1,
+            limit: 101,
+        };
+        assert_eq!(
+            validate_queue_params(&bad_limit).unwrap_err(),
+            StatusCode::BAD_REQUEST
+        );
+    }
+
+    #[test]
+    fn validate_update_status_rejects_pending() {
+        assert!(validate_update_status("approved").is_ok());
+        assert_eq!(
+            validate_update_status("pending").unwrap_err(),
+            StatusCode::BAD_REQUEST
+        );
+    }
+
+    #[test]
+    fn normalize_review_note_trims_and_limits_length() {
+        assert_eq!(
+            normalize_review_note(Some("  approved  ".to_string())).unwrap(),
+            Some("approved".to_string())
+        );
+        assert_eq!(normalize_review_note(Some("   ".to_string())).unwrap(), None);
+        assert_eq!(
+            normalize_review_note(Some("x".repeat(MAX_REVIEW_NOTE_LEN + 1))).unwrap_err(),
+            StatusCode::BAD_REQUEST
+        );
+    }
 }

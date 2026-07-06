@@ -65,6 +65,8 @@
 
 **2026-07-07 CDN base URL 切片**: 统一 `PUBLIC_MEDIA_BASE_URL` 解析到 `storage::public_media_base_url()`，上传返回 URL 与作品列表/详情 URL 共用同一 CDN base，默认值为 `https://cdn.example.com/hasu-gallery` 并自动去除尾斜杠。
 
+**2026-07-07 审核逻辑测试切片**: moderation queue 参数校验、状态流转目标校验与 review note 规范化抽成纯函数并补单元测试；review note 现在 trim 后入库，空白 note 转为 `NULL`，长度限制 1000 字符。
+
 **方向已确定**：方案 C（双轨拆仓）。hasu-memes 保持只读画廊终态，hasu-gallery 为新建 UGC 平台。
 
 ---
@@ -390,7 +392,7 @@ backend/src/
 - ✅ Playwright E2E smoke: Art facets, rating filter, persisted preference restore
 - ✅ Playwright E2E smoke: upload submission, moderation queue, approve flow
 - ✅ Backend HTTP tests: `GET /api/works/facets` gallery/status validation and pending auth boundary
-- Unit tests (backend: auth, upload, moderation logic)
+- ✅ Unit tests (backend: auth, upload, moderation logic)
 - Integration tests (API endpoints)
 - E2E tests (upload flow, moderation flow)
 - GitHub Actions CI pipeline
