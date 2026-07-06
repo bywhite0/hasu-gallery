@@ -3,7 +3,7 @@
 **Project**: hasu-gallery (新仓独立项目)  
 **Vision**: Dual-gallery UGC platform (Meme Gallery + Art Gallery) with upload & moderation  
 **Created**: 2026-06-09  
-**Last Synced**: 2026-07-06  
+**Last Synced**: 2026-07-07
 **Status**: ✅ Phase 1-4 baseline 已完成真实浏览器验收；Phase 5 production hardening 已开始
 
 > **架构更新 (2026-06-14)**: 基于 linkura-apps 分析，采用 Rspack + TanStack Router/Query + zustand + Tailwind v4 技术栈
@@ -28,8 +28,8 @@
 | **2.5 用户个人页** | ✅ COMPLETE | ✅ ProfilePage + StatsCard + MyWorksList（609 行），后端 `GET /api/users/me/{stats,works}` | — |
 | **3.1 审核队列 API** | ✅ COMPLETE | ✅ middleware.rs + routes/moderation.rs（300 行），3 个 API 端点 | — |
 | **3.2 审核仪表板** | ✅ COMPLETE | ✅ ModerationPage + ModerationActions + ModerationLog（524 行）| — |
-| **4: Art Gallery** | ⏳ 未完成 | ✅ Baseline launch 已验证：Meme/Art 导航、Art upload metadata、rating 筛选、`work_art_meta` 写入、MinIO 上传成功路径与审核发布均通过真实浏览器验收 | 自动化 E2E 与 production hardening 转入 Phase 5 |
-| **5: Polish & Hardening** | ⏳ 未开始 | 🔄 已开始：rating 偏好持久化、`GET /api/works/facets`、Art rating 计数、artist/medium 建议搜索已落地并通过真实 API + 浏览器验收 | E2E/集成测试、安全加固、部署/监控文档待补 |
+| **4: Art Gallery** | ✅ BASELINE COMPLETE | ✅ Baseline launch 已验证：Meme/Art 导航、Art upload metadata、rating 筛选、`work_art_meta` 写入、MinIO 上传成功路径与审核发布均通过真实浏览器验收 | 自动化 E2E 与 production hardening 已转入 Phase 5 |
+| **5: Polish & Hardening** | 🔄 STARTED | 🔄 已开始：rating 偏好持久化、`GET /api/works/facets`、Art rating 计数、artist/medium 建议搜索已落地并通过真实 API + 浏览器验收 | E2E/集成测试、安全加固、部署/监控文档待补 |
 
 **Phase 2 总计**: +2,562 行前端代码，11 个 API 端点，完整的画廊浏览和上传功能。
 
@@ -45,13 +45,13 @@
 
 ## Overview
 
-Evolve the current read-only meme gallery into a UGC platform supporting:
+Build the independent UGC platform for:
 1. **Meme Gallery** (表情包画廊): Official + activity screenshots + fan-made memes
 2. **Art Gallery** (美术部): Fan-created artwork (excluding memes)
 
 Both galleries share the same authentication, upload, moderation, and storage spine.
 
-> ⚠️ **方向待决**：上述愿景与最近 2 周实际工作流（静态化）不一致。建议在动手任何 Phase 1 子项前，先选择 A 追路线图 / B 重置路线图 / C 双轨拆仓。详见顶部「状态快照」与 Next Actions 第 1 项。
+> **方向已收敛**：早期“静态化 vs UGC 平台”的分歧已由 2026-06-14 方案 C 解决。`hasu-memes` 保持只读画廊终态，`hasu-gallery` 独立承接 UGC、上传、审核与生产化加固。
 
 ---
 
@@ -295,9 +295,9 @@ backend/src/
 
 ---
 
-### Phase 4: Art Gallery Launch
+### Phase 4: Art Gallery Launch ✅ BASELINE COMPLETE
 
-**Goal**: Make art gallery production-ready with full metadata support
+**Goal**: Launch the Art Gallery baseline with metadata support; production hardening now continues in Phase 5.
 
 #### 4.1 Frontend: Gallery Switcher
 
@@ -326,7 +326,7 @@ backend/src/
 **Features**:
 - Rating filter (art gallery only)
 - Default: all_ages (guest) or user preference (logged in)
-- Cookie/session to persist rating preference
+- Local preference persistence for rating selection
 
 **Deliverable**: Age-appropriate content filtering
 

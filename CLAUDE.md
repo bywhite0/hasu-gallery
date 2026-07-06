@@ -378,24 +378,21 @@ chore: upgrade dependencies
 - MyWorksList（状态徽章 + 筛选）
 - 后端 API：`GET /api/users/me/stats`、`GET /api/users/me/works`
 
-### 推荐下一步（Phase 4 - Art Gallery）
+### 推荐下一步（Phase 5 - Production Hardening）
 
-> 2026-07-03 审查：画廊切换、Art 上传元数据、rating 筛选已有基础实现并通过真实浏览器验收；偏好持久化、Art facets、artist/medium 搜索体验进入 Phase 5 production hardening。
+> 2026-07-07 收敛：Phase 4 Art Gallery baseline 已通过真实浏览器验收；Phase 5 首个切片（rating 偏好持久化、Art facets、artist/medium 建议搜索）已开始落地。后续路线不改架构，聚焦自动化验收、安全加固、部署与可观测性。
 
-1. **画廊切换器**
-   - 顶层 tab/下拉菜单：Meme Gallery vs Art Gallery
-   - 复用现有组件（WorksGrid, FilterPanel）
-   - 切换数据源：`GET /api/works?gallery=art`
+1. **自动化验收**
+   - E2E 覆盖 Art facets、rating 偏好恢复、上传、审核发布链路
+   - 后端集成测试覆盖 `GET /api/works/facets`、权限边界与筛选参数
 
-2. **Art 元数据增强**
-   - 上传表单支持 artist, medium, rating 字段
-   - 作品详情页显示 art 专属元数据
-   - Art 画廊筛选器：artist, medium, rating
+2. **生产化安全加固**
+   - 上传/登录限流、CSRF、防刷
+   - 输入校验与上传文件校验审计
 
-3. **内容过滤**
-   - Rating 系统（all_ages/r15/r18）
-   - 默认过滤（guest 只看 all_ages）
-   - 用户偏好设置（Cookie/Session 持久化）
+3. **部署与可观测性**
+   - 环境变量与部署指南补齐
+   - 内容政策/审核指南、错误监控与基础指标落地
 
 ---
 
@@ -421,15 +418,19 @@ chore: upgrade dependencies
 
 ### 作品 API
 - `GET /api/works` - 作品列表
-  - 参数：gallery（必填），status, origin（meme only）, page, limit, sort
+  - 参数：gallery（必填），status, origin（meme only）, rating/artist/medium（art only）, page, limit, sort
   - 返回：{ works: WorkItem[], pagination: {...} }
+
+- `GET /api/works/facets` - 作品聚合筛选项
+  - 参数：gallery（必填），status
+  - 返回：{ artists, mediums, ratings }（Art Gallery 当前使用）
   
 - `GET /api/works/:id` - 作品详情
   - 返回：WorkItem（含完整元数据）
   - 404 如果作品不存在
   
 - `POST /api/works/upload` - 上传作品（需要认证）
-  - multipart/form-data：file, title, gallery, origin（meme 必填）, source, source_url
+  - multipart/form-data：file, title, gallery, origin（meme 必填）, artist/rating（art 必填）, medium（art 可选）, source, source_url
   - 返回：上传成功的 WorkItem
 
 ### 用户 API
