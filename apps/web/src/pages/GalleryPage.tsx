@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { Button, EmptyState, ErrorState, StateMessage } from '@hasu-gallery/ui';
-import { listWorks } from '../api/works';
+import { listWorkFacets, listWorks } from '../api/works';
 import { FilterPanel } from '../components/FilterPanel';
 import { WorksGrid } from '../components/WorksGrid';
 import { Pagination } from '../components/Pagination';
@@ -70,11 +70,19 @@ export function GalleryPage({ gallery }: GalleryPageProps) {
   }, [artRatingPreference, gallery]);
 
   const isGuest = !user;
+  const canViewNonApproved = user?.role === 'admin' || user?.role === 'moderator';
   const queryFilters: Filters = isGuest ? { ...filters, status: 'approved' } : filters;
+  const facetsStatus = canViewNonApproved ? filters.status : 'approved';
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['works', gallery, page, queryFilters],
     queryFn: () => listWorks({ gallery, page, ...queryFilters }),
+  });
+
+  const artFacetsQuery = useQuery({
+    queryKey: ['workFacets', gallery, facetsStatus],
+    queryFn: () => listWorkFacets({ gallery: 'art', status: facetsStatus }),
+    enabled: gallery === 'art',
   });
 
   const handleFilterChange = (newFilters: Filters) => {
@@ -129,6 +137,7 @@ export function GalleryPage({ gallery }: GalleryPageProps) {
         hasActiveFilters={hasActiveFilters}
         onReset={handleResetFilters}
         isGuest={isGuest}
+        artFacets={artFacetsQuery.data}
       />
 
       {isLoading && (

@@ -1,4 +1,5 @@
 import { Button } from '@hasu-gallery/ui';
+import type { WorkFacet, WorksFacetsResponse } from '@hasu-gallery/types';
 
 interface FilterPanelProps {
   gallery: 'meme' | 'art';
@@ -21,7 +22,20 @@ interface FilterPanelProps {
   hasActiveFilters?: boolean;
   onReset?: () => void;
   isGuest?: boolean;
+  artFacets?: WorksFacetsResponse;
 }
+
+const getFacetCount = (facets: WorkFacet[] | undefined, value: string) =>
+  facets?.find((facet) => facet.value === value)?.count;
+
+const formatRatingLabel = (
+  label: string,
+  facets: WorkFacet[] | undefined,
+  value: string,
+) => {
+  const count = getFacetCount(facets, value);
+  return typeof count === 'number' ? `${label} (${count})` : label;
+};
 
 export function FilterPanel({
   gallery,
@@ -30,6 +44,7 @@ export function FilterPanel({
   hasActiveFilters = false,
   onReset,
   isGuest = false,
+  artFacets,
 }: FilterPanelProps) {
   const handleChange = (key: string, value: string) => {
     const newValue = value === 'all' ? undefined : value;
@@ -121,9 +136,15 @@ export function FilterPanel({
               onChange={(e) => handleChange('rating', e.target.value)}
               className="rounded border border-ink/30 bg-paper px-3 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink focus:ring-offset-2 focus:ring-offset-surface"
             >
-              <option value="all_ages">All Ages</option>
-              <option value="r15">R-15</option>
-              <option value="r18">R-18</option>
+              <option value="all_ages">
+                {formatRatingLabel('All Ages', artFacets?.ratings, 'all_ages')}
+              </option>
+              <option value="r15">
+                {formatRatingLabel('R-15', artFacets?.ratings, 'r15')}
+              </option>
+              <option value="r18">
+                {formatRatingLabel('R-18', artFacets?.ratings, 'r18')}
+              </option>
             </select>
           </div>
 
@@ -140,11 +161,23 @@ export function FilterPanel({
             <input
               id="artist-filter"
               type="search"
+              list="artist-filter-options"
               value={filters.artist || ''}
               onChange={(e) => handleTextChange('artist', e.target.value)}
               placeholder="Name"
               className="w-40 rounded border border-ink/30 bg-paper px-3 py-1.5 text-sm text-ink placeholder:text-ink-3 focus:outline-none focus:ring-2 focus:ring-ink focus:ring-offset-2 focus:ring-offset-surface"
             />
+            {artFacets?.artists.length ? (
+              <datalist id="artist-filter-options">
+                {artFacets.artists.map((facet) => (
+                  <option
+                    key={facet.value}
+                    value={facet.value}
+                    label={`${facet.count} works`}
+                  />
+                ))}
+              </datalist>
+            ) : null}
           </div>
 
           <div className="flex items-center gap-2">
@@ -154,11 +187,23 @@ export function FilterPanel({
             <input
               id="medium-filter"
               type="search"
+              list="medium-filter-options"
               value={filters.medium || ''}
               onChange={(e) => handleTextChange('medium', e.target.value)}
               placeholder="Digital, scan..."
               className="w-40 rounded border border-ink/30 bg-paper px-3 py-1.5 text-sm text-ink placeholder:text-ink-3 focus:outline-none focus:ring-2 focus:ring-ink focus:ring-offset-2 focus:ring-offset-surface"
             />
+            {artFacets?.media.length ? (
+              <datalist id="medium-filter-options">
+                {artFacets.media.map((facet) => (
+                  <option
+                    key={facet.value}
+                    value={facet.value}
+                    label={`${facet.count} works`}
+                  />
+                ))}
+              </datalist>
+            ) : null}
           </div>
         </>
       )}

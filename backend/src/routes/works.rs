@@ -77,6 +77,29 @@ pub struct WorksResponse {
     pub pagination: Pagination,
 }
 
+/// Query parameters for work facets
+#[derive(Debug, Deserialize)]
+pub struct WorkFacetsQuery {
+    pub gallery: String,
+    pub status: Option<String>,
+}
+
+/// Facet entry with a display label and matching work count
+#[derive(Debug, Serialize)]
+pub struct FacetItem {
+    pub value: String,
+    pub label: String,
+    pub count: i64,
+}
+
+/// Art-specific facets response
+#[derive(Debug, Serialize)]
+pub struct ArtFacetsResponse {
+    pub artists: Vec<FacetItem>,
+    pub media: Vec<FacetItem>,
+    pub ratings: Vec<FacetItem>,
+}
+
 /// Get public media base URL from environment or use default
 fn get_media_base_url() -> String {
     std::env::var("PUBLIC_MEDIA_BASE_URL")
@@ -376,6 +399,159 @@ pub async fn handle_works_list(
     };
 
     Ok((StatusCode::OK, Json(response)))
+}
+
+/// Handler for GET /api/works/facets
+pub async fn handle_work_facets(
+    State(state): State<AppState>,
+    session: Session,
+    Query(params): Query<WorkFacetsQuery>,
+) -> Result<impl IntoResponse, (StatusCode, String)> {
+    if params.gallery != "art" {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Facets are currently available for art gallery only".to_string(),
+        ));
+    }
+
+    let status = params.status.as_deref().unwrap_or("approved");
+    if !["pending", "approved", "rejected", "takedown"].contains(&status) {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Invalid status parameter".to_string(),
+        ));
+    }
+
+    if status != "approved" {
+        let user_id: Option<i64> = session.get(SESSION_USER_ID_KEY).await.ok().flatten();
+
+        if let Some(uid) = user_id {
+            let user_role: Option<String> =
+                sqlx::query_scalar("SELECT role::text FROM users WHERE id = $1")
+                    .bind(uid)
+                    .fetch_optional(&state.db)
+                    .await
+                    .map_err(|e| {
+                        tracing::error!("Failed to fetch user role for facets: {}", e);
+                        (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            "Authorization check failed".to_string(),
+                        )
+                    })?;
+
+            if let Some(role) = user_role {
+                if role != "admin" && role != "moderator" {
+                    return Err((
+                        StatusCode::FORBIDDEN,
+                        "Only moderators and admins can view non-approved facets".to_string(),
+                    ));
+                }
+            } else {
+                return Err((StatusCode::UNAUTHORIZED, "User not found".to_string()));
+            }
+        } else {
+            return Err((
+                StatusCode::UNAUTHORIZED,
+                "Authentication required to view non-approved facets".to_string(),
+            ));
+        }
+    }
+
+    let artists = fetch_art_facet(
+        &state.db,
+        "SELECT am.artist AS value, am.artist AS label, COUNT(*)::BIGINT AS count
+         FROM works w
+         JOIN work_art_meta am ON w.id = am.work_id
+         WHERE w.gallery = 'art'::gallery_kind
+           AND w.status = $1::work_status
+           AND btrim(am.artist) <> ''
+         GROUP BY am.artist
+         ORDER BY COUNT(*) DESC, am.artist ASC
+         LIMIT 50",
+        status,
+        "artists",
+    )
+    .await?;
+
+    let media = fetch_art_facet(
+        &state.db,
+        "SELECT am.medium AS value, am.medium AS label, COUNT(*)::BIGINT AS count
+         FROM works w
+         JOIN work_art_meta am ON w.id = am.work_id
+         WHERE w.gallery = 'art'::gallery_kind
+           AND w.status = $1::work_status
+           AND am.medium IS NOT NULL
+           AND btrim(am.medium) <> ''
+         GROUP BY am.medium
+         ORDER BY COUNT(*) DESC, am.medium ASC
+         LIMIT 50",
+        status,
+        "media",
+    )
+    .await?;
+
+    let ratings = fetch_art_facet(
+        &state.db,
+        "SELECT am.rating::TEXT AS value,
+                CASE am.rating::TEXT
+                  WHEN 'all_ages' THEN 'All Ages'
+                  WHEN 'r15' THEN 'R-15'
+                  WHEN 'r18' THEN 'R-18'
+                  ELSE am.rating::TEXT
+                END AS label,
+                COUNT(*)::BIGINT AS count
+         FROM works w
+         JOIN work_art_meta am ON w.id = am.work_id
+         WHERE w.gallery = 'art'::gallery_kind
+           AND w.status = $1::work_status
+         GROUP BY am.rating
+         ORDER BY CASE am.rating::TEXT
+                    WHEN 'all_ages' THEN 1
+                    WHEN 'r15' THEN 2
+                    WHEN 'r18' THEN 3
+                    ELSE 4
+                  END",
+        status,
+        "ratings",
+    )
+    .await?;
+
+    Ok((
+        StatusCode::OK,
+        Json(ArtFacetsResponse {
+            artists,
+            media,
+            ratings,
+        }),
+    ))
+}
+
+async fn fetch_art_facet(
+    db: &crate::db::DbPool,
+    query: &str,
+    status: &str,
+    facet_name: &str,
+) -> Result<Vec<FacetItem>, (StatusCode, String)> {
+    let rows = sqlx::query(query)
+        .bind(status)
+        .fetch_all(db)
+        .await
+        .map_err(|e| {
+            tracing::error!("Database error fetching {} facet: {}", facet_name, e);
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to fetch {} facet", facet_name),
+            )
+        })?;
+
+    Ok(rows
+        .iter()
+        .map(|row| FacetItem {
+            value: row.try_get("value").unwrap_or_default(),
+            label: row.try_get("label").unwrap_or_default(),
+            count: row.try_get("count").unwrap_or_default(),
+        })
+        .collect())
 }
 
 /// Handler for GET /api/works/:id

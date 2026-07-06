@@ -1,5 +1,5 @@
 import { fetchJson } from './client';
-import { WorksListResponse, Work } from '@hasu-gallery/types';
+import { WorksFacetsResponse, WorksListResponse, Work } from '@hasu-gallery/types';
 
 export interface WorksListParams {
   gallery: 'meme' | 'art';
@@ -11,6 +11,11 @@ export interface WorksListParams {
   rating?: 'all_ages' | 'r15' | 'r18';
   artist?: string;
   medium?: string;
+}
+
+export interface WorksFacetsParams {
+  gallery: 'art';
+  status?: 'pending' | 'approved' | 'rejected' | 'takedown';
 }
 
 export async function listWorks(params: WorksListParams): Promise<WorksListResponse> {
@@ -26,6 +31,16 @@ export async function listWorks(params: WorksListParams): Promise<WorksListRespo
   if (params.medium) searchParams.set('medium', params.medium);
 
   return fetchJson<WorksListResponse>(`/api/works?${searchParams}`);
+}
+
+export async function listWorkFacets(
+  params: WorksFacetsParams,
+): Promise<WorksFacetsResponse> {
+  const searchParams = new URLSearchParams();
+  searchParams.set('gallery', params.gallery);
+  if (params.status) searchParams.set('status', params.status);
+
+  return fetchJson<WorksFacetsResponse>(`/api/works/facets?${searchParams}`);
 }
 
 export async function getWork(id: string): Promise<Work> {

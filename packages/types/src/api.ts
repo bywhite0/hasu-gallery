@@ -34,6 +34,18 @@ export interface FacetResponse {
   count: number;
 }
 
+export interface WorkFacet {
+  value: string;
+  label: string;
+  count: number;
+}
+
+export interface WorksFacetsResponse {
+  artists: WorkFacet[];
+  media: WorkFacet[];
+  ratings: WorkFacet[];
+}
+
 export interface CategoriesResponse {
   categories: Array<{
     slug: string;
