@@ -147,3 +147,93 @@ async fn health_check(State(state): State<AppState>) -> impl IntoResponse {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use aws_config::BehaviorVersion;
+    use aws_sdk_s3::config::{Credentials, Region};
+    use axum::{
+        body::{to_bytes, Body},
+        http::Request,
+        routing::get,
+    };
+    use sqlx::postgres::PgPoolOptions;
+    use tower::ServiceExt;
+    use tower_sessions::{MemoryStore, SessionManagerLayer};
+
+    fn test_state() -> AppState {
+        let db = PgPoolOptions::new()
+            .connect_lazy("postgres://hasu_user:hasu_pass@localhost:5432/hasu_gallery_test")
+            .expect("test database URL should parse");
+        let s3_config = aws_sdk_s3::Config::builder()
+            .behavior_version(BehaviorVersion::latest())
+            .region(Region::new("us-east-1"))
+            .credentials_provider(Credentials::new(
+                "test-access-key",
+                "test-secret-key",
+                None,
+                None,
+                "hasu-gallery-test",
+            ))
+            .endpoint_url("http://localhost:9000")
+            .build();
+
+        AppState {
+            db,
+            s3_client: aws_sdk_s3::Client::from_conf(s3_config),
+        }
+    }
+
+    async fn request_work_facets(path: &str) -> (StatusCode, String) {
+        let app = Router::new()
+            .route("/api/works/facets", get(routes::works::handle_work_facets))
+            .with_state(test_state())
+            .layer(SessionManagerLayer::new(MemoryStore::default()));
+
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri(path)
+                    .body(Body::empty())
+                    .expect("request should build"),
+            )
+            .await
+            .expect("request should complete");
+
+        let status = response.status();
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("body should read");
+        (
+            status,
+            String::from_utf8(body.to_vec()).expect("body should be UTF-8"),
+        )
+    }
+
+    #[tokio::test]
+    async fn work_facets_rejects_non_art_gallery() {
+        let (status, body) = request_work_facets("/api/works/facets?gallery=meme").await;
+
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert!(body.contains("art gallery only"));
+    }
+
+    #[tokio::test]
+    async fn work_facets_rejects_invalid_status() {
+        let (status, body) =
+            request_work_facets("/api/works/facets?gallery=art&status=archived").await;
+
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert!(body.contains("Invalid status parameter"));
+    }
+
+    #[tokio::test]
+    async fn work_facets_requires_authentication_for_non_approved_status() {
+        let (status, body) =
+            request_work_facets("/api/works/facets?gallery=art&status=pending").await;
+
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+        assert!(body.contains("Authentication required to view non-approved facets"));
+    }
+}
