@@ -47,6 +47,8 @@
 
 **2026-07-07 上传输入校验切片**: 后端上传入口补齐服务端字段规范化：必填字段 trim 后校验、标题/artist/medium/source/source_url 长度限制，以及 source_url 必须为绝对 HTTP(S) URL；新增纯单元测试覆盖边界。
 
+**2026-07-07 登录/上传限流切片**: 新增轻量内存限流 middleware，并挂载到 `POST /api/auth/login` 与 `POST /api/works/upload`；默认登录每分钟 10 次、上传每小时 20 次，按 forwarded/client 指纹 + 方法 + 路径分桶，超限返回 429。
+
 **方向已确定**：方案 C（双轨拆仓）。hasu-memes 保持只读画廊终态，hasu-gallery 为新建 UGC 平台。
 
 ---
@@ -354,7 +356,7 @@ backend/src/
 
 #### 5.1 Security Hardening
 
-- Rate limiting (upload, login attempts)
+- ✅ Rate limiting (upload, login attempts): in-memory per-client route buckets with 429 responses
 - CSRF protection
 - 🔄 Input sanitization audit: upload text normalization, length limits, source URL scheme/authority validation
 - SQL injection prevention (use parameterized queries)

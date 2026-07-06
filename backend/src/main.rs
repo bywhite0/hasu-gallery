@@ -7,6 +7,7 @@ use axum::{
     middleware::from_fn_with_state,
 };
 use std::net::SocketAddr;
+use std::time::Duration;
 use tower_http::cors::CorsLayer;
 use tower_sessions::{SessionManagerLayer, Expiry};
 use tower_sessions_sqlx_store::PostgresStore;
@@ -68,6 +69,8 @@ async fn main() {
 
     // Create shared state
     let state = AppState { db, s3_client };
+    let login_rate_limiter = middleware::RateLimiter::new(10, Duration::from_secs(60));
+    let upload_rate_limiter = middleware::RateLimiter::new(20, Duration::from_secs(60 * 60));
 
     // 从环境变量读取 CORS 配置
     let allowed_origins_str = std::env::var("CORS_ALLOWED_ORIGINS")
@@ -96,13 +99,25 @@ async fn main() {
     let app = Router::new()
         .route("/health", get(health_check))
         .route("/api/auth/register", post(routes::auth::register))
-        .route("/api/auth/login", post(routes::auth::login))
+        .route(
+            "/api/auth/login",
+            post(routes::auth::login).route_layer(from_fn_with_state(
+                login_rate_limiter,
+                middleware::rate_limit,
+            )),
+        )
         .route("/api/auth/logout", post(routes::auth::logout))
         .route("/api/auth/me", get(routes::auth::me))
         .route("/api/works", get(routes::works::handle_works_list))
         .route("/api/works/facets", get(routes::works::handle_work_facets))
         .route("/api/works/:id", get(routes::works::handle_work_detail))
-        .route("/api/works/upload", post(routes::upload::upload_work))
+        .route(
+            "/api/works/upload",
+            post(routes::upload::upload_work).route_layer(from_fn_with_state(
+                upload_rate_limiter,
+                middleware::rate_limit,
+            )),
+        )
         .route("/api/users/me/works", get(routes::users::handle_my_works))
         .route("/api/users/me/stats", get(routes::users::handle_my_stats))
         .merge(moderation_routes)
