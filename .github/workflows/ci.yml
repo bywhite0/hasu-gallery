@@ -59,8 +59,11 @@ jobs:
       - name: Install PostgreSQL client
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
 
-      - name: Apply database schema
-        run: psql "$DATABASE_URL" -f backend/migrations/001_initial.sql
+      - name: Apply database migrations
+        run: |
+          for migration in backend/migrations/*.sql; do
+            psql "$DATABASE_URL" -f "$migration"
+          done
 
       - name: Run tests
         run: cargo test --manifest-path backend/Cargo.toml

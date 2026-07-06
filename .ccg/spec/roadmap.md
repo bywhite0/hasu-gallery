@@ -67,6 +67,8 @@
 
 **2026-07-07 审核逻辑测试切片**: moderation queue 参数校验、状态流转目标校验与 review note 规范化抽成纯函数并补单元测试；review note 现在 trim 后入库，空白 note 转为 `NULL`，长度限制 1000 字符。
 
+**2026-07-07 轻量 CI 迁移切片**: GitHub Actions 后端任务仍只跑 Postgres + `cargo test`，但数据库初始化从硬编码 `001_initial.sql` 改为按顺序执行 `backend/migrations/*.sql`，避免新增迁移后 CI schema 落后；E2E 继续只作为本地脚本。
+
 **方向已确定**：方案 C（双轨拆仓）。hasu-memes 保持只读画廊终态，hasu-gallery 为新建 UGC 平台。
 
 ---
@@ -395,7 +397,7 @@ backend/src/
 - ✅ Unit tests (backend: auth, upload, moderation logic)
 - Integration tests (API endpoints)
 - E2E tests (upload flow, moderation flow)
-- GitHub Actions CI pipeline
+- ✅ GitHub Actions CI pipeline (lightweight; no Playwright E2E)
 
 #### 5.4 Documentation
 
