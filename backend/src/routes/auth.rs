@@ -22,6 +22,8 @@ pub async fn register(
     session: Session,
     Json(req): Json<RegisterRequest>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let req = req.normalized();
+
     // 验证输入
     req.validate()
         .map_err(|e| (StatusCode::BAD_REQUEST, format!("Validation error: {}", e)))?;
@@ -84,6 +86,8 @@ pub async fn login(
     session: Session,
     Json(req): Json<LoginRequest>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
+    let req = req.normalized();
+
     // 验证输入
     req.validate()
         .map_err(|e| (StatusCode::BAD_REQUEST, format!("Validation error: {}", e)))?;

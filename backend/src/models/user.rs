@@ -28,6 +28,15 @@ pub struct RegisterRequest {
     pub display_name: String,
 }
 
+impl RegisterRequest {
+    pub fn normalized(mut self) -> Self {
+        self.handle = self.handle.trim().to_string();
+        self.email = self.email.trim().to_ascii_lowercase();
+        self.display_name = self.display_name.trim().to_string();
+        self
+    }
+}
+
 #[derive(Debug, Deserialize, Validate)]
 pub struct LoginRequest {
     #[validate(length(min = 1))]
@@ -35,6 +44,13 @@ pub struct LoginRequest {
 
     #[validate(length(min = 1))]
     pub password: String,
+}
+
+impl LoginRequest {
+    pub fn normalized(mut self) -> Self {
+        self.handle = self.handle.trim().to_string();
+        self
+    }
 }
 
 /// 通过 handle 查找用户
@@ -89,4 +105,52 @@ pub async fn create_user(
     )
     .fetch_one(pool)
     .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn register_request_normalized_trims_public_fields_and_lowercases_email() {
+        let req = RegisterRequest {
+            handle: "  hasu_user  ".to_string(),
+            email: "  LOTUS@Example.COM  ".to_string(),
+            password: "  keep password whitespace  ".to_string(),
+            display_name: "  Hasu User  ".to_string(),
+        }
+        .normalized();
+
+        assert_eq!(req.handle, "hasu_user");
+        assert_eq!(req.email, "lotus@example.com");
+        assert_eq!(req.password, "  keep password whitespace  ");
+        assert_eq!(req.display_name, "Hasu User");
+        assert!(req.validate().is_ok());
+    }
+
+    #[test]
+    fn register_request_validation_runs_after_normalization() {
+        let req = RegisterRequest {
+            handle: "  ab  ".to_string(),
+            email: " USER@example.com ".to_string(),
+            password: "password123".to_string(),
+            display_name: " User ".to_string(),
+        }
+        .normalized();
+
+        assert!(req.validate().is_err());
+    }
+
+    #[test]
+    fn login_request_normalized_trims_handle_only() {
+        let req = LoginRequest {
+            handle: "  hasu_user  ".to_string(),
+            password: "  password123  ".to_string(),
+        }
+        .normalized();
+
+        assert_eq!(req.handle, "hasu_user");
+        assert_eq!(req.password, "  password123  ");
+        assert!(req.validate().is_ok());
+    }
 }

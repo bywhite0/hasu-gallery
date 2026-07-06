@@ -55,6 +55,8 @@
 
 **2026-07-07 SQL 注入防护审计切片**: 将作品列表 `sort` 到 `ORDER BY` 的映射收紧为静态 SQL 白名单 helper，并补测试覆盖注入式 sort 被拒绝；筛选值继续通过 sqlx bind 绑定。
 
+**2026-07-07 认证输入规范化切片**: 注册/登录请求在 validator 前统一规范化，handle/display_name/email 去除首尾空白，email 转小写，password 保持原样；新增单元测试覆盖规范化与校验顺序。
+
 **方向已确定**：方案 C（双轨拆仓）。hasu-memes 保持只读画廊终态，hasu-gallery 为新建 UGC 平台。
 
 ---
@@ -364,7 +366,7 @@ backend/src/
 
 - ✅ Rate limiting (upload, login attempts): in-memory per-client route buckets with 429 responses
 - ✅ CSRF protection: unsafe-method Origin/Referer validation against configured allowed origins
-- 🔄 Input sanitization audit: upload text normalization, length limits, source URL scheme/authority validation
+- ✅ Input sanitization audit: auth/upload text normalization, length limits, source URL scheme/authority validation
 - ✅ SQL injection prevention: parameterized filters plus static ORDER BY whitelist
 - ✅ File upload restrictions: extension whitelist plus magic byte validation
 
