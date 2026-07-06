@@ -90,7 +90,7 @@ pub async fn get_queue(
     // Get total count
     let total: i64 = sqlx::query_scalar(
         "SELECT COUNT(*) FROM works
-         WHERE gallery::TEXT = $1 AND status::TEXT = $2",
+         WHERE gallery = $1::gallery_kind AND status = $2::work_status",
     )
     .bind(&params.gallery)
     .bind(&params.status)
@@ -116,7 +116,7 @@ pub async fn get_queue(
             NULL::BIGINT as file_size_bytes
          FROM works w
          JOIN users u ON w.uploader_id = u.id
-         WHERE w.gallery::TEXT = $1 AND w.status::TEXT = $2
+         WHERE w.gallery = $1::gallery_kind AND w.status = $2::work_status
          ORDER BY w.created_at ASC
          LIMIT $3 OFFSET $4",
     )

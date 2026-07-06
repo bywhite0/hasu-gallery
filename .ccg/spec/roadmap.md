@@ -57,6 +57,8 @@
 
 **2026-07-07 认证输入规范化切片**: 注册/登录请求在 validator 前统一规范化，handle/display_name/email 去除首尾空白，email 转小写，password 保持原样；新增单元测试覆盖规范化与校验顺序。
 
+**2026-07-07 数据库索引切片**: 新增 `002_performance_indexes.sql`，覆盖 gallery/status/created_at、gallery/status/title、uploader/created_at 与 Art metadata facets/filter 索引；审核队列查询改为 enum 参数 cast，避免 `gallery::TEXT/status::TEXT` 绕开索引。
+
 **方向已确定**：方案 C（双轨拆仓）。hasu-memes 保持只读画廊终态，hasu-gallery 为新建 UGC 平台。
 
 ---
@@ -372,7 +374,7 @@ backend/src/
 
 #### 5.2 Performance Optimization
 
-- Database indexing (on `gallery`, `status`, `created_at`, `phash`)
+- ✅ Database indexing (on `gallery`, `status`, `created_at`, `phash`)
 - Image optimization (thumbnail generation, progressive JPEG)
 - CDN integration for static assets
 - Lazy loading for gallery grids
