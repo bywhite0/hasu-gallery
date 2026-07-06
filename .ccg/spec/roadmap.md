@@ -43,6 +43,8 @@
 
 **2026-07-07 后端边界测试切片**: 为 `GET /api/works/facets` 补充 HTTP 级后端测试，覆盖非 Art gallery 拒绝、非法 status 拒绝，以及未登录访问 pending facets 返回 401。测试使用内存 session 与 lazy Postgres pool，不依赖当前远端数据库可用性。
 
+**2026-07-07 上传/审核 E2E 切片**: 新增本地 Playwright smoke，使用 mock API 串起 Art 上传提交、pending 审核队列展示、审核批准与队列刷新为空。E2E 继续保持本地脚本，不进入 CI。
+
 **方向已确定**：方案 C（双轨拆仓）。hasu-memes 保持只读画廊终态，hasu-gallery 为新建 UGC 平台。
 
 ---
@@ -366,6 +368,7 @@ backend/src/
 #### 5.3 Testing & CI
 
 - ✅ Playwright E2E smoke: Art facets, rating filter, persisted preference restore
+- ✅ Playwright E2E smoke: upload submission, moderation queue, approve flow
 - ✅ Backend HTTP tests: `GET /api/works/facets` gallery/status validation and pending auth boundary
 - Unit tests (backend: auth, upload, moderation logic)
 - Integration tests (API endpoints)
@@ -393,7 +396,7 @@ backend/src/
 > **Current Status (2026-07-06)**: Phase 1-4 baseline 已完成真实浏览器验收；Phase 5 已完成 Art facets/search polish 的第一个切片，进入自动化测试与安全加固收尾。
 
 **Immediate Next Steps**:
-1. 继续补齐自动化 E2E/集成测试：覆盖上传、审核发布链路，并在可用测试数据库环境下扩展 facets moderator/admin 聚合路径。
+1. 在可用测试数据库环境下扩展 API 集成测试：facets moderator/admin 聚合路径、上传入库、审核状态流转。
 2. 生产化安全加固：上传/登录限流、CSRF、防刷、输入与上传校验审计。
 3. 文档与可观测性：部署环境变量、内容政策/审核指南、错误监控与基础指标。
 
