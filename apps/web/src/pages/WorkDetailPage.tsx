@@ -5,6 +5,7 @@ import { Button, ErrorState, StateMessage } from '@hasu-gallery/ui';
 import { getWork } from '../api/works';
 import { ArrowLeft, Download, ExternalLink } from 'lucide-react';
 import { useI18n } from '../i18n';
+import { reportClientError } from '../lib/errorReporting';
 
 const getErrorDescription = (error: unknown, t: ReturnType<typeof useI18n>['t']) => {
   const message = error instanceof Error ? error.message : '';
@@ -42,6 +43,9 @@ export function WorkDetailPage() {
     queryFn: () => getWork(id as string),
     enabled: !!id,
   });
+  const errorReport = error
+    ? reportClientError(error, { area: 'work-detail', details: { id } })
+    : null;
 
   if (isLoading) {
     return (
@@ -60,7 +64,12 @@ export function WorkDetailPage() {
       <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center">
         <ErrorState
           title={t('work.unavailableTitle')}
-          description={getErrorDescription(error, t)}
+          description={
+            <div className="space-y-1">
+              <p>{getErrorDescription(error, t)}</p>
+              {errorReport && <p>{t('error.reference', { reference: errorReport.reference })}</p>}
+            </div>
+          }
           action={
             <>
               <Button type="button" onClick={() => void refetch()} disabled={isFetching}>

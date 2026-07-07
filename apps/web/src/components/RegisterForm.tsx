@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/auth';
 import { useI18n } from '../i18n';
 import { getAuthErrorMessage, isRecoverableAuthError } from './authErrorCopy';
 import type { AuthIntentReason } from './authIntent';
+import { reportClientError } from '../lib/errorReporting';
 
 interface RegisterFormProps {
   next?: string;
@@ -21,10 +22,12 @@ export function RegisterForm({ next, reason }: RegisterFormProps) {
   const [validationError, setValidationError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [errorReference, setErrorReference] = useState<string | null>(null);
 
   const clearFormErrors = () => {
     if (validationError) setValidationError('');
     if (submitError) setSubmitError(null);
+    if (errorReference) setErrorReference(null);
     clearError();
   };
 
@@ -56,8 +59,11 @@ export function RegisterForm({ next, reason }: RegisterFormProps) {
     try {
       setIsSubmitting(true);
       setSubmitError(null);
+      setErrorReference(null);
       await register(handle.trim(), email.trim(), password, displayName.trim() || handle.trim());
     } catch (err) {
+      const report = reportClientError(err, { area: 'register' });
+      setErrorReference(report.reference);
       setSubmitError(err instanceof Error ? err.message : t('auth.errorRegisterFallback'));
     } finally {
       setIsSubmitting(false);
@@ -140,7 +146,14 @@ export function RegisterForm({ next, reason }: RegisterFormProps) {
             ) : undefined
           }
         >
-          {displayError}
+          <span className="space-y-1">
+            <span className="block">{displayError}</span>
+            {errorReference && !validationError && (
+              <span className="block text-xs">
+                {t('error.reference', { reference: errorReference })}
+              </span>
+            )}
+          </span>
         </FormMessage>
       )}
 

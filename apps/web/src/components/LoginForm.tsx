@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/auth';
 import { useI18n } from '../i18n';
 import { getAuthErrorMessage, isRecoverableAuthError } from './authErrorCopy';
 import type { AuthIntentReason } from './authIntent';
+import { reportClientError } from '../lib/errorReporting';
 
 interface LoginFormProps {
   next?: string;
@@ -17,6 +18,7 @@ export function LoginForm({ next, reason }: LoginFormProps) {
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [errorReference, setErrorReference] = useState<string | null>(null);
   const { login, clearError } = useAuthStore();
   const displayError = getAuthErrorMessage(submitError, 'login', t);
   const canSubmit = Boolean(handle.trim() && password.trim());
@@ -25,12 +27,14 @@ export function LoginForm({ next, reason }: LoginFormProps) {
   const updateHandle = (value: string) => {
     setHandle(value);
     if (submitError) setSubmitError(null);
+    if (errorReference) setErrorReference(null);
     clearError();
   };
 
   const updatePassword = (value: string) => {
     setPassword(value);
     if (submitError) setSubmitError(null);
+    if (errorReference) setErrorReference(null);
     clearError();
   };
 
@@ -44,8 +48,11 @@ export function LoginForm({ next, reason }: LoginFormProps) {
     try {
       setIsSubmitting(true);
       setSubmitError(null);
+      setErrorReference(null);
       await login(handle.trim(), password);
     } catch (err) {
+      const report = reportClientError(err, { area: 'login' });
+      setErrorReference(report.reference);
       setSubmitError(err instanceof Error ? err.message : t('auth.errorLoginFallback'));
     } finally {
       setIsSubmitting(false);
@@ -88,7 +95,14 @@ export function LoginForm({ next, reason }: LoginFormProps) {
             ) : undefined
           }
         >
-          {displayError}
+          <span className="space-y-1">
+            <span className="block">{displayError}</span>
+            {errorReference && (
+              <span className="block text-xs">
+                {t('error.reference', { reference: errorReference })}
+              </span>
+            )}
+          </span>
         </FormMessage>
       )}
 

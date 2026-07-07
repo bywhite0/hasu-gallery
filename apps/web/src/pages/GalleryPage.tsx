@@ -8,6 +8,7 @@ import { WorksGrid } from '../components/WorksGrid';
 import { Pagination } from '../components/Pagination';
 import { useAppStore, useAuthStore, type ArtRatingPreference } from '../store';
 import { useI18n } from '../i18n';
+import { reportClientError } from '../lib/errorReporting';
 
 interface GalleryPageProps {
   gallery: 'meme' | 'art';
@@ -80,6 +81,9 @@ export function GalleryPage({ gallery }: GalleryPageProps) {
     queryKey: ['works', gallery, page, queryFilters],
     queryFn: () => listWorks({ gallery, page, ...queryFilters }),
   });
+  const errorReport = error
+    ? reportClientError(error, { area: 'gallery', details: { gallery } })
+    : null;
 
   const artFacetsQuery = useQuery({
     queryKey: ['workFacets', gallery, facetsStatus],
@@ -171,7 +175,12 @@ export function GalleryPage({ gallery }: GalleryPageProps) {
       {error && (
         <ErrorState
           title={t('gallery.unavailableTitle')}
-          description={getErrorDescription(error, t)}
+          description={
+            <div className="space-y-1">
+              <p>{getErrorDescription(error, t)}</p>
+              {errorReport && <p>{t('error.reference', { reference: errorReport.reference })}</p>}
+            </div>
+          }
           action={
             <Button type="button" onClick={() => void refetch()} disabled={isFetching}>
               {isFetching ? t('common.retrying') : t('common.retry')}

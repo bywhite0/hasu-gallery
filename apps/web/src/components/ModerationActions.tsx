@@ -2,12 +2,13 @@
  * ModerationActions - Action buttons for moderating works
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Button } from '@hasu-gallery/ui';
 import { Ban, CheckCircle2, XCircle } from 'lucide-react';
 import { updateWorkStatus } from '../api/moderation';
 import { useI18n, type TranslationKey } from '../i18n';
+import { reportClientError } from '../lib/errorReporting';
 
 interface ModerationActionsProps {
   workId: string;
@@ -62,6 +63,16 @@ export function ModerationActions({ workId, onSuccess }: ModerationActionsProps)
       onSuccess();
     },
   });
+  const mutationErrorReport = useMemo(
+    () =>
+      mutation.error
+        ? reportClientError(mutation.error, {
+            area: 'moderation-action',
+            details: { workId },
+          })
+        : null,
+    [mutation.error, workId],
+  );
 
   const confirmPendingAction = () => {
     if (!pendingAction) return;
@@ -143,7 +154,12 @@ export function ModerationActions({ workId, onSuccess }: ModerationActionsProps)
 
       {mutation.isError && (
         <div role="alert" className="text-red-600 text-sm">
-          {t('moderation.updateFailed')}
+          <p>{t('moderation.updateFailed')}</p>
+          {mutationErrorReport && (
+            <p className="text-xs">
+              {t('error.reference', { reference: mutationErrorReport.reference })}
+            </p>
+          )}
         </div>
       )}
     </div>

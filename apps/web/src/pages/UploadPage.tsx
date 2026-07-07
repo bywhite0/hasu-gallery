@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useMutation } from '@tanstack/react-query';
 import { CheckCircle2, Upload, X } from 'lucide-react';
@@ -9,6 +9,7 @@ import { Button } from '@hasu-gallery/ui';
 import { uploadWork } from '../api/upload';
 import type { Work } from '@hasu-gallery/types';
 import { useI18n } from '../i18n';
+import { reportClientError } from '../lib/errorReporting';
 
 const getUploadErrorMessage = (error: Error | null, t: ReturnType<typeof useI18n>['t']) => {
   if (!error) return null;
@@ -33,6 +34,13 @@ export function UploadPage() {
       setSelectedFile(null);
     },
   });
+  const uploadErrorReport = useMemo(
+    () =>
+      mutation.error
+        ? reportClientError(mutation.error, { area: 'upload' })
+        : null,
+    [mutation.error],
+  );
   const uploadError = getUploadErrorMessage(mutation.error, t);
 
   const handleFileSelect = (file: File) => {
@@ -98,6 +106,11 @@ export function UploadPage() {
                   <p className="text-sm text-destructive/90 mt-1">
                     {uploadError}
                   </p>
+                  {uploadErrorReport && (
+                    <p className="text-xs text-destructive/80 mt-2">
+                      {t('error.reference', { reference: uploadErrorReport.reference })}
+                    </p>
+                  )}
                 </div>
                 <button
                   onClick={() => mutation.reset()}

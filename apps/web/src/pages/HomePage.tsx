@@ -6,6 +6,7 @@ import type { WorkListItem } from '@hasu-gallery/types';
 import { listWorks } from '../api/works';
 import { useAuthStore } from '../store/auth';
 import { useI18n } from '../i18n';
+import { reportClientError } from '../lib/errorReporting';
 
 type HomeFeedItem = WorkListItem & {
   gallery: 'meme' | 'art';
@@ -57,6 +58,9 @@ export function HomePage() {
   const isLoading = memeQuery.isLoading || artQuery.isLoading;
   const hasError = memeQuery.error || artQuery.error;
   const error = memeQuery.error ?? artQuery.error;
+  const errorReport = error
+    ? reportClientError(error, { area: 'home-feed' })
+    : null;
 
   return (
     <div className="space-y-8">
@@ -104,7 +108,12 @@ export function HomePage() {
       {!isLoading && hasError && feed.length === 0 && (
         <ErrorState
           title={t('home.errorTitle')}
-          description={getErrorDescription(error, t)}
+          description={
+            <div className="space-y-1">
+              <p>{getErrorDescription(error, t)}</p>
+              {errorReport && <p>{t('error.reference', { reference: errorReport.reference })}</p>}
+            </div>
+          }
           action={
             <Button
               type="button"
