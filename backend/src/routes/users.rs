@@ -25,6 +25,7 @@ pub struct StatsResponse {
     pub pending: i64,
     pub approved: i64,
     pub rejected: i64,
+    pub takedown: i64,
 }
 
 /// Handler for GET /api/users/me/stats
@@ -52,7 +53,8 @@ pub async fn handle_my_stats(
             COUNT(*) as "total!",
             COUNT(*) FILTER (WHERE status = 'pending'::work_status) as "pending!",
             COUNT(*) FILTER (WHERE status = 'approved'::work_status) as "approved!",
-            COUNT(*) FILTER (WHERE status = 'rejected'::work_status) as "rejected!"
+            COUNT(*) FILTER (WHERE status = 'rejected'::work_status) as "rejected!",
+            COUNT(*) FILTER (WHERE status = 'takedown'::work_status) as "takedown!"
         FROM works
         WHERE uploader_id = $1
         "#,
@@ -75,6 +77,7 @@ pub async fn handle_my_stats(
             pending: stats.pending,
             approved: stats.approved,
             rejected: stats.rejected,
+            takedown: stats.takedown,
         }),
     ))
 }
@@ -153,7 +156,7 @@ pub async fn handle_my_works(
 
     // Fetch works
     let select_query = format!(
-        "SELECT id, gallery::TEXT AS gallery, origin::TEXT AS origin, title, status::TEXT AS status, width, height, created_at, asset_file
+        "SELECT id, gallery::TEXT AS gallery, origin::TEXT AS origin, title, status::TEXT AS status, width, height, created_at, reviewed_at, review_note, asset_file
          FROM works
          WHERE {}
          ORDER BY created_at DESC
@@ -192,6 +195,9 @@ pub async fn handle_my_works(
             let height: i32 = row.try_get("height").unwrap_or(0);
             let created_at: chrono::DateTime<chrono::Utc> =
                 row.try_get("created_at").unwrap_or_default();
+            let reviewed_at: Option<chrono::DateTime<chrono::Utc>> =
+                row.try_get("reviewed_at").ok();
+            let review_note: Option<String> = row.try_get("review_note").ok();
             let asset_file: String = row.try_get("asset_file").unwrap_or_default();
 
             WorkItem {
@@ -205,6 +211,8 @@ pub async fn handle_my_works(
                 width,
                 height,
                 created_at: created_at.to_rfc3339(),
+                reviewed_at: reviewed_at.map(|value| value.to_rfc3339()),
+                review_note,
                 uploader_name: None, // 我的作品列表不显示上传者（就是自己）
                 source: None,
                 source_url: None,

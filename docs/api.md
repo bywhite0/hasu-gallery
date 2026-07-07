@@ -47,6 +47,40 @@ Deletes the active session.
 
 Returns the active user or `401` when unauthenticated.
 
+## Account
+
+Authenticated member endpoints for the current user's private workspace.
+
+### `GET /api/users/me/stats`
+
+Returns submission counters for the signed-in user.
+
+Response:
+
+```json
+{
+  "total": 4,
+  "pending": 1,
+  "approved": 1,
+  "rejected": 1,
+  "takedown": 1
+}
+```
+
+### `GET /api/users/me/works`
+
+Lists works uploaded by the signed-in user.
+
+Query parameters:
+- `status`: optional, `pending`, `approved`, `rejected`, or `takedown`
+- `page`: optional, defaults to `1`
+- `limit`: optional, defaults to `24`, maximum `100`
+
+The response shape matches the works list response and may include uploader-only
+review fields:
+- `reviewed_at`: ISO timestamp when a moderator decision exists
+- `review_note`: private reviewer note for the uploader
+
 ## Works
 
 ### `GET /api/works`

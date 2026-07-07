@@ -13,6 +13,8 @@ export interface WorkListItem {
   width: number;
   height: number;
   created_at: string;
+  reviewed_at?: string | null;
+  review_note?: string | null;
 }
 
 export interface WorksListResponse {

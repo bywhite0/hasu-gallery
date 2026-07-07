@@ -1,8 +1,8 @@
 import { fetchJson } from './client';
-import { WorksListResponse } from '@hasu-gallery/types';
+import type { WorkStatus, WorksListResponse } from '@hasu-gallery/types';
 
 export interface MyWorksParams {
-  status?: 'pending' | 'approved' | 'rejected';
+  status?: WorkStatus;
   page?: number;
   limit?: number;
 }
@@ -12,6 +12,7 @@ export interface UserStats {
   pending: number;
   approved: number;
   rejected: number;
+  takedown: number;
 }
 
 export async function getMyWorks(params: MyWorksParams = {}): Promise<WorksListResponse> {

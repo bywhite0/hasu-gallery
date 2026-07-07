@@ -39,6 +39,10 @@ pub struct WorkItem {
     pub width: i32,
     pub height: i32,
     pub created_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reviewed_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub review_note: Option<String>,
     // 移除 uploader_id 防止信息泄露，仅在详情页显示上传者昵称
     #[serde(skip_serializing_if = "Option::is_none")]
     pub uploader_name: Option<String>,
@@ -360,6 +364,8 @@ pub async fn handle_works_list(
                 width,
                 height,
                 created_at: created_at.to_rfc3339(),
+                reviewed_at: None,
+                review_note: None,
                 uploader_name: None, // 列表不显示上传者信息
                 source: None,
                 source_url: None,
@@ -676,6 +682,8 @@ pub async fn handle_work_detail(
         width,
         height,
         created_at: created_at.to_rfc3339(),
+        reviewed_at: None,
+        review_note: None,
         uploader_name,
         source,
         source_url,
