@@ -8,6 +8,7 @@ import { useAuthStore } from '../store/auth';
 import { getMyWorks, getMyStats } from '../api/profile';
 import { MyWorksList } from '../components/MyWorksList';
 import { Pagination } from '../components/Pagination';
+import { UserBadge, UserProfileCard, type PublicUserIdentity } from '../components/UserIdentity';
 import { useI18n, type TranslationKey } from '../i18n';
 
 type StatusFilter = 'all' | WorkStatus;
@@ -21,7 +22,7 @@ const filterKeys = {
 } as const satisfies Record<StatusFilter, TranslationKey>;
 
 export function ProfilePage() {
-  const { t, formatDate, formatNumber } = useI18n();
+  const { t, formatNumber } = useI18n();
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -68,15 +69,18 @@ export function ProfilePage() {
     );
   }
 
-  const joinDate = userInfo.created_at
-    ? formatDate(userInfo.created_at)
-    : t('common.unknown');
   const total = Number(stats?.total ?? 0);
   const pending = Number(stats?.pending ?? 0);
   const approved = Number(stats?.approved ?? 0);
   const rejected = Number(stats?.rejected ?? 0);
   const takedown = Number(stats?.takedown ?? 0);
   const needsAttention = rejected + takedown;
+  const identity: PublicUserIdentity = {
+    displayName: userInfo.display_name,
+    handle: userInfo.handle,
+    joinedAt: userInfo.created_at,
+    publicWorkCount: approved,
+  };
   const filterCounts: Record<StatusFilter, number> = {
     all: total,
     pending,
@@ -113,42 +117,25 @@ export function ProfilePage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-6 sm:py-8">
-      <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-3">
           <p className="text-sm font-medium text-ink-2">{t('profile.workspaceTitle')}</p>
           <div className="space-y-2">
             <h1 className="text-3xl font-semibold leading-tight text-ink sm:text-4xl">
-              {userInfo.display_name || userInfo.handle}
+              {t('profile.meTitle')}
             </h1>
             <p className="max-w-3xl text-sm leading-6 text-ink-2 sm:text-base">
               {t('profile.workspaceDescription')}
             </p>
           </div>
+          <UserBadge identity={identity} />
           <Button type="button" onClick={handleUploadClick}>
             <Upload className="mr-2 h-4 w-4" aria-hidden="true" />
             {t('home.uploadWork')}
           </Button>
         </div>
 
-        <aside className="rounded-md border border-ink/10 bg-surface p-4">
-          <h2 className="text-sm font-semibold text-ink">{t('profile.accountDetails')}</h2>
-          <dl className="mt-3 space-y-2 text-sm">
-            <div>
-              <dt className="text-ink-2">{t('auth.handle')}</dt>
-              <dd className="font-medium text-ink">@{userInfo.handle}</dd>
-            </div>
-            {userInfo.email && (
-              <div>
-                <dt className="text-ink-2">{t('auth.email')}</dt>
-                <dd className="break-all font-medium text-ink">{userInfo.email}</dd>
-              </div>
-            )}
-            <div>
-              <dt className="text-ink-2">{t('profile.joinedLabel')}</dt>
-              <dd className="font-medium text-ink">{joinDate}</dd>
-            </div>
-          </dl>
-        </aside>
+        <UserProfileCard identity={identity} />
       </section>
 
       <section className="grid grid-cols-1 gap-3 md:grid-cols-3">
