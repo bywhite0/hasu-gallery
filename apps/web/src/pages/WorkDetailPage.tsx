@@ -6,6 +6,7 @@ import { getWork } from '../api/works';
 import { ArrowLeft, Download, ExternalLink } from 'lucide-react';
 import { useI18n } from '../i18n';
 import { reportClientError } from '../lib/errorReporting';
+import { UserBadge, type PublicUserIdentity } from '../components/UserIdentity';
 
 const getErrorDescription = (error: unknown, t: ReturnType<typeof useI18n>['t']) => {
   const message = error instanceof Error ? error.message : '';
@@ -100,6 +101,14 @@ export function WorkDetailPage() {
   const hasImage = Boolean(work.file_url) && !imageFailed;
   const title = work.title || t('work.untitled');
   const galleryName = galleryLabel(work.gallery);
+  const uploaderIdentity: PublicUserIdentity | null = work.uploader
+    ? {
+        displayName: work.uploader.display_name,
+        handle: work.uploader.handle,
+        joinedAt: work.uploader.joined_at,
+        publicWorkCount: work.uploader.approved_public_work_count,
+      }
+    : null;
 
   return (
     <div className="space-y-6">
@@ -174,7 +183,11 @@ export function WorkDetailPage() {
               </>
             )}
 
-            {work.uploader_name && <InfoRow label={t('work.submittedBy')}>{work.uploader_name}</InfoRow>}
+            {(uploaderIdentity || work.uploader_name) && (
+              <InfoRow label={t('work.submittedBy')}>
+                {uploaderIdentity ? <UserBadge identity={uploaderIdentity} /> : work.uploader_name}
+              </InfoRow>
+            )}
 
             {work.source_url && (
               <InfoRow label={t('work.source')}>

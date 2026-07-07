@@ -47,6 +47,8 @@ pub struct WorkItem {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub uploader_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub uploader: Option<PublicUserSummary>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_url: Option<String>,
@@ -54,6 +56,14 @@ pub struct WorkItem {
     pub rights_note: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub art_meta: Option<ArtMeta>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct PublicUserSummary {
+    pub handle: String,
+    pub display_name: Option<String>,
+    pub joined_at: Option<String>,
+    pub approved_public_work_count: i64,
 }
 
 /// Art metadata sub-object
@@ -367,6 +377,7 @@ pub async fn handle_works_list(
                 reviewed_at: None,
                 review_note: None,
                 uploader_name: None, // 列表不显示上传者信息
+                uploader: None,
                 source: None,
                 source_url: None,
                 rights_note: None,
@@ -561,13 +572,23 @@ pub async fn handle_work_detail(
     State(state): State<AppState>,
     session: Session,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    // Query single work with all detail fields including uploader name
+    // Query single work with detail fields and a safe public uploader summary.
     let query = "SELECT w.id, w.gallery::TEXT AS gallery, w.origin::TEXT AS origin, w.title, w.status::TEXT AS status, w.width, w.height,
                         w.source, w.source_url, w.rights_note, w.created_at, w.asset_file,
                         w.uploader_id, u.display_name as uploader_name,
+                        u.handle as uploader_handle,
+                        u.display_name as uploader_display_name,
+                        u.created_at as uploader_joined_at,
+                        COALESCE(up.approved_public_work_count, 0)::BIGINT as uploader_approved_public_work_count,
                         am.artist, am.medium, am.rating::TEXT AS rating
                  FROM works w
                  LEFT JOIN users u ON w.uploader_id = u.id
+                 LEFT JOIN LATERAL (
+                    SELECT COUNT(*)::BIGINT as approved_public_work_count
+                    FROM works public_work
+                    WHERE public_work.uploader_id = u.id
+                      AND public_work.status = 'approved'::work_status
+                 ) up ON TRUE
                  LEFT JOIN work_art_meta am ON w.id = am.work_id
                  WHERE w.id = $1";
 
@@ -613,6 +634,13 @@ pub async fn handle_work_detail(
     let status_str: String = row.try_get("status").unwrap_or_default();
     let uploader_id_opt: Option<i64> = row.try_get("uploader_id").ok();
     let uploader_name: Option<String> = row.try_get("uploader_name").ok();
+    let uploader_handle: Option<String> = row.try_get("uploader_handle").ok();
+    let uploader_display_name: Option<String> = row.try_get("uploader_display_name").ok();
+    let uploader_joined_at: Option<chrono::DateTime<chrono::Utc>> =
+        row.try_get("uploader_joined_at").ok();
+    let uploader_approved_public_work_count: i64 = row
+        .try_get("uploader_approved_public_work_count")
+        .unwrap_or(0);
     let width: i32 = row.try_get("width").unwrap_or(0);
     let height: i32 = row.try_get("height").unwrap_or(0);
     let source: Option<String> = row.try_get("source").ok();
@@ -685,6 +713,12 @@ pub async fn handle_work_detail(
         reviewed_at: None,
         review_note: None,
         uploader_name,
+        uploader: uploader_handle.map(|handle| PublicUserSummary {
+            handle,
+            display_name: uploader_display_name,
+            joined_at: uploader_joined_at.map(|value| value.to_rfc3339()),
+            approved_public_work_count: uploader_approved_public_work_count,
+        }),
         source,
         source_url,
         rights_note,
@@ -719,5 +753,54 @@ mod tests {
 
         assert_eq!(error.0, StatusCode::BAD_REQUEST);
         assert!(error.1.contains("Invalid sort parameter"));
+    }
+
+    #[test]
+    fn work_item_public_uploader_summary_does_not_serialize_private_user_fields() {
+        let item = WorkItem {
+            id: "work-1".to_string(),
+            gallery: "meme".to_string(),
+            origin: Some("official".to_string()),
+            title: "Safe summary".to_string(),
+            status: "approved".to_string(),
+            thumbnail_url: "/media/work-1_thumb.jpg".to_string(),
+            file_url: "/media/work-1.jpg".to_string(),
+            width: 100,
+            height: 100,
+            created_at: "2026-07-07T00:00:00Z".to_string(),
+            reviewed_at: None,
+            review_note: None,
+            uploader_name: Some("Hasu User".to_string()),
+            uploader: Some(PublicUserSummary {
+                handle: "hasu_user".to_string(),
+                display_name: Some("Hasu User".to_string()),
+                joined_at: Some("2026-01-01T00:00:00Z".to_string()),
+                approved_public_work_count: 3,
+            }),
+            source: None,
+            source_url: None,
+            rights_note: None,
+            art_meta: None,
+        };
+
+        let json = serde_json::to_value(item).expect("work item serializes");
+        let uploader = json
+            .get("uploader")
+            .and_then(|value| value.as_object())
+            .expect("uploader summary is present");
+
+        assert_eq!(
+            uploader.get("handle").and_then(|value| value.as_str()),
+            Some("hasu_user")
+        );
+        assert_eq!(
+            uploader
+                .get("approved_public_work_count")
+                .and_then(|value| value.as_i64()),
+            Some(3)
+        );
+        assert!(uploader.get("email").is_none());
+        assert!(uploader.get("role").is_none());
+        assert!(uploader.get("id").is_none());
     }
 }

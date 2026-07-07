@@ -12,6 +12,13 @@ export interface ArtMeta {
   rating: ArtRating;
 }
 
+export interface PublicUserSummary {
+  handle: string;
+  display_name: string | null;
+  joined_at: string | null;
+  approved_public_work_count: number;
+}
+
 export interface Work {
   id: string;
   gallery: GalleryKind;
@@ -19,6 +26,7 @@ export interface Work {
   title: string;
   status: WorkStatus;
   uploader_name: string | null;
+  uploader?: PublicUserSummary | null;
   file: string | null;
   asset_file: string | null;
   thumbnail_url?: string;

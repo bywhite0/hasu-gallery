@@ -214,6 +214,7 @@ pub async fn handle_my_works(
                 reviewed_at: reviewed_at.map(|value| value.to_rfc3339()),
                 review_note,
                 uploader_name: None, // 我的作品列表不显示上传者（就是自己）
+                uploader: None,
                 source: None,
                 source_url: None,
                 rights_note: None,
