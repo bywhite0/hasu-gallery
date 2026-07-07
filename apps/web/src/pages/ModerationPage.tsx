@@ -60,8 +60,11 @@ export function ModerationPage() {
           {/* Filters */}
           <div className="flex gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2">{t('work.gallery')}</label>
+              <label htmlFor="moderation-gallery-filter" className="block text-sm font-medium mb-2">
+                {t('work.gallery')}
+              </label>
               <select
+                id="moderation-gallery-filter"
                 value={gallery}
                 onChange={(e) => {
                   setGallery(e.target.value as 'meme' | 'art');
@@ -75,8 +78,11 @@ export function ModerationPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">{t('filter.status')}</label>
+              <label htmlFor="moderation-status-filter" className="block text-sm font-medium mb-2">
+                {t('filter.status')}
+              </label>
               <select
+                id="moderation-status-filter"
                 value={status}
                 onChange={(e) => {
                   setStatus(e.target.value);

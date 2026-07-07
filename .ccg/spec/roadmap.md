@@ -401,8 +401,8 @@ backend/src/
 
 #### 5.3 Testing & CI
 
-- ✅ Playwright E2E smoke: Art facets, rating filter, persisted preference restore
-- ✅ Playwright E2E smoke: upload submission, moderation queue, approve flow
+- ✅ Playwright E2E smoke: Art facets, rating filter, persisted preference restore on desktop and mobile viewports
+- ✅ Playwright E2E smoke: upload submission, moderation queue, approve flow on desktop and mobile viewports
 - ✅ Backend HTTP tests: `GET /api/works/facets` gallery/status validation and pending auth boundary
 - ✅ Unit tests (backend: auth, upload, moderation logic)
 - ✅ Integration tests (API endpoints)

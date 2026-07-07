@@ -157,7 +157,7 @@ test('Upload submission appears in moderation and can be approved', async ({ pag
   expect(requests.uploadRequests).toHaveLength(1);
 
   await page.goto('/moderation');
-  await page.getByRole('combobox').first().selectOption('art');
+  await page.getByLabel('Gallery').selectOption('art');
 
   await expect(page.getByRole('heading', { name: uploadedWork.title })).toBeVisible();
   await page.getByLabel('Review note').fill('Looks good for local E2E.');
