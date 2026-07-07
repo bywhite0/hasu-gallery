@@ -1,5 +1,6 @@
 import { Button } from '@hasu-gallery/ui';
 import type { WorkFacet, WorksFacetsResponse } from '@hasu-gallery/types';
+import { useI18n } from '../i18n';
 
 interface FilterPanelProps {
   gallery: 'meme' | 'art';
@@ -46,6 +47,7 @@ export function FilterPanel({
   isGuest = false,
   artFacets,
 }: FilterPanelProps) {
+  const { t, originLabel, ratingLabel } = useI18n();
   const handleChange = (key: string, value: string) => {
     const newValue = value === 'all' ? undefined : value;
     onFilterChange({ ...filters, [key]: newValue });
@@ -72,7 +74,7 @@ export function FilterPanel({
       {!isGuest && (
         <div className="flex items-center gap-2">
           <label htmlFor="status-filter" className="text-sm font-medium">
-            Status
+            {t('filter.status')}
           </label>
           <select
             id="status-filter"
@@ -80,11 +82,11 @@ export function FilterPanel({
             onChange={(e) => handleChange('status', e.target.value)}
             className="rounded border border-ink/30 bg-paper px-3 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink focus:ring-offset-2 focus:ring-offset-surface"
           >
-            <option value="all">All</option>
-            <option value="pending">Pending</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-            <option value="takedown">Removed</option>
+            <option value="all">{t('common.all')}</option>
+            <option value="pending">{t('status.pending')}</option>
+            <option value="approved">{t('status.approved')}</option>
+            <option value="rejected">{t('status.rejected')}</option>
+            <option value="takedown">{t('status.takedown')}</option>
           </select>
         </div>
       )}
@@ -92,7 +94,7 @@ export function FilterPanel({
       {gallery === 'meme' && (
         <div className="flex items-center gap-2">
           <label htmlFor="origin-filter" className="text-sm font-medium">
-            Origin
+            {t('filter.origin')}
           </label>
           <select
             id="origin-filter"
@@ -100,17 +102,17 @@ export function FilterPanel({
             onChange={(e) => handleChange('origin', e.target.value)}
             className="rounded border border-ink/30 bg-paper px-3 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink focus:ring-offset-2 focus:ring-offset-surface"
           >
-            <option value="all">All</option>
-            <option value="official">Official</option>
-            <option value="derived">Derived</option>
-            <option value="fan_made">Fan Made</option>
+            <option value="all">{t('common.all')}</option>
+            <option value="official">{originLabel('official')}</option>
+            <option value="derived">{originLabel('derived')}</option>
+            <option value="fan_made">{originLabel('fan_made')}</option>
           </select>
         </div>
       )}
 
       <div className="flex items-center gap-2">
         <label htmlFor="sort-filter" className="text-sm font-medium">
-          Sort
+          {t('filter.sort')}
         </label>
         <select
           id="sort-filter"
@@ -118,9 +120,9 @@ export function FilterPanel({
           onChange={(e) => handleChange('sort', sortValueMap[e.target.value])}
           className="rounded border border-ink/30 bg-paper px-3 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink focus:ring-offset-2 focus:ring-offset-surface"
         >
-          <option value="newest">Newest</option>
-          <option value="oldest">Oldest</option>
-          <option value="title-az">Title A-Z</option>
+          <option value="newest">{t('filter.sortNewest')}</option>
+          <option value="oldest">{t('filter.sortOldest')}</option>
+          <option value="title-az">{t('filter.sortTitleAz')}</option>
         </select>
       </div>
 
@@ -128,7 +130,7 @@ export function FilterPanel({
         <>
           <div className="flex items-center gap-2">
             <label htmlFor="rating-filter" className="text-sm font-medium">
-              Rating
+              {t('filter.rating')}
             </label>
             <select
               id="rating-filter"
@@ -137,26 +139,26 @@ export function FilterPanel({
               className="rounded border border-ink/30 bg-paper px-3 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink focus:ring-offset-2 focus:ring-offset-surface"
             >
               <option value="all_ages">
-                {formatRatingLabel('All Ages', artFacets?.ratings, 'all_ages')}
+                {formatRatingLabel(ratingLabel('all_ages'), artFacets?.ratings, 'all_ages')}
               </option>
               <option value="r15">
-                {formatRatingLabel('R-15', artFacets?.ratings, 'r15')}
+                {formatRatingLabel(ratingLabel('r15'), artFacets?.ratings, 'r15')}
               </option>
               <option value="r18">
-                {formatRatingLabel('R-18', artFacets?.ratings, 'r18')}
+                {formatRatingLabel(ratingLabel('r18'), artFacets?.ratings, 'r18')}
               </option>
             </select>
           </div>
 
           {isGuest && (
             <p className="max-w-xs text-xs leading-5 text-ink-2">
-              Guest browsing shows All Ages art by default.
+              {t('filter.guestRatingHint')}
             </p>
           )}
 
           <div className="flex items-center gap-2">
             <label htmlFor="artist-filter" className="text-sm font-medium">
-              Artist
+              {t('filter.artist')}
             </label>
             <input
               id="artist-filter"
@@ -164,7 +166,7 @@ export function FilterPanel({
               list="artist-filter-options"
               value={filters.artist || ''}
               onChange={(e) => handleTextChange('artist', e.target.value)}
-              placeholder="Name"
+              placeholder={t('filter.artistPlaceholder')}
               className="w-40 rounded border border-ink/30 bg-paper px-3 py-1.5 text-sm text-ink placeholder:text-ink-3 focus:outline-none focus:ring-2 focus:ring-ink focus:ring-offset-2 focus:ring-offset-surface"
             />
             {artFacets?.artists.length ? (
@@ -173,7 +175,7 @@ export function FilterPanel({
                   <option
                     key={facet.value}
                     value={facet.value}
-                    label={`${facet.count} works`}
+                    label={t('common.workCount', { count: facet.count })}
                   />
                 ))}
               </datalist>
@@ -182,7 +184,7 @@ export function FilterPanel({
 
           <div className="flex items-center gap-2">
             <label htmlFor="medium-filter" className="text-sm font-medium">
-              Medium
+              {t('filter.medium')}
             </label>
             <input
               id="medium-filter"
@@ -190,7 +192,7 @@ export function FilterPanel({
               list="medium-filter-options"
               value={filters.medium || ''}
               onChange={(e) => handleTextChange('medium', e.target.value)}
-              placeholder="Digital, scan..."
+              placeholder={t('filter.mediumPlaceholder')}
               className="w-40 rounded border border-ink/30 bg-paper px-3 py-1.5 text-sm text-ink placeholder:text-ink-3 focus:outline-none focus:ring-2 focus:ring-ink focus:ring-offset-2 focus:ring-offset-surface"
             />
             {artFacets?.media.length ? (
@@ -199,7 +201,7 @@ export function FilterPanel({
                   <option
                     key={facet.value}
                     value={facet.value}
-                    label={`${facet.count} works`}
+                    label={t('common.workCount', { count: facet.count })}
                   />
                 ))}
               </datalist>
@@ -210,7 +212,7 @@ export function FilterPanel({
 
       {hasActiveFilters && onReset && (
         <Button type="button" variant="ghost" size="sm" onClick={onReset}>
-          Clear filters
+          {t('gallery.clearFilters')}
         </Button>
       )}
     </div>

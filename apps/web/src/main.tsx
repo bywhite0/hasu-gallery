@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
 import { router } from "./router";
 import { useAuthStore } from "./store/auth";
+import { useAppStore } from "./store";
 import "./styles/app.css";
 
 const queryClient = new QueryClient({
@@ -18,11 +19,16 @@ const queryClient = new QueryClient({
 // Auth initialization wrapper
 function App() {
   const checkAuth = useAuthStore((state) => state.checkAuth);
+  const locale = useAppStore((state) => state.locale);
 
   useEffect(() => {
     // Check for existing session on mount
     checkAuth();
   }, [checkAuth]);
+
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
 
   return <RouterProvider router={router} />;
 }

@@ -2,6 +2,7 @@ import { useState, FormEvent } from 'react';
 import { Link } from '@tanstack/react-router';
 import { Button, Field, FormMessage, Input } from '@hasu-gallery/ui';
 import { useAuthStore } from '../store/auth';
+import { useI18n } from '../i18n';
 import { getAuthErrorMessage, isRecoverableAuthError } from './authErrorCopy';
 import type { AuthIntentReason } from './authIntent';
 
@@ -11,6 +12,7 @@ interface RegisterFormProps {
 }
 
 export function RegisterForm({ next, reason }: RegisterFormProps) {
+  const { t } = useI18n();
   const { register, clearError } = useAuthStore();
   const [handle, setHandle] = useState('');
   const [email, setEmail] = useState('');
@@ -28,18 +30,18 @@ export function RegisterForm({ next, reason }: RegisterFormProps) {
 
   const validateForm = (): boolean => {
     if (!handle.trim() || !email.trim() || !password) {
-      setValidationError('Handle, email, and password are required.');
+      setValidationError(t('auth.validationRequired'));
       return false;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      setValidationError('Enter a valid email address.');
+      setValidationError(t('auth.validationEmail'));
       return false;
     }
 
     if (password.length < 8) {
-      setValidationError('Password must be at least 8 characters.');
+      setValidationError(t('auth.validationPasswordLength'));
       return false;
     }
 
@@ -56,19 +58,19 @@ export function RegisterForm({ next, reason }: RegisterFormProps) {
       setSubmitError(null);
       await register(handle.trim(), email.trim(), password, displayName.trim() || handle.trim());
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Registration failed.');
+      setSubmitError(err instanceof Error ? err.message : t('auth.errorRegisterFallback'));
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const displayError = validationError || getAuthErrorMessage(submitError, 'register');
+  const displayError = validationError || getAuthErrorMessage(submitError, 'register', t);
   const canSubmit = Boolean(handle.trim() && email.trim() && password);
   const authSearch = next ? ({ next, reason } as never) : undefined;
 
   return (
     <form onSubmit={handleSubmit} className="w-full space-y-4">
-      <Field label="Handle" htmlFor="handle" required>
+      <Field label={t('auth.handle')} htmlFor="handle" required>
         <Input
           id="handle"
           type="text"
@@ -83,7 +85,7 @@ export function RegisterForm({ next, reason }: RegisterFormProps) {
         />
       </Field>
 
-      <Field label="Email" htmlFor="email" required>
+      <Field label={t('auth.email')} htmlFor="email" required>
         <Input
           id="email"
           type="email"
@@ -98,7 +100,7 @@ export function RegisterForm({ next, reason }: RegisterFormProps) {
         />
       </Field>
 
-      <Field label="Password" htmlFor="password" required hint="Use at least 8 characters.">
+      <Field label={t('auth.password')} htmlFor="password" required hint={t('auth.passwordHint')}>
         <Input
           id="password"
           type="password"
@@ -114,7 +116,7 @@ export function RegisterForm({ next, reason }: RegisterFormProps) {
         />
       </Field>
 
-      <Field label="Display name" htmlFor="displayName" hint="Defaults to your handle.">
+      <Field label={t('auth.displayName')} htmlFor="displayName" hint={t('auth.displayNameHint')}>
         <Input
           id="displayName"
           type="text"
@@ -133,7 +135,7 @@ export function RegisterForm({ next, reason }: RegisterFormProps) {
           action={
             isRecoverableAuthError(submitError) ? (
               <Button type="submit" variant="outline" size="sm" disabled={isSubmitting || !canSubmit}>
-                Try again
+                {t('common.tryAgain')}
               </Button>
             ) : undefined
           }
@@ -143,17 +145,17 @@ export function RegisterForm({ next, reason }: RegisterFormProps) {
       )}
 
       <Button type="submit" disabled={isSubmitting || !canSubmit} className="w-full">
-        {isSubmitting ? 'Creating account...' : 'Register'}
+        {isSubmitting ? t('auth.creatingAccount') : t('auth.registerButton')}
       </Button>
 
       <div className="text-center text-sm text-ink-2">
-        Already have an account?{' '}
+        {t('auth.hasAccount')}{' '}
         <Link
           to="/login"
           search={authSearch}
           className="font-medium text-ink underline underline-offset-4 hover:text-ink-2"
         >
-          Login
+          {t('auth.loginButton')}
         </Link>
       </div>
     </form>

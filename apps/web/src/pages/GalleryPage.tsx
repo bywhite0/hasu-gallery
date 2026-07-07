@@ -7,6 +7,7 @@ import { FilterPanel } from '../components/FilterPanel';
 import { WorksGrid } from '../components/WorksGrid';
 import { Pagination } from '../components/Pagination';
 import { useAppStore, useAuthStore, type ArtRatingPreference } from '../store';
+import { useI18n } from '../i18n';
 
 interface GalleryPageProps {
   gallery: 'meme' | 'art';
@@ -29,17 +30,18 @@ const getInitialFilters = (
 const getResetFilters = (gallery: GalleryPageProps['gallery']): Filters =>
   gallery === 'art' ? { rating: 'all_ages' } : {};
 
-const getErrorDescription = (error: unknown) => {
+const getErrorDescription = (error: unknown, t: ReturnType<typeof useI18n>['t']) => {
   const message = error instanceof Error ? error.message : '';
 
   if (message === 'Failed to fetch') {
-    return 'The gallery API is not reachable right now. Start the backend service and try again.';
+    return t('gallery.errorNetwork');
   }
 
-  return message || 'The gallery could not be loaded. Please try again.';
+  return t('gallery.errorFallback');
 };
 
 export function GalleryPage({ gallery }: GalleryPageProps) {
+  const { t, galleryLabel, galleryShortLabel } = useI18n();
   const user = useAuthStore((state) => state.user);
   const artRatingPreference = useAppStore((state) => state.artRatingPreference);
   const setArtRatingPreference = useAppStore((state) => state.setArtRatingPreference);
@@ -115,16 +117,18 @@ export function GalleryPage({ gallery }: GalleryPageProps) {
     setPage(1);
   };
 
-  const title = gallery === 'meme' ? 'Meme Gallery' : 'Art Gallery';
+  const title = galleryLabel(gallery);
   const hasActiveFilters = Object.entries(filters).some(([key, value]) => {
     if (!value) return false;
     if (gallery === 'art' && key === 'rating') return value !== 'all_ages';
     return true;
   });
-  const emptyTitle = hasActiveFilters ? 'No works match these filters' : `No ${gallery} works yet`;
+  const emptyTitle = hasActiveFilters
+    ? t('gallery.noMatchesTitle')
+    : t('gallery.noWorksTitle', { gallery: galleryShortLabel(gallery) });
   const emptyDescription = hasActiveFilters
-    ? 'Clear the current filters to return to the full server-side gallery result.'
-    : 'Be the first to add a work once the backend is available for uploads.';
+    ? t('gallery.noMatchesDescription')
+    : t('gallery.noWorksDescription');
 
   return (
     <div className="space-y-6">
@@ -143,8 +147,8 @@ export function GalleryPage({ gallery }: GalleryPageProps) {
       {isLoading && (
         <div className="space-y-4" aria-live="polite" aria-busy="true">
           <StateMessage
-            title="Loading gallery"
-            description="Fetching the current page from the server with your selected filters."
+            title={t('gallery.loadingTitle')}
+            description={t('gallery.loadingDescription')}
             tone="info"
           />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
@@ -166,11 +170,11 @@ export function GalleryPage({ gallery }: GalleryPageProps) {
 
       {error && (
         <ErrorState
-          title="Gallery unavailable"
-          description={getErrorDescription(error)}
+          title={t('gallery.unavailableTitle')}
+          description={getErrorDescription(error, t)}
           action={
             <Button type="button" onClick={() => void refetch()} disabled={isFetching}>
-              {isFetching ? 'Retrying...' : 'Retry'}
+              {isFetching ? t('common.retrying') : t('common.retry')}
             </Button>
           }
         />
@@ -187,14 +191,14 @@ export function GalleryPage({ gallery }: GalleryPageProps) {
               action={
                 hasActiveFilters ? (
                   <Button type="button" variant="outline" onClick={handleResetFilters}>
-                    Clear filters
+                    {t('gallery.clearFilters')}
                   </Button>
                 ) : (
                   <Link
                     to="/upload"
                     className="inline-flex h-10 items-center justify-center rounded-md bg-ink px-4 font-medium text-paper transition-colors hover:bg-ink-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
                   >
-                    Upload a work
+                    {t('home.uploadWork')}
                   </Link>
                 )
               }

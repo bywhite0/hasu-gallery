@@ -1,5 +1,6 @@
 import { WorkListItem } from '@hasu-gallery/types';
 import { Clock, CheckCircle, XCircle } from 'lucide-react';
+import { useI18n } from '../i18n';
 
 interface MyWorksListProps {
   works: WorkListItem[];
@@ -9,31 +10,29 @@ interface MyWorksListProps {
 const statusConfig = {
   pending: {
     icon: Clock,
-    label: 'Pending',
     className: 'bg-yellow-100 text-yellow-800 border-yellow-200',
   },
   approved: {
     icon: CheckCircle,
-    label: 'Approved',
     className: 'bg-green-100 text-green-800 border-green-200',
   },
   rejected: {
     icon: XCircle,
-    label: 'Rejected',
     className: 'bg-red-100 text-red-800 border-red-200',
   },
   takedown: {
     icon: XCircle,
-    label: 'Takedown',
     className: 'bg-gray-100 text-gray-800 border-gray-200',
   },
 };
 
 export function MyWorksList({ works, onWorkClick }: MyWorksListProps) {
+  const { t, statusLabel, formatDate } = useI18n();
+
   if (works.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <p className="text-muted-foreground">No works found</p>
+        <p className="text-muted-foreground">{t('profile.noWorks')}</p>
       </div>
     );
   }
@@ -43,7 +42,7 @@ export function MyWorksList({ works, onWorkClick }: MyWorksListProps) {
       {works.map((work) => {
         const config = statusConfig[work.status];
         const Icon = config.icon;
-        const createdDate = new Date(work.created_at).toLocaleDateString();
+        const createdDate = formatDate(work.created_at);
 
         return (
           <div
@@ -63,19 +62,19 @@ export function MyWorksList({ works, onWorkClick }: MyWorksListProps) {
               {work.thumbnail_url ? (
                 <img
                   src={work.thumbnail_url}
-                  alt={`${work.title} thumbnail`}
+                  alt={t('home.thumbnailAlt', { title: work.title })}
                   loading="lazy"
                   decoding="async"
                   className="aspect-square h-full w-full object-cover"
                 />
               ) : (
                 <div className="flex aspect-square items-center justify-center bg-accent/40 px-3 text-center text-xs text-ink-2">
-                  Image unavailable
+                  {t('common.imageUnavailable')}
                 </div>
               )}
               <div className={`absolute top-2 right-2 flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium border ${config.className}`}>
                 <Icon className="w-3 h-3" />
-                <span>{config.label}</span>
+                <span>{statusLabel(work.status)}</span>
               </div>
             </div>
             <div className="p-3">

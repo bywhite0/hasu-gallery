@@ -1,30 +1,19 @@
 import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import type { WorkListItem } from '@hasu-gallery/types';
+import { useI18n } from '../i18n';
 
 interface WorkCardProps {
   work: WorkListItem;
 }
 
-const originLabel: Record<NonNullable<WorkListItem['origin']>, string> = {
-  official: 'Official',
-  derived: 'Derived',
-  fan_made: 'Fan made',
-};
-
-const statusLabel: Record<WorkListItem['status'], string> = {
-  pending: 'Pending',
-  approved: 'Approved',
-  rejected: 'Rejected',
-  takedown: 'Takedown',
-};
-
 export function WorkCard({ work }: WorkCardProps) {
+  const { t, originLabel, statusLabel } = useI18n();
   const [imageFailed, setImageFailed] = useState(false);
   const hasThumbnail = Boolean(work.thumbnail_url) && !imageFailed;
   const meta = [
     `${work.width} x ${work.height}`,
-    work.origin ? originLabel[work.origin] : null,
+    work.origin ? originLabel(work.origin) : null,
   ].filter(Boolean);
 
   return (
@@ -37,7 +26,7 @@ export function WorkCard({ work }: WorkCardProps) {
         {hasThumbnail ? (
           <img
             src={work.thumbnail_url}
-            alt={`${work.title} thumbnail`}
+            alt={t('home.thumbnailAlt', { title: work.title })}
             loading="lazy"
             decoding="async"
             className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
@@ -45,7 +34,7 @@ export function WorkCard({ work }: WorkCardProps) {
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center px-4 text-center text-sm text-ink-2">
-            Image unavailable
+            {t('common.imageUnavailable')}
           </div>
         )}
       </div>
@@ -56,7 +45,7 @@ export function WorkCard({ work }: WorkCardProps) {
           </h3>
           {work.status !== 'approved' && (
             <span className="shrink-0 rounded-full bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning">
-              {statusLabel[work.status]}
+              {statusLabel(work.status)}
             </span>
           )}
         </div>

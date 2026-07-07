@@ -2,6 +2,7 @@ import { useState, FormEvent } from 'react';
 import { Link } from '@tanstack/react-router';
 import { Button, Field, FormMessage, Input } from '@hasu-gallery/ui';
 import { useAuthStore } from '../store/auth';
+import { useI18n } from '../i18n';
 import { getAuthErrorMessage, isRecoverableAuthError } from './authErrorCopy';
 import type { AuthIntentReason } from './authIntent';
 
@@ -11,12 +12,13 @@ interface LoginFormProps {
 }
 
 export function LoginForm({ next, reason }: LoginFormProps) {
+  const { t } = useI18n();
   const [handle, setHandle] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const { login, clearError } = useAuthStore();
-  const displayError = getAuthErrorMessage(submitError, 'login');
+  const displayError = getAuthErrorMessage(submitError, 'login', t);
   const canSubmit = Boolean(handle.trim() && password.trim());
   const authSearch = next ? ({ next, reason } as never) : undefined;
 
@@ -44,7 +46,7 @@ export function LoginForm({ next, reason }: LoginFormProps) {
       setSubmitError(null);
       await login(handle.trim(), password);
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Login failed.');
+      setSubmitError(err instanceof Error ? err.message : t('auth.errorLoginFallback'));
     } finally {
       setIsSubmitting(false);
     }
@@ -52,7 +54,7 @@ export function LoginForm({ next, reason }: LoginFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <Field label="Handle" htmlFor="handle" required>
+      <Field label={t('auth.handle')} htmlFor="handle" required>
         <Input
           id="handle"
           type="text"
@@ -64,7 +66,7 @@ export function LoginForm({ next, reason }: LoginFormProps) {
         />
       </Field>
 
-      <Field label="Password" htmlFor="password" required>
+      <Field label={t('auth.password')} htmlFor="password" required>
         <Input
           id="password"
           type="password"
@@ -81,7 +83,7 @@ export function LoginForm({ next, reason }: LoginFormProps) {
           action={
             isRecoverableAuthError(submitError) ? (
               <Button type="submit" variant="outline" size="sm" disabled={isSubmitting || !canSubmit}>
-                Try again
+                {t('common.tryAgain')}
               </Button>
             ) : undefined
           }
@@ -91,17 +93,17 @@ export function LoginForm({ next, reason }: LoginFormProps) {
       )}
 
       <Button type="submit" disabled={isSubmitting || !canSubmit} className="w-full">
-        {isSubmitting ? 'Logging in...' : 'Login'}
+        {isSubmitting ? t('auth.loggingIn') : t('auth.loginButton')}
       </Button>
 
       <p className="text-center text-sm text-ink-2">
-        Don't have an account?{' '}
+        {t('auth.noAccount')}{' '}
         <Link
           to="/register"
           search={authSearch}
           className="font-medium text-ink underline underline-offset-4 hover:text-ink-2"
         >
-          Register
+          {t('auth.registerButton')}
         </Link>
       </p>
     </form>

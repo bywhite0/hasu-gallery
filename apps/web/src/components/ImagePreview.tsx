@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Button } from '@hasu-gallery/ui';
+import { useI18n } from '../i18n';
 
 interface ImagePreviewProps {
   file: File;
@@ -13,6 +14,7 @@ interface ImageDimensions {
 }
 
 export function ImagePreview({ file, onRemove }: ImagePreviewProps) {
+  const { t, formatFileSize } = useI18n();
   const [objectUrl, setObjectUrl] = useState<string>('');
   const [dimensions, setDimensions] = useState<ImageDimensions | null>(null);
 
@@ -31,12 +33,6 @@ export function ImagePreview({ file, onRemove }: ImagePreviewProps) {
     };
   }, [file]);
 
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  };
-
   return (
     <div className="relative rounded-lg overflow-hidden border border-border bg-card">
       <Button
@@ -45,7 +41,7 @@ export function ImagePreview({ file, onRemove }: ImagePreviewProps) {
         size="sm"
         className="absolute top-2 right-2 h-8 w-8 z-10"
         onClick={onRemove}
-        aria-label="Remove selected file"
+        aria-label={t('preview.remove')}
       >
         <X className="h-4 w-4" aria-hidden="true" />
       </Button>
@@ -54,7 +50,7 @@ export function ImagePreview({ file, onRemove }: ImagePreviewProps) {
         {objectUrl && (
           <img
             src={objectUrl}
-            alt={`Selected upload preview: ${file.name}`}
+            alt={t('preview.alt', { name: file.name })}
             className="max-h-64 w-auto object-contain"
           />
         )}

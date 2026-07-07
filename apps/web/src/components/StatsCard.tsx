@@ -1,4 +1,5 @@
 import React from 'react';
+import { useI18n } from '../i18n';
 
 interface StatsCardProps {
   label: string;
@@ -15,6 +16,7 @@ const variantStyles = {
 };
 
 export function StatsCard({ label, value, icon, variant = 'default' }: StatsCardProps) {
+  const { formatNumber } = useI18n();
   const colorClass = variantStyles[variant];
 
   return (
@@ -24,7 +26,7 @@ export function StatsCard({ label, value, icon, variant = 'default' }: StatsCard
         <span className="text-sm text-ink-secondary">{label}</span>
       </div>
       <div className={`text-3xl font-bold ${colorClass}`}>
-        {value.toLocaleString()}
+        {formatNumber(value)}
       </div>
     </div>
   );

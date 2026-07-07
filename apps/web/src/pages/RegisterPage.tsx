@@ -4,10 +4,12 @@ import { useAuthStore } from '../store/auth';
 import { AuthLayout } from '../components/AuthLayout';
 import { RegisterForm } from '../components/RegisterForm';
 import { getAuthIntent } from '../components/authIntent';
+import { useI18n } from '../i18n';
 
 export function RegisterPage() {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
+  const { t } = useI18n();
   const search = useRouterState({ select: (state) => state.location.search });
   const { next, reason } = getAuthIntent(search);
 
@@ -18,7 +20,7 @@ export function RegisterPage() {
   }, [user, navigate, next]);
 
   return (
-    <AuthLayout title="Register" reason={reason}>
+    <AuthLayout title={t('auth.registerTitle')} reason={reason}>
       <RegisterForm next={next} reason={reason} />
     </AuthLayout>
   );

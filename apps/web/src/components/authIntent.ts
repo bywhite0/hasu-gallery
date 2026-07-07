@@ -1,3 +1,5 @@
+import type { TranslationKey } from '../i18n';
+
 export type AuthIntentReason = 'upload' | 'profile' | 'moderation';
 
 export interface AuthIntentSearch {
@@ -5,20 +7,31 @@ export interface AuthIntentSearch {
   reason?: unknown;
 }
 
-export const authIntentCopy: Record<AuthIntentReason, { title: string; description: string }> = {
+const authIntentCopyKeys: Record<AuthIntentReason, { title: TranslationKey; description: TranslationKey }> = {
   upload: {
-    title: 'Sign in to upload',
-    description: 'Upload is available after sign-in so your submission can enter review under your account.',
+    title: 'auth.intentUploadTitle',
+    description: 'auth.intentUploadDescription',
   },
   profile: {
-    title: 'Sign in to view your uploads',
-    description: 'Your profile shows submission status, reviewer notes, and published works tied to your account.',
+    title: 'auth.intentProfileTitle',
+    description: 'auth.intentProfileDescription',
   },
   moderation: {
-    title: 'Reviewer sign-in required',
-    description: 'Moderation tools are limited to reviewer accounts.',
+    title: 'auth.intentModerationTitle',
+    description: 'auth.intentModerationDescription',
   },
 };
+
+export function getAuthIntentCopy(
+  reason: AuthIntentReason,
+  t: (key: TranslationKey) => string,
+) {
+  const copy = authIntentCopyKeys[reason];
+  return {
+    title: t(copy.title),
+    description: t(copy.description),
+  };
+}
 
 export function getAuthIntent(search: AuthIntentSearch) {
   const next = typeof search.next === 'string' ? sanitizeNextPath(search.next) : undefined;

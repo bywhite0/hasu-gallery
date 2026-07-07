@@ -8,8 +8,20 @@ import { UploadForm } from '../components/UploadForm';
 import { Button } from '@hasu-gallery/ui';
 import { uploadWork } from '../api/upload';
 import type { Work } from '@hasu-gallery/types';
+import { useI18n } from '../i18n';
+
+const getUploadErrorMessage = (error: Error | null, t: ReturnType<typeof useI18n>['t']) => {
+  if (!error) return null;
+
+  if (/failed to fetch|networkerror|load failed/i.test(error.message)) {
+    return t('upload.errorNetwork');
+  }
+
+  return t('upload.errorFallback');
+};
 
 export function UploadPage() {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadedWork, setUploadedWork] = useState<Work | null>(null);
@@ -21,6 +33,7 @@ export function UploadPage() {
       setSelectedFile(null);
     },
   });
+  const uploadError = getUploadErrorMessage(mutation.error, t);
 
   const handleFileSelect = (file: File) => {
     setSelectedFile(file);
@@ -51,45 +64,45 @@ export function UploadPage() {
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-2xl mx-auto space-y-6">
-        <h1 className="text-3xl font-bold text-foreground">Upload Work</h1>
+        <h1 className="text-3xl font-bold text-foreground">{t('upload.title')}</h1>
 
         {uploadedWork ? (
           <div className="bg-card border border-border rounded-lg p-8 text-center space-y-4">
             <CheckCircle2 className="w-16 h-16 mx-auto text-green-500" />
             <div className="space-y-2">
               <h2 className="text-xl font-semibold text-foreground">
-                Upload submitted
+                {t('upload.successTitle')}
               </h2>
               <p className="text-muted-foreground">
-                Your work is now waiting for review.
+                {t('upload.successDescription')}
               </p>
             </div>
             <div className="flex justify-center gap-3 pt-4">
               <Button onClick={handleViewWork} variant="default">
-                View Work
+                {t('upload.viewWork')}
               </Button>
               <Button onClick={handleUploadAnother} variant="outline">
                 <Upload className="w-4 h-4 mr-2" aria-hidden="true" />
-                Upload Another
+                {t('upload.uploadAnother')}
               </Button>
             </div>
           </div>
         ) : (
           <>
-            {mutation.error && (
+            {uploadError && (
               <div role="alert" aria-live="assertive" className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 flex items-start justify-between">
                 <div className="flex-1">
                   <p className="text-sm font-medium text-destructive">
-                    Upload failed
+                    {t('upload.failed')}
                   </p>
                   <p className="text-sm text-destructive/90 mt-1">
-                    {mutation.error.message}
+                    {uploadError}
                   </p>
                 </div>
                 <button
                   onClick={() => mutation.reset()}
                   className="text-destructive hover:text-destructive/80 transition-colors"
-                  aria-label="Dismiss error"
+                  aria-label={t('upload.dismissError')}
                 >
                   <X className="w-5 h-5" aria-hidden="true" />
                 </button>

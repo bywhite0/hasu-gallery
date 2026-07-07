@@ -4,39 +4,16 @@ import { useQuery } from '@tanstack/react-query';
 import { Button, ErrorState, StateMessage } from '@hasu-gallery/ui';
 import { getWork } from '../api/works';
 import { ArrowLeft, Download, ExternalLink } from 'lucide-react';
+import { useI18n } from '../i18n';
 
-const galleryLabel = {
-  meme: 'Meme Gallery',
-  art: 'Art Gallery',
-} as const;
-
-const originLabel = {
-  official: 'Official',
-  derived: 'Derived',
-  fan_made: 'Fan made',
-} as const;
-
-const ratingLabel = {
-  all_ages: 'All Ages',
-  r15: 'R-15',
-  r18: 'R-18',
-} as const;
-
-const statusLabel = {
-  pending: 'Waiting for review',
-  approved: 'Published',
-  rejected: 'Not accepted',
-  takedown: 'Removed',
-} as const;
-
-const getErrorDescription = (error: unknown) => {
+const getErrorDescription = (error: unknown, t: ReturnType<typeof useI18n>['t']) => {
   const message = error instanceof Error ? error.message : '';
 
   if (message === 'Failed to fetch') {
-    return 'The gallery is not reachable right now. Please try again in a moment.';
+    return t('work.errorNetwork');
   }
 
-  return message || 'This work could not be opened. It may have been removed or the link may be out of date.';
+  return t('work.errorFallback');
 };
 
 function InfoRow({ label, children }: { label: string; children: ReactNode }) {
@@ -49,6 +26,7 @@ function InfoRow({ label, children }: { label: string; children: ReactNode }) {
 }
 
 export function WorkDetailPage() {
+  const { t, galleryLabel, originLabel, ratingLabel, publicStatusLabel, formatDate } = useI18n();
   const { id } = useParams({ strict: false });
   const navigate = useNavigate();
   const [imageFailed, setImageFailed] = useState(false);
@@ -69,8 +47,8 @@ export function WorkDetailPage() {
     return (
       <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center">
         <StateMessage
-          title="Loading work"
-          description="Fetching the image and details for this public gallery item."
+          title={t('work.loadingTitle')}
+          description={t('work.loadingDescription')}
           tone="info"
         />
       </div>
@@ -81,16 +59,16 @@ export function WorkDetailPage() {
     return (
       <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center">
         <ErrorState
-          title="Work unavailable"
-          description={getErrorDescription(error)}
+          title={t('work.unavailableTitle')}
+          description={getErrorDescription(error, t)}
           action={
             <>
               <Button type="button" onClick={() => void refetch()} disabled={isFetching}>
-                {isFetching ? 'Retrying...' : 'Retry'}
+                {isFetching ? t('common.retrying') : t('common.retry')}
               </Button>
               <Link to="/gallery/meme">
                 <Button type="button" variant="outline">
-                  Back to Meme Gallery
+                  {t('work.backToGallery', { gallery: t('gallery.meme') })}
                 </Button>
               </Link>
             </>
@@ -111,8 +89,8 @@ export function WorkDetailPage() {
   };
 
   const hasImage = Boolean(work.file_url) && !imageFailed;
-  const title = work.title || 'Untitled work';
-  const galleryName = galleryLabel[work.gallery];
+  const title = work.title || t('work.untitled');
+  const galleryName = galleryLabel(work.gallery);
 
   return (
     <div className="space-y-6">
@@ -124,11 +102,11 @@ export function WorkDetailPage() {
           className="gap-2"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to {galleryName}
+          {t('work.backToGallery', { gallery: galleryName })}
         </Button>
         {work.status !== 'approved' && (
           <span className="rounded-full bg-warning/10 px-3 py-1 text-xs font-medium text-warning">
-            {statusLabel[work.status]}
+            {publicStatusLabel(work.status)}
           </span>
         )}
       </div>
@@ -147,7 +125,7 @@ export function WorkDetailPage() {
               />
             ) : (
               <div className="flex min-h-[24rem] items-center justify-center px-6 text-center text-sm text-ink-2">
-                Image unavailable
+                {t('common.imageUnavailable')}
               </div>
             )}
           </div>
@@ -162,11 +140,11 @@ export function WorkDetailPage() {
           </div>
 
           <div className="space-y-5">
-            <InfoRow label="Dimensions">
+            <InfoRow label={t('work.dimensions')}>
               {work.width} × {work.height}
             </InfoRow>
 
-            <InfoRow label="Gallery">
+            <InfoRow label={t('work.gallery')}>
               <Link
                 to={`/gallery/${work.gallery}`}
                 className="font-medium text-info underline underline-offset-4 hover:text-ink"
@@ -175,52 +153,46 @@ export function WorkDetailPage() {
               </Link>
             </InfoRow>
 
-            {work.origin && (
-              <InfoRow label="Origin">{originLabel[work.origin]}</InfoRow>
-            )}
+            {work.origin && <InfoRow label={t('work.origin')}>{originLabel(work.origin)}</InfoRow>}
 
             {work.art_meta && (
               <>
-                <InfoRow label="Artist">{work.art_meta.artist}</InfoRow>
+                <InfoRow label={t('work.artist')}>{work.art_meta.artist}</InfoRow>
                 {work.art_meta.medium && (
-                  <InfoRow label="Medium">{work.art_meta.medium}</InfoRow>
+                  <InfoRow label={t('work.medium')}>{work.art_meta.medium}</InfoRow>
                 )}
-                <InfoRow label="Rating">{ratingLabel[work.art_meta.rating]}</InfoRow>
+                <InfoRow label={t('work.rating')}>{ratingLabel(work.art_meta.rating)}</InfoRow>
               </>
             )}
 
-            {work.uploader_name && <InfoRow label="Submitted by">{work.uploader_name}</InfoRow>}
+            {work.uploader_name && <InfoRow label={t('work.submittedBy')}>{work.uploader_name}</InfoRow>}
 
             {work.source_url && (
-              <InfoRow label="Source">
+              <InfoRow label={t('work.source')}>
                 <a
                   href={work.source_url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 font-medium text-info underline underline-offset-4 hover:text-ink"
                 >
-                  View source
+                  {t('work.viewSource')}
                   <ExternalLink className="h-3 w-3" />
                 </a>
               </InfoRow>
             )}
 
             {work.rights_note && (
-              <InfoRow label="Rights">{work.rights_note}</InfoRow>
+              <InfoRow label={t('work.rights')}>{work.rights_note}</InfoRow>
             )}
 
-            <InfoRow label="Uploaded">
-              {new Date(work.created_at).toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}
+            <InfoRow label={t('work.uploaded')}>
+              {formatDate(work.created_at)}
             </InfoRow>
           </div>
 
           <Button onClick={handleDownload} className="w-full gap-2" disabled={!work.file_url}>
             <Download className="h-4 w-4" />
-            {work.file_url ? 'Download' : 'File unavailable'}
+            {work.file_url ? t('work.download') : t('work.fileUnavailable')}
           </Button>
         </aside>
       </div>

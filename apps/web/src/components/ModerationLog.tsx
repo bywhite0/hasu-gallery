@@ -4,32 +4,34 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { getModerationLog } from '../api/moderation';
+import { useI18n } from '../i18n';
 
 interface ModerationLogProps {
   workId: string;
 }
 
 export function ModerationLog({ workId }: ModerationLogProps) {
+  const { t, statusLabel, formatDateTime } = useI18n();
   const { data, isLoading, error } = useQuery({
     queryKey: ['moderation-log', workId],
     queryFn: () => getModerationLog(workId),
   });
 
   if (isLoading) {
-    return <div className="text-sm text-ink/60">Loading review history...</div>;
+    return <div className="text-sm text-ink/60">{t('moderation.loadingHistory')}</div>;
   }
 
   if (error) {
-    return <div className="text-sm text-red-600">Could not load review history.</div>;
+    return <div className="text-sm text-red-600">{t('moderation.historyError')}</div>;
   }
 
   if (!data || data.logs.length === 0) {
-    return <div className="text-sm text-ink/60">No review history yet.</div>;
+    return <div className="text-sm text-ink/60">{t('moderation.noHistory')}</div>;
   }
 
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold">Review history</h3>
+      <h3 className="text-sm font-semibold">{t('moderation.historyTitle')}</h3>
       <div className="space-y-2" role="list">
         {data.logs.map((log) => (
           <div
@@ -43,18 +45,16 @@ export function ModerationLog({ workId }: ModerationLogProps) {
                 log.action === 'rejected' ? 'text-red-600' :
                 'text-orange-600'
               }`}>
-                {log.action === 'approved' ? 'Approved' :
-                 log.action === 'rejected' ? 'Rejected' :
-                 'Removed'}
+                {statusLabel(log.action)}
               </span>
-              <span className="text-ink/60">by</span>
+              <span className="text-ink/60">{t('moderation.by')}</span>
               <span className="font-medium">@{log.moderator_handle}</span>
             </div>
             {log.note && (
-              <div className="text-ink/60 mt-1">"{log.note}"</div>
+              <div className="text-ink/60 mt-1">{t('moderation.historyNote', { note: log.note })}</div>
             )}
             <div className="text-ink/40 text-xs mt-1">
-              {new Date(log.created_at).toLocaleString('en-US')}
+              {formatDateTime(log.created_at)}
             </div>
           </div>
         ))}

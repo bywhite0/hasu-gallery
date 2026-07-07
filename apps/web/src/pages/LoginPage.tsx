@@ -4,10 +4,12 @@ import { useAuthStore } from '../store/auth';
 import { AuthLayout } from '../components/AuthLayout';
 import { LoginForm } from '../components/LoginForm';
 import { getAuthIntent } from '../components/authIntent';
+import { useI18n } from '../i18n';
 
 export function LoginPage() {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
+  const { t } = useI18n();
   const search = useRouterState({ select: (state) => state.location.search });
   const { next, reason } = getAuthIntent(search);
 
@@ -18,7 +20,7 @@ export function LoginPage() {
   }, [user, navigate, next]);
 
   return (
-    <AuthLayout title="Login" reason={reason}>
+    <AuthLayout title={t('auth.loginTitle')} reason={reason}>
       <LoginForm next={next} reason={reason} />
     </AuthLayout>
   );

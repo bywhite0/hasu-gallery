@@ -9,8 +9,18 @@ import { ModerationActions } from '../components/ModerationActions';
 import { ModerationLog } from '../components/ModerationLog';
 import { getModerationQueue } from '../api/moderation';
 import { useAuthStore } from '../store/auth';
+import { useI18n } from '../i18n';
 
 export function ModerationPage() {
+  const {
+    t,
+    galleryLabel,
+    galleryShortLabel,
+    statusLabel,
+    originLabel,
+    formatDateTime,
+    formatFileSize,
+  } = useI18n();
   const [gallery, setGallery] = useState<'meme' | 'art'>('meme');
   const [status, setStatus] = useState('pending');
   const [page, setPage] = useState(1);
@@ -43,14 +53,14 @@ export function ModerationPage() {
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto space-y-6">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Moderation</h1>
-            <p className="text-ink/60 mt-2">Review pending submissions and keep decisions traceable.</p>
+            <h1 className="text-3xl font-bold text-foreground">{t('moderation.title')}</h1>
+            <p className="text-ink/60 mt-2">{t('moderation.description')}</p>
           </div>
 
           {/* Filters */}
           <div className="flex gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2">Gallery</label>
+              <label className="block text-sm font-medium mb-2">{t('work.gallery')}</label>
               <select
                 value={gallery}
                 onChange={(e) => {
@@ -59,13 +69,13 @@ export function ModerationPage() {
                 }}
                 className="px-3 py-2 border border-ink/20 rounded-md focus:outline-none focus:ring-2 focus:ring-ink"
               >
-                <option value="meme">Meme Gallery</option>
-                <option value="art">Art Gallery</option>
+                <option value="meme">{galleryLabel('meme')}</option>
+                <option value="art">{galleryLabel('art')}</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Status</label>
+              <label className="block text-sm font-medium mb-2">{t('filter.status')}</label>
               <select
                 value={status}
                 onChange={(e) => {
@@ -74,10 +84,10 @@ export function ModerationPage() {
                 }}
                 className="px-3 py-2 border border-ink/20 rounded-md focus:outline-none focus:ring-2 focus:ring-ink"
               >
-                <option value="pending">Pending</option>
-                <option value="approved">Approved</option>
-                <option value="rejected">Rejected</option>
-                <option value="takedown">Removed</option>
+                <option value="pending">{t('status.pending')}</option>
+                <option value="approved">{t('status.approved')}</option>
+                <option value="rejected">{t('status.rejected')}</option>
+                <option value="takedown">{t('status.takedown')}</option>
               </select>
             </div>
           </div>
@@ -85,13 +95,13 @@ export function ModerationPage() {
           {/* Loading & Error States */}
           {isLoading && (
             <div className="text-center py-12">
-              <div className="text-ink/60">Loading moderation queue...</div>
+              <div className="text-ink/60">{t('moderation.loadingQueue')}</div>
             </div>
           )}
 
           {error && (
             <div className="text-center py-12">
-              <div className="text-red-600">Could not load the queue: {(error as Error).message}</div>
+              <div className="text-red-600">{t('moderation.queueError')}</div>
             </div>
           )}
 
@@ -99,7 +109,9 @@ export function ModerationPage() {
           {data && data.works.length === 0 && (
             <div className="text-center py-12">
               <div className="text-ink/60">
-                No {status === 'pending' ? 'pending ' : ''}submissions found.
+                {status === 'pending'
+                  ? t('moderation.noPendingSubmissions')
+                  : t('moderation.noSubmissions')}
               </div>
             </div>
           )}
@@ -117,7 +129,7 @@ export function ModerationPage() {
                   />
                   ) : (
                     <div className="h-96 flex items-center justify-center text-ink/40">
-                      No preview available
+                      {t('common.noPreview')}
                     </div>
                   )}
               </div>
@@ -127,57 +139,57 @@ export function ModerationPage() {
                 <div>
                   <h2 className="text-xl font-bold">{currentWork.title}</h2>
                   <div className="text-sm text-ink/60 mt-1">
-                    Uploaded by @{currentWork.uploader_handle}
+                    {t('moderation.uploadedBy', { handle: currentWork.uploader_handle })}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="text-ink/60">Gallery:</span>
-                    <span className="ml-2">{currentWork.gallery === 'meme' ? 'Meme' : 'Art'}</span>
+                    <span className="text-ink/60">{t('work.gallery')}:</span>
+                    <span className="ml-2">{galleryShortLabel(currentWork.gallery)}</span>
                   </div>
                   <div>
-                    <span className="text-ink/60">Status:</span>
-                    <span className="ml-2">{currentWork.status}</span>
+                    <span className="text-ink/60">{t('filter.status')}:</span>
+                    <span className="ml-2">{statusLabel(currentWork.status)}</span>
                   </div>
                   {currentWork.origin && (
                     <div>
-                      <span className="text-ink/60">Origin:</span>
-                      <span className="ml-2">{currentWork.origin}</span>
+                      <span className="text-ink/60">{t('work.origin')}:</span>
+                      <span className="ml-2">{originLabel(currentWork.origin)}</span>
                     </div>
                   )}
                   {currentWork.dimensions && (
                     <div>
-                      <span className="text-ink/60">Dimensions:</span>
+                      <span className="text-ink/60">{t('work.dimensions')}:</span>
                       <span className="ml-2">{currentWork.dimensions}</span>
                     </div>
                   )}
                   {currentWork.file_size_bytes && (
                     <div>
-                      <span className="text-ink/60">File size:</span>
+                      <span className="text-ink/60">{t('moderation.fileSize')}:</span>
                       <span className="ml-2">
-                        {(currentWork.file_size_bytes / 1024 / 1024).toFixed(2)} MB
+                        {formatFileSize(currentWork.file_size_bytes)}
                       </span>
                     </div>
                   )}
                   <div>
-                    <span className="text-ink/60">Created:</span>
+                    <span className="text-ink/60">{t('moderation.created')}:</span>
                     <span className="ml-2">
-                      {new Date(currentWork.created_at).toLocaleString('en-US')}
+                      {formatDateTime(currentWork.created_at)}
                     </span>
                   </div>
                 </div>
 
                 {currentWork.source && (
                   <div className="text-sm">
-                    <span className="text-ink/60">Source note:</span>
+                    <span className="text-ink/60">{t('moderation.sourceNote')}:</span>
                     <span className="ml-2">{currentWork.source}</span>
                   </div>
                 )}
 
                 {currentWork.source_url && (
                   <div className="text-sm">
-                    <span className="text-ink/60">Source URL:</span>
+                    <span className="text-ink/60">{t('moderation.sourceUrl')}:</span>
                     <a
                       href={currentWork.source_url}
                       target="_blank"
@@ -212,8 +224,11 @@ export function ModerationPage() {
           {/* Pagination info */}
           {data && data.works.length > 0 && (
             <div className="text-center text-sm text-ink/60">
-              Page {data.pagination.page} of {data.pagination.total_pages}
-              {' '}({data.pagination.total} submissions)
+              {t('moderation.pageSummary', {
+                current: data.pagination.page,
+                total: data.pagination.total_pages,
+                count: data.pagination.total,
+              })}
             </div>
           )}
         </div>

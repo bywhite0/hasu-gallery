@@ -25,32 +25,34 @@ import { UploadPage } from "./pages/UploadPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { ModerationPage } from "./pages/ModerationPage";
 import { AuthGuard } from "./components/AuthGuard";
+import { LanguageSelect } from "./components/LanguageSelect";
 import { useAuthStore } from "./store/auth";
+import { useI18n } from "./i18n";
 
 type NavPath = "/" | "/gallery/meme" | "/gallery/art" | "/upload" | "/profile" | "/moderation";
 
 interface NavItem {
   to: NavPath;
-  desktopLabel: string;
-  mobileLabel: string;
+  desktopLabelKey: Parameters<ReturnType<typeof useI18n>["t"]>[0];
+  mobileLabelKey: Parameters<ReturnType<typeof useI18n>["t"]>[0];
   Icon: LucideIcon;
 }
 
 const publicNavItems: NavItem[] = [
-  { to: "/", desktopLabel: "Home", mobileLabel: "Home", Icon: House },
-  { to: "/gallery/meme", desktopLabel: "Meme", mobileLabel: "Meme", Icon: Images },
-  { to: "/gallery/art", desktopLabel: "Art", mobileLabel: "Art", Icon: Palette },
+  { to: "/", desktopLabelKey: "nav.home", mobileLabelKey: "nav.home", Icon: House },
+  { to: "/gallery/meme", desktopLabelKey: "nav.meme", mobileLabelKey: "nav.meme", Icon: Images },
+  { to: "/gallery/art", desktopLabelKey: "nav.art", mobileLabelKey: "nav.art", Icon: Palette },
 ];
 
 const signedInTaskNavItems: NavItem[] = [
-  { to: "/upload", desktopLabel: "Upload", mobileLabel: "Upload", Icon: Upload },
-  { to: "/profile", desktopLabel: "Profile", mobileLabel: "Me", Icon: User },
+  { to: "/upload", desktopLabelKey: "nav.upload", mobileLabelKey: "nav.upload", Icon: Upload },
+  { to: "/profile", desktopLabelKey: "nav.profile", mobileLabelKey: "nav.me", Icon: User },
 ];
 
 const moderationNavItem: NavItem = {
   to: "/moderation",
-  desktopLabel: "Moderation",
-  mobileLabel: "Review",
+  desktopLabelKey: "nav.moderation",
+  mobileLabelKey: "nav.review",
   Icon: ShieldCheck,
 };
 
@@ -58,6 +60,7 @@ const moderationNavItem: NavItem = {
 const rootRoute = createRootRoute({
   component: () => {
     const user = useAuthStore((state) => state.user);
+    const { t } = useI18n();
     const isModerator = user && (user.role === 'moderator' || user.role === 'admin');
     const routerState = useRouterState();
     const currentPath = routerState.location.pathname;
@@ -76,21 +79,22 @@ const rootRoute = createRootRoute({
         <header className="border-b border-ink px-4 py-3 md:p-4">
           <div className="flex items-center justify-between gap-3">
             <Link to="/" className="shrink-0 text-xl font-bold md:text-2xl">
-              Hasu Gallery
+              {t('app.brand')}
             </Link>
             <div className="flex items-center gap-3">
               <nav className="hidden max-w-full flex-wrap justify-end gap-2 md:flex" aria-label="Primary navigation">
                 {desktopNavItems.map((item) => (
                   <Link key={item.to} to={item.to} aria-current={currentPath === item.to ? "page" : undefined}>
                     <Button variant="ghost" size="sm" className={navLinkClass(item.to)}>
-                      {item.desktopLabel}
+                      {t(item.desktopLabelKey)}
                     </Button>
                   </Link>
                 ))}
               </nav>
+              <LanguageSelect />
               {!user && (
                 <Link to="/login" className="shrink-0">
-                  <Button size="sm">Sign in</Button>
+                  <Button size="sm">{t('nav.signIn')}</Button>
                 </Link>
               )}
             </div>
@@ -119,7 +123,7 @@ const rootRoute = createRootRoute({
                 ].join(" ")}
               >
                 <Icon className="h-5 w-5 shrink-0" aria-hidden="true" strokeWidth={2} />
-                <span className="max-w-full truncate">{item.mobileLabel}</span>
+                <span className="max-w-full truncate">{t(item.mobileLabelKey)}</span>
               </Link>
             );
           })}

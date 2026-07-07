@@ -1,4 +1,5 @@
 import { Button } from '@hasu-gallery/ui';
+import { useI18n } from '../i18n';
 
 interface PaginationProps {
   currentPage: number;
@@ -7,6 +8,8 @@ interface PaginationProps {
 }
 
 export function Pagination({ currentPage, totalPages, onPageChange }: PaginationProps) {
+  const { t } = useI18n();
+
   return (
     <div className="flex justify-center items-center gap-4">
       <Button
@@ -15,11 +18,11 @@ export function Pagination({ currentPage, totalPages, onPageChange }: Pagination
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
       >
-        Prev
+        {t('common.prev')}
       </Button>
 
       <span className="text-sm text-ink-2">
-        Page {currentPage} of {totalPages}
+        {t('common.pageOf', { current: currentPage, total: totalPages })}
       </span>
 
       <Button
@@ -28,7 +31,7 @@ export function Pagination({ currentPage, totalPages, onPageChange }: Pagination
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
       >
-        Next
+        {t('common.next')}
       </Button>
     </div>
   );

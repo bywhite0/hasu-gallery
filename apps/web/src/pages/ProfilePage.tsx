@@ -8,10 +8,12 @@ import { StatsCard } from '../components/StatsCard';
 import { MyWorksList } from '../components/MyWorksList';
 import { Pagination } from '../components/Pagination';
 import { Button } from '@hasu-gallery/ui';
+import { useI18n } from '../i18n';
 
 type StatusFilter = 'all' | 'pending' | 'approved' | 'rejected';
 
 export function ProfilePage() {
+  const { t, formatDate } = useI18n();
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -52,18 +54,14 @@ export function ProfilePage() {
   if (!userInfo) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <p className="text-center text-muted-foreground">Loading user information...</p>
+        <p className="text-center text-muted-foreground">{t('profile.loadingUser')}</p>
       </div>
     );
   }
 
   const joinDate = userInfo.created_at
-    ? new Date(userInfo.created_at).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      })
-    : 'Unknown';
+    ? formatDate(userInfo.created_at)
+    : t('common.unknown');
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-8">
@@ -72,31 +70,31 @@ export function ProfilePage() {
         <h1 className="text-4xl font-bold">{userInfo.display_name || userInfo.handle}</h1>
         <p className="text-lg text-muted-foreground">@{userInfo.handle}</p>
         {userInfo.email && <p className="text-sm text-muted-foreground">{userInfo.email}</p>}
-        <p className="text-sm text-muted-foreground">Joined {joinDate}</p>
+        <p className="text-sm text-muted-foreground">{t('profile.joined', { date: joinDate })}</p>
       </div>
 
       {/* Stats grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatsCard
-          label="Total Uploads"
+          label={t('profile.totalUploads')}
           value={statsLoading ? 0 : Number(stats?.total ?? 0)}
           icon={<Upload className="h-5 w-5" />}
           variant="default"
         />
         <StatsCard
-          label="Pending"
+          label={t('status.pending')}
           value={statsLoading ? 0 : Number(stats?.pending ?? 0)}
           icon={<Clock className="h-5 w-5" />}
           variant="warning"
         />
         <StatsCard
-          label="Approved"
+          label={t('status.approved')}
           value={statsLoading ? 0 : Number(stats?.approved ?? 0)}
           icon={<CheckCircle className="h-5 w-5" />}
           variant="success"
         />
         <StatsCard
-          label="Rejected"
+          label={t('status.rejected')}
           value={statsLoading ? 0 : Number(stats?.rejected ?? 0)}
           icon={<XCircle className="h-5 w-5" />}
           variant="danger"
@@ -105,7 +103,7 @@ export function ProfilePage() {
 
       {/* My uploads section */}
       <div className="space-y-4">
-        <h2 className="text-2xl font-semibold">My Uploads</h2>
+        <h2 className="text-2xl font-semibold">{t('profile.myUploads')}</h2>
 
         {/* Filter tabs */}
         <div className="flex flex-wrap gap-2">
@@ -113,31 +111,31 @@ export function ProfilePage() {
             variant={statusFilter === 'all' ? 'default' : 'outline'}
             onClick={() => handleStatusFilter('all')}
           >
-            All
+            {t('common.all')}
           </Button>
           <Button
             variant={statusFilter === 'pending' ? 'default' : 'outline'}
             onClick={() => handleStatusFilter('pending')}
           >
-            Pending
+            {t('status.pending')}
           </Button>
           <Button
             variant={statusFilter === 'approved' ? 'default' : 'outline'}
             onClick={() => handleStatusFilter('approved')}
           >
-            Approved
+            {t('status.approved')}
           </Button>
           <Button
             variant={statusFilter === 'rejected' ? 'default' : 'outline'}
             onClick={() => handleStatusFilter('rejected')}
           >
-            Rejected
+            {t('status.rejected')}
           </Button>
         </div>
 
         {/* Works list */}
         {worksLoading ? (
-          <p className="text-center text-muted-foreground py-8">Loading works...</p>
+          <p className="text-center text-muted-foreground py-8">{t('profile.loadingWorks')}</p>
         ) : worksData?.works && worksData.works.length > 0 ? (
           <>
             <MyWorksList works={worksData.works} onWorkClick={handleWorkClick} />
@@ -149,7 +147,7 @@ export function ProfilePage() {
           </>
         ) : (
           <p className="text-center text-muted-foreground py-8">
-            No works found for the selected filter.
+            {t('profile.noWorksForFilter')}
           </p>
         )}
       </div>

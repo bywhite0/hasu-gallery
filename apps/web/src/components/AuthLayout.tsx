@@ -1,7 +1,8 @@
 import { ReactNode } from 'react';
 import { Link } from '@tanstack/react-router';
 import { StateMessage } from '@hasu-gallery/ui';
-import { authIntentCopy, type AuthIntentReason } from './authIntent';
+import { useI18n } from '../i18n';
+import { getAuthIntentCopy, type AuthIntentReason } from './authIntent';
 
 interface AuthLayoutProps {
   title: string;
@@ -10,7 +11,8 @@ interface AuthLayoutProps {
 }
 
 export function AuthLayout({ title, reason, children }: AuthLayoutProps) {
-  const intentCopy = reason ? authIntentCopy[reason] : undefined;
+  const { t } = useI18n();
+  const intentCopy = reason ? getAuthIntentCopy(reason, t) : undefined;
 
   return (
     <div className="flex min-h-[calc(100vh-6rem)] items-start justify-center py-10 text-ink sm:items-center sm:py-16">
@@ -29,10 +31,10 @@ export function AuthLayout({ title, reason, children }: AuthLayoutProps) {
         </div>
         <div className="flex flex-wrap items-center justify-center gap-3 text-sm">
           <Link to="/gallery/meme" className="font-medium text-ink underline underline-offset-4 hover:text-ink-2">
-            Continue browsing Meme Gallery
+            {t('auth.continueMeme')}
           </Link>
           <Link to="/gallery/art" className="font-medium text-ink underline underline-offset-4 hover:text-ink-2">
-            Continue browsing Art Gallery
+            {t('auth.continueArt')}
           </Link>
         </div>
       </div>

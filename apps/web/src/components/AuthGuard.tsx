@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Navigate, useRouterState } from '@tanstack/react-router';
 import { StateMessage } from '@hasu-gallery/ui';
 import { useAuthStore } from '../store/auth';
+import { useI18n } from '../i18n';
 import type { AuthIntentReason } from './authIntent';
 
 interface AuthGuardProps {
@@ -11,6 +12,7 @@ interface AuthGuardProps {
 }
 
 export function AuthGuard({ children, reason, next }: AuthGuardProps) {
+  const { t } = useI18n();
   const { user, isLoading, hasCheckedAuth } = useAuthStore();
   const currentPath = useRouterState({ select: (state) => state.location.pathname });
   const nextPath = next ?? currentPath;
@@ -19,8 +21,8 @@ export function AuthGuard({ children, reason, next }: AuthGuardProps) {
     return (
       <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center">
         <StateMessage
-          title="Checking sign-in"
-          description="Restoring your session before continuing."
+          title={t('auth.checkingTitle')}
+          description={t('auth.checkingDescription')}
           tone="info"
         />
       </div>

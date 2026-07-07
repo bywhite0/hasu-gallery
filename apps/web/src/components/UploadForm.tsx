@@ -1,5 +1,6 @@
 import { useState, FormEvent } from 'react';
 import { Button } from '@hasu-gallery/ui';
+import { useI18n } from '../i18n';
 
 interface UploadFormProps {
   file: File;
@@ -8,6 +9,7 @@ interface UploadFormProps {
 }
 
 export function UploadForm({ file, onSubmit, isUploading }: UploadFormProps) {
+  const { t, originLabel, ratingLabel } = useI18n();
   const [title, setTitle] = useState('');
   const [gallery, setGallery] = useState('');
   const [origin, setOrigin] = useState('');
@@ -23,32 +25,32 @@ export function UploadForm({ file, onSubmit, isUploading }: UploadFormProps) {
     const newErrors: Record<string, string> = {};
 
     if (!title.trim()) {
-      newErrors.title = 'Title is required';
+      newErrors.title = t('upload.validationTitleRequired');
     } else if (title.length < 1 || title.length > 200) {
-      newErrors.title = 'Title must be between 1 and 200 characters';
+      newErrors.title = t('upload.validationTitleLength');
     }
 
     if (!gallery) {
-      newErrors.gallery = 'Gallery type is required';
+      newErrors.gallery = t('upload.validationGalleryRequired');
     }
 
     if (gallery === 'meme' && !origin) {
-      newErrors.origin = 'Origin is required for meme gallery';
+      newErrors.origin = t('upload.validationOriginRequired');
     }
 
     if (gallery === 'meme' && (origin === 'derived' || origin === 'fan_made') && !source.trim()) {
-      newErrors.source = 'Source is required for derived or fan-made memes';
+      newErrors.source = t('upload.validationSourceRequired');
     }
 
     if (gallery === 'art') {
       if (!artist.trim()) {
-        newErrors.artist = 'Artist is required for art gallery';
+        newErrors.artist = t('upload.validationArtistRequired');
       }
       if (!rating) {
-        newErrors.rating = 'Rating is required for art gallery';
+        newErrors.rating = t('upload.validationRatingRequired');
       }
       if (!sourceUrl.trim()) {
-        newErrors.sourceUrl = 'Source URL is required for art gallery';
+        newErrors.sourceUrl = t('upload.validationSourceUrlRequired');
       }
     }
 
@@ -56,7 +58,7 @@ export function UploadForm({ file, onSubmit, isUploading }: UploadFormProps) {
       try {
         new URL(sourceUrl);
       } catch {
-        newErrors.sourceUrl = 'Invalid URL format';
+        newErrors.sourceUrl = t('upload.validationUrl');
       }
     }
 
@@ -103,13 +105,16 @@ export function UploadForm({ file, onSubmit, isUploading }: UploadFormProps) {
           aria-live="assertive"
           className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
         >
-          Please fix {errorMessages.length} upload detail{errorMessages.length === 1 ? '' : 's'} before submitting.
+          {t('upload.fixDetails', {
+            count: errorMessages.length,
+            plural: errorMessages.length === 1 ? '' : 's',
+          })}
         </div>
       )}
 
       <div>
         <label htmlFor="title" className="block text-sm font-medium mb-1">
-          Title *
+          {t('upload.fieldTitle')} *
         </label>
         <input
           type="text"
@@ -129,7 +134,7 @@ export function UploadForm({ file, onSubmit, isUploading }: UploadFormProps) {
 
       <div>
         <label htmlFor="gallery" className="block text-sm font-medium mb-1">
-          Gallery *
+          {t('upload.fieldGallery')} *
         </label>
         <select
           id="gallery"
@@ -140,9 +145,9 @@ export function UploadForm({ file, onSubmit, isUploading }: UploadFormProps) {
           aria-invalid={Boolean(errors.gallery)}
           aria-describedby={errors.gallery ? 'gallery-error' : undefined}
         >
-          <option value="">Select gallery type</option>
-          <option value="meme">Meme</option>
-          <option value="art">Art</option>
+          <option value="">{t('upload.selectGallery')}</option>
+          <option value="meme">{t('gallery.memeShort')}</option>
+          <option value="art">{t('gallery.artShort')}</option>
         </select>
         {errors.gallery && (
           <p id="gallery-error" className="text-sm text-red-600 mt-1">{errors.gallery}</p>
@@ -152,7 +157,7 @@ export function UploadForm({ file, onSubmit, isUploading }: UploadFormProps) {
       {gallery === 'meme' && (
         <div>
           <label htmlFor="origin" className="block text-sm font-medium mb-1">
-            Origin *
+            {t('upload.fieldOrigin')} *
           </label>
           <select
             id="origin"
@@ -163,10 +168,10 @@ export function UploadForm({ file, onSubmit, isUploading }: UploadFormProps) {
             aria-invalid={Boolean(errors.origin)}
             aria-describedby={errors.origin ? 'origin-error' : undefined}
           >
-            <option value="">Select origin</option>
-            <option value="official">Official</option>
-            <option value="derived">Derived</option>
-            <option value="fan_made">Fan Made</option>
+            <option value="">{t('upload.selectOrigin')}</option>
+            <option value="official">{originLabel('official')}</option>
+            <option value="derived">{originLabel('derived')}</option>
+            <option value="fan_made">{originLabel('fan_made')}</option>
           </select>
           {errors.origin && (
             <p id="origin-error" className="text-sm text-red-600 mt-1">{errors.origin}</p>
@@ -178,7 +183,7 @@ export function UploadForm({ file, onSubmit, isUploading }: UploadFormProps) {
         <>
           <div>
             <label htmlFor="artist" className="block text-sm font-medium mb-1">
-              Artist *
+              {t('upload.fieldArtist')} *
             </label>
             <input
               type="text"
@@ -188,7 +193,7 @@ export function UploadForm({ file, onSubmit, isUploading }: UploadFormProps) {
               disabled={isUploading}
               className="w-full px-3 py-2 border rounded-md disabled:opacity-50"
               maxLength={200}
-              placeholder="Artist name"
+              placeholder={t('upload.artistPlaceholder')}
               aria-invalid={Boolean(errors.artist)}
               aria-describedby={errors.artist ? 'artist-error' : undefined}
             />
@@ -199,7 +204,7 @@ export function UploadForm({ file, onSubmit, isUploading }: UploadFormProps) {
 
           <div>
             <label htmlFor="medium" className="block text-sm font-medium mb-1">
-              Medium
+              {t('upload.fieldMedium')}
             </label>
             <input
               type="text"
@@ -209,13 +214,13 @@ export function UploadForm({ file, onSubmit, isUploading }: UploadFormProps) {
               disabled={isUploading}
               className="w-full px-3 py-2 border rounded-md disabled:opacity-50"
               maxLength={100}
-              placeholder="e.g. Digital, Watercolor, Pencil"
+              placeholder={t('upload.mediumPlaceholder')}
             />
           </div>
 
           <div>
             <label htmlFor="rating" className="block text-sm font-medium mb-1">
-              Rating *
+              {t('upload.fieldRating')} *
             </label>
             <select
               id="rating"
@@ -226,9 +231,9 @@ export function UploadForm({ file, onSubmit, isUploading }: UploadFormProps) {
               aria-invalid={Boolean(errors.rating)}
               aria-describedby={errors.rating ? 'rating-error' : undefined}
             >
-              <option value="all_ages">All Ages</option>
-              <option value="r15">R-15</option>
-              <option value="r18">R-18</option>
+              <option value="all_ages">{ratingLabel('all_ages')}</option>
+              <option value="r15">{ratingLabel('r15')}</option>
+              <option value="r18">{ratingLabel('r18')}</option>
             </select>
             {errors.rating && (
               <p id="rating-error" className="text-sm text-red-600 mt-1">{errors.rating}</p>
@@ -239,7 +244,7 @@ export function UploadForm({ file, onSubmit, isUploading }: UploadFormProps) {
 
       <div>
         <label htmlFor="source" className="block text-sm font-medium mb-1">
-          Source
+          {t('upload.fieldSource')}
         </label>
         <textarea
           id="source"
@@ -248,13 +253,13 @@ export function UploadForm({ file, onSubmit, isUploading }: UploadFormProps) {
           disabled={isUploading}
           className="w-full px-3 py-2 border rounded-md disabled:opacity-50"
           rows={3}
-          placeholder="Optional source information"
+          placeholder={t('upload.sourcePlaceholder')}
         />
       </div>
 
       <div>
         <label htmlFor="sourceUrl" className="block text-sm font-medium mb-1">
-          Source URL
+          {t('upload.fieldSourceUrl')}
         </label>
         <input
           type="url"
@@ -273,7 +278,7 @@ export function UploadForm({ file, onSubmit, isUploading }: UploadFormProps) {
       </div>
 
       <Button type="submit" disabled={isUploading} className="w-full">
-        {isUploading ? 'Submitting...' : 'Submit for review'}
+        {isUploading ? t('upload.submitting') : t('upload.submit')}
       </Button>
     </form>
   );

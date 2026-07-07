@@ -7,6 +7,7 @@ import { useMutation } from '@tanstack/react-query';
 import { Button } from '@hasu-gallery/ui';
 import { Ban, CheckCircle2, XCircle } from 'lucide-react';
 import { updateWorkStatus } from '../api/moderation';
+import { useI18n, type TranslationKey } from '../i18n';
 
 interface ModerationActionsProps {
   workId: string;
@@ -17,37 +18,38 @@ type ModerationStatus = 'approved' | 'rejected' | 'takedown';
 
 interface PendingAction {
   status: ModerationStatus;
-  label: string;
-  title: string;
-  description: string;
-  confirmLabel: string;
+  label: TranslationKey;
+  title: TranslationKey;
+  description: TranslationKey;
+  confirmLabel: TranslationKey;
 }
 
 const actions: PendingAction[] = [
   {
     status: 'approved',
-    label: 'Approve',
-    title: 'Approve this work?',
-    description: 'The work will become eligible for the public gallery.',
-    confirmLabel: 'Confirm approval',
+    label: 'moderation.approve',
+    title: 'moderation.approveTitle',
+    description: 'moderation.approveDescription',
+    confirmLabel: 'moderation.approveConfirm',
   },
   {
     status: 'rejected',
-    label: 'Reject',
-    title: 'Reject this work?',
-    description: 'The uploader will see that this submission was not accepted.',
-    confirmLabel: 'Confirm rejection',
+    label: 'moderation.reject',
+    title: 'moderation.rejectTitle',
+    description: 'moderation.rejectDescription',
+    confirmLabel: 'moderation.rejectConfirm',
   },
   {
     status: 'takedown',
-    label: 'Remove',
-    title: 'Remove this work from the gallery?',
-    description: 'Use this only for policy, rights, or safety issues. Add a note so the decision is traceable.',
-    confirmLabel: 'Confirm removal',
+    label: 'moderation.remove',
+    title: 'moderation.removeTitle',
+    description: 'moderation.removeDescription',
+    confirmLabel: 'moderation.removeConfirm',
   },
 ];
 
 export function ModerationActions({ workId, onSuccess }: ModerationActionsProps) {
+  const { t } = useI18n();
   const [note, setNote] = useState('');
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
 
@@ -70,13 +72,13 @@ export function ModerationActions({ workId, onSuccess }: ModerationActionsProps)
     <div className="space-y-4">
       <div>
         <label htmlFor="note" className="block text-sm font-medium mb-2">
-          Review note (optional)
+          {t('moderation.reviewNote')}
         </label>
         <textarea
           id="note"
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          placeholder="Add context for the uploader or future reviewers."
+          placeholder={t('moderation.reviewNotePlaceholder')}
           className="w-full px-3 py-2 border border-ink/20 rounded-md focus:outline-none focus:ring-2 focus:ring-ink"
           rows={3}
           disabled={mutation.isPending}
@@ -102,7 +104,7 @@ export function ModerationActions({ workId, onSuccess }: ModerationActionsProps)
               aria-expanded={pendingAction?.status === action.status}
             >
               <Icon className="mr-2 h-4 w-4" aria-hidden="true" />
-              {action.label}
+              {t(action.label)}
             </Button>
           );
         })}
@@ -112,10 +114,10 @@ export function ModerationActions({ workId, onSuccess }: ModerationActionsProps)
         <div className="rounded-lg border border-ink/20 bg-accent/40 p-4 space-y-3" role="group" aria-labelledby="moderation-confirm-title">
           <div>
             <h3 id="moderation-confirm-title" className="text-sm font-semibold text-foreground">
-              {pendingAction.title}
+              {t(pendingAction.title)}
             </h3>
             <p className="mt-1 text-sm text-ink/70">
-              {pendingAction.description}
+              {t(pendingAction.description)}
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -125,7 +127,7 @@ export function ModerationActions({ workId, onSuccess }: ModerationActionsProps)
               disabled={mutation.isPending}
               className={pendingAction.status === 'approved' ? undefined : 'bg-danger text-paper hover:bg-danger/90'}
             >
-              {mutation.isPending ? 'Processing...' : pendingAction.confirmLabel}
+              {mutation.isPending ? t('moderation.processing') : t(pendingAction.confirmLabel)}
             </Button>
             <Button
               type="button"
@@ -133,7 +135,7 @@ export function ModerationActions({ workId, onSuccess }: ModerationActionsProps)
               onClick={() => setPendingAction(null)}
               disabled={mutation.isPending}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
           </div>
         </div>
@@ -141,7 +143,7 @@ export function ModerationActions({ workId, onSuccess }: ModerationActionsProps)
 
       {mutation.isError && (
         <div role="alert" className="text-red-600 text-sm">
-          Review update failed: {(mutation.error as Error).message}
+          {t('moderation.updateFailed')}
         </div>
       )}
     </div>

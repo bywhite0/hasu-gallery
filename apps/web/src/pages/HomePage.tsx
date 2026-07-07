@@ -5,28 +5,25 @@ import { Button, EmptyState, ErrorState, StateMessage } from '@hasu-gallery/ui';
 import type { WorkListItem } from '@hasu-gallery/types';
 import { listWorks } from '../api/works';
 import { useAuthStore } from '../store/auth';
+import { useI18n } from '../i18n';
 
 type HomeFeedItem = WorkListItem & {
   gallery: 'meme' | 'art';
 };
 
-const galleryLabel: Record<HomeFeedItem['gallery'], string> = {
-  meme: 'Meme',
-  art: 'Art',
-};
-
-const getErrorDescription = (error: unknown) => {
+const getErrorDescription = (error: unknown, t: ReturnType<typeof useI18n>['t']) => {
   const message = error instanceof Error ? error.message : '';
 
   if (message === 'Failed to fetch') {
-    return 'The gallery API is not reachable right now. Start the backend service and try again.';
+    return t('home.errorNetwork');
   }
 
-  return message || 'The public feed could not be loaded. Please try again.';
+  return t('home.errorFallback');
 };
 
 export function HomePage() {
   const user = useAuthStore((state) => state.user);
+  const { t, galleryShortLabel } = useI18n();
   const [imageFailures, setImageFailures] = useState<Record<string, boolean>>({});
 
   const memeQuery = useQuery({
@@ -67,18 +64,18 @@ export function HomePage() {
         <div className="max-w-3xl space-y-3">
           <h1 className="text-3xl font-semibold tracking-normal text-ink">Hasu Gallery</h1>
           <p className="text-sm leading-6 text-ink-2 md:text-base">
-            Browse recent approved memes and fan art from the community. Sign in when you are ready to submit a work for review.
+            {t('home.description')}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link to="/gallery/meme">
-            <Button variant="outline">Meme Gallery</Button>
+            <Button variant="outline">{t('gallery.meme')}</Button>
           </Link>
           <Link to="/gallery/art">
-            <Button variant="outline">Art Gallery</Button>
+            <Button variant="outline">{t('gallery.art')}</Button>
           </Link>
           <Link to="/upload">
-            <Button>{user ? 'Upload' : 'Sign in to upload'}</Button>
+            <Button>{user ? t('nav.upload') : t('home.signInToUpload')}</Button>
           </Link>
         </div>
       </section>
@@ -86,8 +83,8 @@ export function HomePage() {
       {isLoading && (
         <div className="space-y-4" aria-live="polite" aria-busy="true">
           <StateMessage
-            title="Loading public feed"
-            description="Fetching recent approved works from Meme and Art Gallery."
+            title={t('home.loadingTitle')}
+            description={t('home.loadingDescription')}
             tone="info"
           />
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -106,8 +103,8 @@ export function HomePage() {
 
       {!isLoading && hasError && feed.length === 0 && (
         <ErrorState
-          title="Public feed unavailable"
-          description={getErrorDescription(error)}
+          title={t('home.errorTitle')}
+          description={getErrorDescription(error, t)}
           action={
             <Button
               type="button"
@@ -117,7 +114,7 @@ export function HomePage() {
               }}
               disabled={memeQuery.isFetching || artQuery.isFetching}
             >
-              {memeQuery.isFetching || artQuery.isFetching ? 'Retrying...' : 'Retry'}
+              {memeQuery.isFetching || artQuery.isFetching ? t('common.retrying') : t('common.retry')}
             </Button>
           }
         />
@@ -125,11 +122,11 @@ export function HomePage() {
 
       {!isLoading && !hasError && feed.length === 0 && (
         <EmptyState
-          title="No public works yet"
-          description="Approved Meme and Art submissions will appear here once the gallery has published works."
+          title={t('home.emptyTitle')}
+          description={t('home.emptyDescription')}
           action={
             <Link to="/upload">
-              <Button>{user ? 'Upload a work' : 'Sign in to upload'}</Button>
+              <Button>{user ? t('home.uploadWork') : t('home.signInToUpload')}</Button>
             </Link>
           }
         />
@@ -139,8 +136,8 @@ export function HomePage() {
         <section className="space-y-4">
           <div className="flex items-end justify-between gap-4">
             <div>
-              <h2 className="text-lg font-semibold text-ink">Recent public works</h2>
-              <p className="text-sm text-ink-2">A mixed feed from Meme and Art Gallery.</p>
+              <h2 className="text-lg font-semibold text-ink">{t('home.recentTitle')}</h2>
+              <p className="text-sm text-ink-2">{t('home.recentDescription')}</p>
             </div>
           </div>
           <div className="columns-1 gap-4 sm:columns-2 lg:columns-4">
@@ -159,7 +156,7 @@ export function HomePage() {
                     {hasThumbnail ? (
                       <img
                         src={work.thumbnail_url}
-                        alt={`${work.title} thumbnail`}
+                        alt={t('home.thumbnailAlt', { title: work.title })}
                         loading="lazy"
                         decoding="async"
                         className="w-full object-cover"
@@ -167,7 +164,7 @@ export function HomePage() {
                       />
                     ) : (
                       <div className="flex aspect-square w-full items-center justify-center px-4 text-center text-sm text-ink-2">
-                        Image unavailable
+                        {t('common.imageUnavailable')}
                       </div>
                     )}
                   </div>
@@ -177,7 +174,7 @@ export function HomePage() {
                         {work.title}
                       </h3>
                       <span className="shrink-0 rounded-full border border-ink/15 px-2 py-0.5 text-xs font-medium text-ink-2">
-                        {galleryLabel[work.gallery]}
+                        {galleryShortLabel(work.gallery)}
                       </span>
                     </div>
                     <p className="text-xs leading-5 text-ink-2">

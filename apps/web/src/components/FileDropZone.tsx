@@ -1,6 +1,7 @@
 import { useId, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { Upload } from 'lucide-react';
+import { useI18n } from '../i18n';
 
 interface FileDropZoneProps {
   onFileSelect: (file: File) => void;
@@ -15,6 +16,7 @@ export function FileDropZone({
   disabled = false,
   accept = 'image/*',
 }: FileDropZoneProps) {
+  const { t } = useI18n();
   const inputId = useId();
   const hintId = useId();
   const errorId = useId();
@@ -24,12 +26,12 @@ export function FileDropZone({
 
   const validateFile = (file: File): boolean => {
     if (!file.type.startsWith('image/')) {
-      setError('Please select an image file');
+      setError(t('dropzone.invalidType'));
       return false;
     }
 
     if (file.size > MAX_FILE_SIZE) {
-      setError('File size must be less than 10MB');
+      setError(t('dropzone.invalidSize'));
       return false;
     }
 
@@ -105,7 +107,7 @@ export function FileDropZone({
         accept={accept}
         onChange={handleInputChange}
         disabled={disabled}
-        aria-label="Choose an image file to upload"
+        aria-label={t('dropzone.chooseAria')}
         aria-invalid={Boolean(error)}
         aria-describedby={`${hintId}${error ? ` ${errorId}` : ''}`}
         tabIndex={-1}
@@ -134,11 +136,11 @@ export function FileDropZone({
         <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" aria-hidden="true" />
 
         <p className="text-base text-foreground mb-2">
-          Drag an image here, or choose a file
+          {t('dropzone.prompt')}
         </p>
 
         <p id={hintId} className="text-sm text-muted-foreground">
-          Maximum file size: 10MB
+          {t('dropzone.hint')}
         </p>
 
         {error && (
