@@ -404,6 +404,7 @@ backend/src/
 - ✅ Playwright E2E smoke: Art facets, rating filter, persisted preference restore on desktop and mobile viewports
 - ✅ Playwright E2E smoke: upload submission, moderation queue, approve flow on desktop and mobile viewports
 - ✅ Backend HTTP tests: `GET /api/works/facets` gallery/status validation and pending auth boundary
+- ✅ Frontend component test baseline: Vitest + Testing Library in CI, covering moderation filter labels and queue reload behavior
 - ✅ Unit tests (backend: auth, upload, moderation logic)
 - ✅ Integration tests (API endpoints)
 - ✅ E2E tests (upload flow, moderation flow; local Playwright script, not CI)
@@ -432,10 +433,10 @@ backend/src/
 **Immediate Next Steps**:
 1. 发布前本地验收：运行 `pnpm typecheck`、`pnpm build`、`cargo test --manifest-path backend/Cargo.toml` 与 `pnpm e2e`。
 2. 生产环境接入：按 `docs/deployment.md` 与 `docs/monitoring.md` 配置 Postgres、S3/MinIO、CDN、日志采集与监控摘要探针。
-3. 增强项规划：外部 APM/Sentry SDK、发布自动化、前端 Vitest/Testing Library 组件测试、专用 progressive JPEG/CDN 转码。
+3. 增强项规划：外部 APM/Sentry SDK、发布自动化、前端组件测试覆盖扩展、专用 progressive JPEG/CDN 转码。
 
 **Long-term Priorities**:
-- Phase 5 follow-up: 外部监控平台、发布流水线与前端组件测试
+- Phase 5 follow-up: 外部监控平台、发布流水线与前端组件测试覆盖扩展
 - Future product work: 批量审核、通知、搜索体验与运营后台增强
 
 ---
@@ -443,7 +444,7 @@ backend/src/
 ## Technical Debt
 
 1. ~~Frontend 尚未实现~~ ✅ Phase 2 完成
-2. 缺少前端组件/单元测试（Vitest + Testing Library 未配置）
+2. 前端组件/单元测试覆盖仍需扩展（Vitest + Testing Library 基础已接入 CI）
 3. ~~缺少后端集成测试~~ ✅ Phase 5 已补 facets API HTTP 集成路径
 4. 缺少发布/部署流水线（轻量 CI 已覆盖 typecheck/build/cargo test；E2E 作为本地脚本）
 5. ~~缺少生产环境监控~~ ✅ Phase 5 已补日志/响应头/监控摘要 API 与监控 runbook；外部 APM/Sentry 接入为后续增强
