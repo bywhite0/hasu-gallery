@@ -428,10 +428,10 @@ backend/src/
 
 ## Next Actions
 
-> **Current Status (2026-07-07)**: Phase 1-5 baseline 已完成。CI 保持轻量，仅覆盖前端 typecheck/build 与后端 Postgres + `cargo test`；Playwright E2E 作为本地脚本用于发布前验收。
+> **Current Status (2026-07-07)**: Phase 1-5 baseline 已完成。CI 保持轻量，覆盖前端 typecheck/build/component tests 与后端 Postgres + `cargo test`；Playwright E2E 作为本地脚本用于发布前验收。
 
 **Immediate Next Steps**:
-1. 发布前本地验收：运行 `pnpm typecheck`、`pnpm build`、`cargo test --manifest-path backend/Cargo.toml` 与 `pnpm e2e`。
+1. 发布前本地验收：运行 `pnpm test`、`pnpm typecheck`、`pnpm build`、`cargo test --manifest-path backend/Cargo.toml` 与 `pnpm e2e`。
 2. 生产环境接入：按 `docs/deployment.md` 与 `docs/monitoring.md` 配置 Postgres、S3/MinIO、CDN、日志采集与监控摘要探针。
 3. 增强项规划：外部 APM/Sentry SDK、发布自动化、前端组件测试覆盖扩展、专用 progressive JPEG/CDN 转码。
 
@@ -446,7 +446,7 @@ backend/src/
 1. ~~Frontend 尚未实现~~ ✅ Phase 2 完成
 2. 前端组件/单元测试覆盖仍需扩展（Vitest + Testing Library 基础已接入 CI）
 3. ~~缺少后端集成测试~~ ✅ Phase 5 已补 facets API HTTP 集成路径
-4. 缺少发布/部署流水线（轻量 CI 已覆盖 typecheck/build/cargo test；E2E 作为本地脚本）
+4. 缺少发布/部署流水线（轻量 CI 已覆盖 typecheck/build/frontend tests/cargo test；E2E 作为本地脚本）
 5. ~~缺少生产环境监控~~ ✅ Phase 5 已补日志/响应头/监控摘要 API 与监控 runbook；外部 APM/Sentry 接入为后续增强
 
 ---

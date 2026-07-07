@@ -378,21 +378,23 @@ chore: upgrade dependencies
 - MyWorksList（状态徽章 + 筛选）
 - 后端 API：`GET /api/users/me/stats`、`GET /api/users/me/works`
 
-### 推荐下一步（Phase 5 - Production Hardening）
+### 推荐下一步（Post Phase 5）
 
-> 2026-07-07 收敛：Phase 4 Art Gallery baseline 已通过真实浏览器验收；Phase 5 首个切片（rating 偏好持久化、Art facets、artist/medium 建议搜索）已开始落地。后续路线不改架构，聚焦自动化验收、安全加固、部署与可观测性。
+> 2026-07-07 收敛：Phase 1-5 baseline 已完成。Art Gallery、自动化验收、安全加固、部署文档、基础可观测性、前端组件测试 baseline 均已落地；后续不改架构，优先保持发布前本地验收与生产接入，再推进账户体验和社区功能。
 
-1. **自动化验收**
-   - E2E 覆盖 Art facets、rating 偏好恢复、上传、审核发布链路
-   - 后端集成测试覆盖 `GET /api/works/facets`、权限边界与筛选参数
+1. **发布前本地验收**
+   - 运行 `pnpm test`、`pnpm typecheck`、`pnpm build`、`cargo test --manifest-path backend/Cargo.toml` 与 `pnpm e2e`
+   - Playwright E2E 保持桌面 1440 x 1000 与移动 390 x 844 双视口覆盖
+   - 前端组件测试通过 Vitest + Testing Library 接入 CI，后续按风险扩展覆盖
 
-2. **生产化安全加固**
-   - 上传/登录限流、CSRF、防刷
-   - 输入校验与上传文件校验审计
+2. **生产环境接入**
+   - 按 `docs/deployment.md` 与 `docs/monitoring.md` 配置 Postgres、S3/MinIO、CDN、日志采集与监控摘要探针
+   - 外部 APM/Sentry SDK、发布自动化、progressive JPEG/CDN 转码作为增强项
 
-3. **部署与可观测性**
-   - 环境变量与部署指南补齐
-   - 内容政策/审核指南、错误监控与基础指标落地
+3. **下一产品设计轨道**
+   - Profile 演进为 submission workspace：按 Waiting for review / Published / Needs changes / Not accepted 分组
+   - 展示 submission date、review state、review note 与 next action
+   - Account Settings、public user pages、收藏/点赞/举报等社区功能在账户工作流稳定后再逐层推进
 
 ---
 
@@ -400,11 +402,11 @@ chore: upgrade dependencies
 
 1. ~~`frontend/` 尚未实现任何页面（仅骨架就位）~~ ✅ Phase 2 完成
 2. ~~审核工作流未实现~~ ✅ Phase 3 完成
-3. 缺少前端测试（Vitest + Testing Library 未配置）
-4. 缺少后端集成测试（仅有单元测试）
-5. 缺少 CI/CD 流水线（GitHub Actions 未配置）
-6. 缺少生产环境错误监控与性能指标收集
-7. 缺少批量审核操作（Phase 3 计划中标记为可选）
+3. 前端组件/单元测试覆盖仍需扩展（Vitest + Testing Library 基础已接入 CI）
+4. ~~缺少后端集成测试~~ ✅ Phase 5 已补 facets API HTTP 集成路径
+5. 缺少发布/部署流水线（轻量 CI 已覆盖 typecheck/build/frontend tests/cargo test；E2E 作为本地脚本）
+6. ~~缺少生产环境错误监控与性能指标收集~~ ✅ Phase 5 已补日志/响应头/监控摘要 API 与监控 runbook；外部 APM/Sentry 接入为后续增强
+7. 缺少批量审核操作（未来产品增强）
 
 ---
 
