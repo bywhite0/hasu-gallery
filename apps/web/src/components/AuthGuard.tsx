@@ -22,7 +22,6 @@ export function AuthGuard({ children, reason, next }: AuthGuardProps) {
       <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center">
         <StateMessage
           title={t('auth.checkingTitle')}
-          description={t('auth.checkingDescription')}
           tone="info"
         />
       </div>

@@ -53,7 +53,6 @@ export function WorkDetailPage() {
       <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center">
         <StateMessage
           title={t('work.loadingTitle')}
-          description={t('work.loadingDescription')}
           tone="info"
         />
       </div>

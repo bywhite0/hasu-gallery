@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { Button, EmptyState, ErrorState, StateMessage } from '@hasu-gallery/ui';
+import { Button, EmptyState, ErrorState } from '@hasu-gallery/ui';
 import { listWorkFacets, listWorks } from '../api/works';
 import { FilterPanel } from '../components/FilterPanel';
 import { WorksGrid } from '../components/WorksGrid';
@@ -130,10 +130,6 @@ export function GalleryPage({ gallery }: GalleryPageProps) {
   const emptyTitle = hasActiveFilters
     ? t('gallery.noMatchesTitle')
     : t('gallery.noWorksTitle', { gallery: galleryShortLabel(gallery) });
-  const emptyDescription = hasActiveFilters
-    ? t('gallery.noMatchesDescription')
-    : t('gallery.noWorksDescription');
-
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">{title}</h1>
@@ -150,11 +146,7 @@ export function GalleryPage({ gallery }: GalleryPageProps) {
 
       {isLoading && (
         <div className="space-y-4" aria-live="polite" aria-busy="true">
-          <StateMessage
-            title={t('gallery.loadingTitle')}
-            description={t('gallery.loadingDescription')}
-            tone="info"
-          />
+          <p className="sr-only">{t('gallery.loadingTitle')}</p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
             {Array.from({ length: 6 }).map((_, index) => (
               <div
@@ -196,7 +188,6 @@ export function GalleryPage({ gallery }: GalleryPageProps) {
           ) : (
             <EmptyState
               title={emptyTitle}
-              description={emptyDescription}
               action={
                 hasActiveFilters ? (
                   <Button type="button" variant="outline" onClick={handleResetFilters}>

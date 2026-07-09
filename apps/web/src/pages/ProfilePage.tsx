@@ -92,7 +92,6 @@ export function ProfilePage() {
     {
       key: 'pending',
       label: t('profile.summaryWaiting'),
-      description: t('profile.summaryWaitingDescription'),
       value: pending,
       icon: Clock,
       className: 'text-warning',
@@ -100,7 +99,6 @@ export function ProfilePage() {
     {
       key: 'approved',
       label: t('profile.summaryPublished'),
-      description: t('profile.summaryPublishedDescription'),
       value: approved,
       icon: CheckCircle,
       className: 'text-success',
@@ -108,7 +106,6 @@ export function ProfilePage() {
     {
       key: 'attention',
       label: t('profile.summaryNeedsAttention'),
-      description: t('profile.summaryNeedsAttentionDescription'),
       value: needsAttention,
       icon: AlertTriangle,
       className: 'text-danger',
@@ -119,15 +116,9 @@ export function ProfilePage() {
     <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-6 sm:py-8">
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-3">
-          <p className="text-sm font-medium text-ink-2">{t('profile.workspaceTitle')}</p>
-          <div className="space-y-2">
-            <h1 className="text-3xl font-semibold leading-tight text-ink sm:text-4xl">
-              {t('profile.meTitle')}
-            </h1>
-            <p className="max-w-3xl text-sm leading-6 text-ink-2 sm:text-base">
-              {t('profile.workspaceDescription')}
-            </p>
-          </div>
+          <h1 className="text-3xl font-semibold leading-tight text-ink sm:text-4xl">
+            {t('profile.meTitle')}
+          </h1>
           <UserBadge identity={identity} />
           <Button type="button" onClick={handleUploadClick}>
             <Upload className="mr-2 h-4 w-4" aria-hidden="true" />
@@ -147,7 +138,6 @@ export function ProfilePage() {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h2 className="text-sm font-semibold text-ink">{metric.label}</h2>
-                  <p className="mt-1 text-sm leading-5 text-ink-2">{metric.description}</p>
                 </div>
                 <Icon className={`h-5 w-5 shrink-0 ${metric.className}`} aria-hidden="true" />
               </div>
@@ -161,11 +151,11 @@ export function ProfilePage() {
 
       <section className="space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <h2 className="text-2xl font-semibold text-ink">{t('profile.submissionWorkspace')}</h2>
-            <p className="mt-1 text-sm text-ink-2">
-              {t('profile.submissionWorkspaceDescription', { count: formatNumber(total) })}
-            </p>
+            <span className="text-sm text-ink-2">
+              {t('profile.submissionTotal', { count: formatNumber(total) })}
+            </span>
           </div>
           <div className="flex items-center gap-2 text-sm text-ink-2">
             <XCircle className="h-4 w-4" aria-hidden="true" />

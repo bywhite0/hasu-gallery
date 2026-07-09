@@ -89,15 +89,14 @@ describe('ProfilePage', () => {
 
     renderProfilePage();
 
-    expect(await screen.findByText('Contribution workspace')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Me' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'My uploads' })).toBeInTheDocument();
     expect(screen.getAllByText('Contributor').length).toBeGreaterThan(0);
     expect(screen.getAllByText('@contributor').length).toBeGreaterThan(0);
     expect(screen.getAllByText('1 approved').length).toBeGreaterThan(0);
     expect(screen.queryByText('contributor@example.test')).not.toBeInTheDocument();
     expect(screen.getByText('Needs a clearer source')).toBeInTheDocument();
     expect(screen.getByText('Please add the original source URL.')).toBeInTheDocument();
-    expect(screen.getByText('Needs attention')).toBeInTheDocument();
+    expect(screen.getByText('Needs your attention')).toBeInTheDocument();
     expect(screen.getByText('1 removed')).toBeInTheDocument();
 
     await waitFor(() => {

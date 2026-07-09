@@ -54,7 +54,6 @@ export function ModerationPage() {
         <div className="max-w-4xl mx-auto space-y-6">
           <div>
             <h1 className="text-3xl font-bold text-foreground">{t('moderation.title')}</h1>
-            <p className="text-ink/60 mt-2">{t('moderation.description')}</p>
           </div>
 
           {/* Filters */}

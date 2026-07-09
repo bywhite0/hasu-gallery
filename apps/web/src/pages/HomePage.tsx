@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { Button, EmptyState, ErrorState, StateMessage } from '@hasu-gallery/ui';
+import { Button, EmptyState, ErrorState } from '@hasu-gallery/ui';
 import type { WorkListItem } from '@hasu-gallery/types';
 import { listWorks } from '../api/works';
 import { useAuthStore } from '../store/auth';
@@ -64,12 +64,9 @@ export function HomePage() {
 
   return (
     <div className="space-y-8">
-      <section className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-        <div className="max-w-3xl space-y-3">
+      <section className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+        <div className="max-w-3xl">
           <h1 className="text-3xl font-semibold tracking-normal text-ink">Hasu Gallery</h1>
-          <p className="text-sm leading-6 text-ink-2 md:text-base">
-            {t('home.description')}
-          </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link to="/gallery/meme">
@@ -86,11 +83,7 @@ export function HomePage() {
 
       {isLoading && (
         <div className="space-y-4" aria-live="polite" aria-busy="true">
-          <StateMessage
-            title={t('home.loadingTitle')}
-            description={t('home.loadingDescription')}
-            tone="info"
-          />
+          <p className="sr-only">{t('home.loadingTitle')}</p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {Array.from({ length: 8 }).map((_, index) => (
               <div key={index} className="overflow-hidden rounded-md border border-ink/10 bg-surface">
@@ -132,7 +125,6 @@ export function HomePage() {
       {!isLoading && !hasError && feed.length === 0 && (
         <EmptyState
           title={t('home.emptyTitle')}
-          description={t('home.emptyDescription')}
           action={
             <Link to="/upload">
               <Button>{user ? t('home.uploadWork') : t('home.signInToUpload')}</Button>
@@ -146,7 +138,6 @@ export function HomePage() {
           <div className="flex items-end justify-between gap-4">
             <div>
               <h2 className="text-lg font-semibold text-ink">{t('home.recentTitle')}</h2>
-              <p className="text-sm text-ink-2">{t('home.recentDescription')}</p>
             </div>
           </div>
           <div className="columns-1 gap-4 sm:columns-2 lg:columns-4">
