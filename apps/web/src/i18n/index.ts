@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useAppStore } from '../store';
-import { DEFAULT_LOCALE, localeOptions, toIntlLocale, type Locale } from './locales';
+import { DEFAULT_LOCALE, localeOptions, toIntlLocale, type Locale } from './config';
 import { messages, type TranslationKey } from './translations';
 
 type TranslationParams = Record<string, string | number>;
@@ -110,4 +110,4 @@ export function useI18n() {
 }
 
 export type { Locale, TranslationKey };
-export { DEFAULT_LOCALE, localeOptions, isSupportedLocale } from './locales';
+export { DEFAULT_LOCALE, localeOptions, isSupportedLocale } from './config';

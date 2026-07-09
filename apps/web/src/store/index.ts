@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { DEFAULT_LOCALE, isSupportedLocale, type Locale } from "../i18n/locales";
+import { DEFAULT_LOCALE, isSupportedLocale, type Locale } from "../i18n/config";
 
 export type ArtRatingPreference = "all_ages" | "r15" | "r18";
 

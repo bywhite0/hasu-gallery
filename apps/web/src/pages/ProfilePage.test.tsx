@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProfilePage } from './ProfilePage';
@@ -92,7 +92,9 @@ describe('ProfilePage', () => {
     expect(await screen.findByRole('heading', { name: 'My uploads' })).toBeInTheDocument();
     expect(screen.getAllByText('Contributor').length).toBeGreaterThan(0);
     expect(screen.getAllByText('@contributor').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('1 approved').length).toBeGreaterThan(0);
+    const publicWorksField = screen.getAllByText('Public works')[0]?.closest('div');
+    expect(publicWorksField).not.toBeNull();
+    expect(within(publicWorksField as HTMLElement).getByText('1')).toBeInTheDocument();
     expect(screen.queryByText('contributor@example.test')).not.toBeInTheDocument();
     expect(screen.getByText('Needs a clearer source')).toBeInTheDocument();
     expect(screen.getByText('Please add the original source URL.')).toBeInTheDocument();
