@@ -1,7 +1,8 @@
 import type { Work } from '@hasu-gallery/types';
+import { BASE_URL } from './client';
 
 export async function uploadWork(formData: FormData): Promise<Work> {
-  const response = await fetch('/api/works/upload', {
+  const response = await fetch(`${BASE_URL}/api/works/upload`, {
     method: 'POST',
     credentials: 'include',
     body: formData, // Don't set Content-Type, browser will set multipart boundary
