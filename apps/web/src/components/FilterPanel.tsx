@@ -141,12 +141,16 @@ export function FilterPanel({
               <option value="all_ages">
                 {formatRatingLabel(ratingLabel('all_ages'), artFacets?.ratings, 'all_ages')}
               </option>
-              <option value="r15">
-                {formatRatingLabel(ratingLabel('r15'), artFacets?.ratings, 'r15')}
-              </option>
-              <option value="r18">
-                {formatRatingLabel(ratingLabel('r18'), artFacets?.ratings, 'r18')}
-              </option>
+              {!isGuest && (
+                <>
+                  <option value="r15">
+                    {formatRatingLabel(ratingLabel('r15'), artFacets?.ratings, 'r15')}
+                  </option>
+                  <option value="r18">
+                    {formatRatingLabel(ratingLabel('r18'), artFacets?.ratings, 'r18')}
+                  </option>
+                </>
+              )}
             </select>
           </div>
 
