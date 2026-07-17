@@ -246,6 +246,10 @@ pub async fn handle_works_list(
                 "Invalid rating parameter. Must be one of: all_ages, r15, r18".to_string(),
             ));
         }
+        ensure_mature_rating_access(
+            session.get::<i64>(SESSION_USER_ID_KEY).await.ok().flatten(),
+            rating_val,
+        )?;
         where_conditions.push(format!("am.rating = ${}::art_rating", param_index));
         param_index += 1;
     }
@@ -456,6 +460,8 @@ pub async fn handle_work_facets(
         }
     }
 
+    let is_guest = session.get::<i64>(SESSION_USER_ID_KEY).await.ok().flatten().is_none();
+
     let artists = fetch_art_facet(
         &state.db,
         "SELECT am.artist AS value, am.artist AS label, COUNT(*)::BIGINT AS count
@@ -464,10 +470,12 @@ pub async fn handle_work_facets(
          WHERE w.gallery = 'art'::gallery_kind
            AND w.status = $1::work_status
            AND btrim(am.artist) <> ''
+           AND ($2::text IS NULL OR am.rating = $2::art_rating)
          GROUP BY am.artist
          ORDER BY COUNT(*) DESC, am.artist ASC
          LIMIT 50",
         status,
+        if is_guest { Some("all_ages") } else { None },
         "artists",
     )
     .await?;
@@ -481,10 +489,12 @@ pub async fn handle_work_facets(
            AND w.status = $1::work_status
            AND am.medium IS NOT NULL
            AND btrim(am.medium) <> ''
+           AND ($2::text IS NULL OR am.rating = $2::art_rating)
          GROUP BY am.medium
          ORDER BY COUNT(*) DESC, am.medium ASC
          LIMIT 50",
         status,
+        if is_guest { Some("all_ages") } else { None },
         "media",
     )
     .await?;
@@ -503,6 +513,7 @@ pub async fn handle_work_facets(
          JOIN work_art_meta am ON w.id = am.work_id
          WHERE w.gallery = 'art'::gallery_kind
            AND w.status = $1::work_status
+           AND ($2::text IS NULL OR am.rating = $2::art_rating)
          GROUP BY am.rating
          ORDER BY CASE am.rating::TEXT
                     WHEN 'all_ages' THEN 1
@@ -511,6 +522,7 @@ pub async fn handle_work_facets(
                     ELSE 4
                   END",
         status,
+        if is_guest { Some("all_ages") } else { None },
         "ratings",
     )
     .await?;
@@ -529,10 +541,12 @@ async fn fetch_art_facet(
     db: &crate::db::DbPool,
     query: &str,
     status: &str,
+    rating_scope: Option<&str>,
     facet_name: &str,
 ) -> Result<Vec<FacetItem>, (StatusCode, String)> {
     let rows = sqlx::query(query)
         .bind(status)
+        .bind(rating_scope)
         .fetch_all(db)
         .await
         .map_err(|e| {
@@ -654,6 +668,14 @@ pub async fn handle_work_detail(
     let art_medium: Option<String> = row.try_get("medium").ok();
     let art_rating: Option<String> = row.try_get("rating").ok();
 
+    // Mature ratings require authentication even when approved.
+    if let Some(ref rating) = art_rating {
+        ensure_mature_rating_access(
+            session.get::<i64>(SESSION_USER_ID_KEY).await.ok().flatten(),
+            rating,
+        )?;
+    }
+
     // 访问控制：非 approved 状态需要验证权限
     if status_str != "approved" {
         let user_id: Option<i64> = session.get(SESSION_USER_ID_KEY).await.ok().flatten();
@@ -732,9 +754,41 @@ pub async fn handle_work_detail(
     Ok((StatusCode::OK, Json(work_item)))
 }
 
+fn ensure_mature_rating_access(
+    user_id: Option<i64>,
+    rating: &str,
+) -> Result<(), (StatusCode, String)> {
+    if rating == "all_ages" {
+        return Ok(());
+    }
+    if !matches!(rating, "r15" | "r18") {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            "Invalid rating parameter. Must be one of: all_ages, r15, r18".to_string(),
+        ));
+    }
+    if user_id.is_none() {
+        return Err((
+            StatusCode::UNAUTHORIZED,
+            "Authentication required to view R-15/R-18 content".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ensure_mature_rating_access_requires_auth_for_r18() {
+        assert!(ensure_mature_rating_access(None, "all_ages").is_ok());
+        assert!(ensure_mature_rating_access(Some(1), "r18").is_ok());
+        let err = ensure_mature_rating_access(None, "r18").unwrap_err();
+        assert_eq!(err.0, StatusCode::UNAUTHORIZED);
+    }
+
 
     #[test]
     fn work_order_by_maps_known_sorts_to_static_sql() {

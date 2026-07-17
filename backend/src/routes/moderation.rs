@@ -4,9 +4,11 @@ use axum::{
     Json,
 };
 use serde::{Deserialize, Serialize};
-use sqlx::PgPool;
+use sqlx::Row;
 use tower_sessions::Session;
 use uuid::Uuid;
+
+use crate::{storage, AppState};
 
 const MAX_REVIEW_NOTE_LEN: usize = 1_000;
 
@@ -70,10 +72,11 @@ pub struct QueueResponse {
 
 /// Get moderation queue
 pub async fn get_queue(
-    State(pool): State<PgPool>,
+    State(state): State<AppState>,
     Query(params): Query<QueueParams>,
 ) -> Result<Json<QueueResponse>, StatusCode> {
     validate_queue_params(&params)?;
+    let pool = &state.db;
 
     let offset = (params.page - 1) * params.limit;
 
@@ -84,7 +87,7 @@ pub async fn get_queue(
     )
     .bind(&params.gallery)
     .bind(&params.status)
-    .fetch_one(&pool)
+    .fetch_one(pool)
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -114,7 +117,7 @@ pub async fn get_queue(
     .bind(&params.status)
     .bind(params.limit as i64)
     .bind(offset as i64)
-    .fetch_all(&pool)
+    .fetch_all(pool)
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -149,7 +152,7 @@ pub struct UpdateStatusResponse {
 /// Update work status
 pub async fn update_status(
     session: Session,
-    State(pool): State<PgPool>,
+    State(state): State<AppState>,
     Path(work_id): Path<Uuid>,
     Json(req): Json<UpdateStatusRequest>,
 ) -> Result<Json<UpdateStatusResponse>, StatusCode> {
@@ -166,29 +169,57 @@ pub async fn update_status(
     let work_id_str = work_id.to_string();
 
     // Start transaction
-    let mut tx = pool
+    let mut tx = state
+        .db
         .begin()
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    // Update work status
-    let updated_at: chrono::DateTime<chrono::Utc> = sqlx::query_scalar(
+    let current_status: Option<String> = sqlx::query_scalar(
+        "SELECT status::TEXT FROM works WHERE id = $1 FOR UPDATE",
+    )
+    .bind(&work_id_str)
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let Some(current_status) = current_status else {
+        return Err(StatusCode::NOT_FOUND);
+    };
+
+    if !is_allowed_transition(&current_status, &status) {
+        return Err(StatusCode::CONFLICT);
+    }
+
+    // Optimistic source guard: only transition from the locked current status.
+    let updated = sqlx::query(
         "UPDATE works
          SET status = $1::work_status,
              reviewed_by = $3,
              reviewed_at = NOW(),
              review_note = $4,
              updated_at = NOW()
-         WHERE id = $2
-         RETURNING updated_at",
+         WHERE id = $2 AND status = $5::work_status
+         RETURNING updated_at, asset_file, thumbnail_asset_file",
     )
     .bind(&status)
     .bind(&work_id_str)
     .bind(moderator_id)
     .bind(&note)
-    .fetch_one(&mut *tx)
+    .bind(&current_status)
+    .fetch_optional(&mut *tx)
     .await
-    .map_err(|_| StatusCode::NOT_FOUND)?;
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let Some(updated) = updated else {
+        return Err(StatusCode::CONFLICT);
+    };
+    let updated_at: chrono::DateTime<chrono::Utc> = updated
+        .try_get("updated_at")
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let asset_file: Option<String> = updated.try_get::<String, _>("asset_file").ok();
+    let thumbnail_asset_file: Option<String> =
+        updated.try_get::<String, _>("thumbnail_asset_file").ok();
 
     // Record in moderation_log
     sqlx::query(
@@ -208,12 +239,43 @@ pub async fn update_status(
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
+    // Takedown: best-effort delete public objects. CDN purge remains an ops step.
+    if status == "takedown" {
+        let mut keys = Vec::new();
+        for url in [asset_file.as_deref(), thumbnail_asset_file.as_deref()]
+            .into_iter()
+            .flatten()
+        {
+            if let Some(key) = storage::object_key_from_public_url(url) {
+                keys.push(key);
+            }
+        }
+        // Fallback to UUID-derived keys when stored values are already bare keys.
+        if keys.is_empty() {
+            if let Some(asset) = asset_file.as_deref() {
+                if !asset.contains("://") {
+                    keys.push(asset.to_string());
+                }
+            }
+            keys.push(format!("{}_thumb.jpg", work_id_str));
+        }
+        if !keys.is_empty() {
+            storage::delete_files_best_effort(&state.s3_client, &storage::s3_bucket(), &keys).await;
+            tracing::info!(
+                work_id = %work_id_str,
+                keys = ?keys,
+                "takedown deleted source objects; purge CDN cache separately if configured"
+            );
+        }
+    }
+
     Ok(Json(UpdateStatusResponse {
         id: work_id,
         status,
         updated_at,
     }))
 }
+
 
 fn validate_queue_params(params: &QueueParams) -> Result<(), StatusCode> {
     if params.gallery != "meme" && params.gallery != "art" {
@@ -282,6 +344,9 @@ pub struct MonitoringSummary {
     pub total_uploads: i64,
     pub approved_uploads: i64,
     pub pending_backlog: i64,
+    /// Fraction of uploads currently in approved status (not transport success).
+    pub approval_rate: f64,
+    /// Deprecated alias of `approval_rate` kept for existing dashboards.
     pub upload_success_rate: f64,
     pub pending_by_gallery: Vec<PendingBacklogItem>,
 }
@@ -295,7 +360,7 @@ struct MonitoringCounts {
 
 /// Get moderation log for a work
 pub async fn get_log(
-    State(pool): State<PgPool>,
+    State(state): State<AppState>,
     Path(work_id): Path<Uuid>,
 ) -> Result<Json<ModerationLogResponse>, StatusCode> {
     let logs = sqlx::query_as::<_, ModerationLogEntry>(
@@ -311,7 +376,7 @@ pub async fn get_log(
          ORDER BY ml.created_at DESC",
     )
     .bind(work_id.to_string())
-    .fetch_all(&pool)
+    .fetch_all(&state.db)
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -319,7 +384,7 @@ pub async fn get_log(
 }
 
 pub async fn get_monitoring_summary(
-    State(pool): State<PgPool>,
+    State(state): State<AppState>,
 ) -> Result<Json<MonitoringSummary>, StatusCode> {
     let counts = sqlx::query_as::<_, MonitoringCounts>(
         r#"
@@ -330,7 +395,7 @@ pub async fn get_monitoring_summary(
         FROM works
         "#
     )
-    .fetch_one(&pool)
+    .fetch_one(&state.db)
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
@@ -343,26 +408,37 @@ pub async fn get_monitoring_summary(
         ORDER BY gallery
         "#
     )
-    .fetch_all(&pool)
+    .fetch_all(&state.db)
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
+    let rate = approval_rate(counts.approved_uploads, counts.total_uploads);
     Ok(Json(MonitoringSummary {
         total_uploads: counts.total_uploads,
         approved_uploads: counts.approved_uploads,
         pending_backlog: counts.pending_backlog,
-        upload_success_rate: upload_success_rate(counts.approved_uploads, counts.total_uploads),
+        approval_rate: rate,
+        upload_success_rate: rate,
         pending_by_gallery,
     }))
 }
 
-fn upload_success_rate(approved_uploads: i64, total_uploads: i64) -> f64 {
+fn approval_rate(approved_uploads: i64, total_uploads: i64) -> f64 {
     if total_uploads == 0 {
         0.0
     } else {
         approved_uploads as f64 / total_uploads as f64
     }
 }
+
+/// Spec transitions for moderator-driven status changes.
+pub fn is_allowed_transition(from: &str, to: &str) -> bool {
+    matches!(
+        (from, to),
+        ("pending", "approved") | ("pending", "rejected") | ("approved", "takedown")
+    )
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -428,8 +504,21 @@ mod tests {
     }
 
     #[test]
-    fn upload_success_rate_handles_empty_and_non_empty_counts() {
-        assert_eq!(upload_success_rate(0, 0), 0.0);
-        assert_eq!(upload_success_rate(3, 4), 0.75);
+    fn approval_rate_handles_empty_and_non_empty_counts() {
+        assert_eq!(approval_rate(0, 0), 0.0);
+        assert_eq!(approval_rate(3, 4), 0.75);
+    }
+
+    #[test]
+    fn allowed_transitions_match_moderation_matrix() {
+        assert!(is_allowed_transition("pending", "approved"));
+        assert!(is_allowed_transition("pending", "rejected"));
+        assert!(is_allowed_transition("approved", "takedown"));
+        assert!(!is_allowed_transition("pending", "takedown"));
+        assert!(!is_allowed_transition("takedown", "approved"));
+        assert!(!is_allowed_transition("approved", "rejected"));
+        assert!(!is_allowed_transition("rejected", "approved"));
+        assert!(!is_allowed_transition("rejected", "takedown"));
+        assert!(!is_allowed_transition("approved", "approved"));
     }
 }
