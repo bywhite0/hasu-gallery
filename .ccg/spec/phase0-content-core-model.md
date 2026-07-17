@@ -21,7 +21,7 @@ Both galleries require **user upload + moderation**. This phase establishes the 
 - Database: **Postgres** (not SQLite)
 - Architecture: **Core + extension tables** (not single denormalized table)
 - Language: **Rust** (no rewrite to Go)
-- Deduplication: **perceptual hash (pHash)** in MVP
+- Deduplication: **perceptual hash (pHash)** planned for MVP schema; runtime computation deferred
 - No historical data migration (3499 test items sufficient)
 
 ---
@@ -235,11 +235,12 @@ Runs before entering moderation queue:
 
 1. **MIME sniffing**: Verify actual file type matches extension (防伪装可执行文件)
 2. **Size limits**: Reject over threshold (e.g., 10MB for images)
-3. **Perceptual hash (pHash) deduplication**:
-   - Compute pHash on upload
+3. **Perceptual hash (pHash) deduplication** (schema ready, runtime deferred):
+   - Column `works.phash` + partial index exist
+   - Compute pHash on upload (not implemented yet)
    - Query `works.phash` for Hamming distance < threshold (e.g., 5)
    - If near-duplicate found → reject with "duplicate detected" + link to existing
-4. **EXIF stripping**: Remove metadata (privacy + size)
+4. **EXIF stripping**: Remove metadata (privacy + size) for public JPEG/PNG originals
 
 Reuses validation logic from existing `preflight_memes.rs` (format check, dimension extraction).
 
@@ -288,7 +289,9 @@ Rust implementation: `tower-http` middleware + `argon2` crate.
 - `r15`: Mild suggestive content
 - `r18`: Explicit adult content
 
-Frontend must filter by rating based on user account settings (not in scope for Phase 0, noted for later).
+API policy: guests may only access `all_ages` art list/detail/facets. `r15` and
+`r18` require authentication. Account-level age preference UI remains a later
+enhancement.
 
 ### 5.3 Takedown SLA
 

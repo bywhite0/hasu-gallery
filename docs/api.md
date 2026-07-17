@@ -8,7 +8,8 @@ plain error string or JSON error payload depending on the handler.
 
 ### `POST /api/auth/register`
 
-Creates a member account and starts a session.
+Creates a member account and starts a session. Rate limited per client and route
+(default: 5 requests / hour).
 
 Request:
 
@@ -28,7 +29,8 @@ Notes:
 
 ### `POST /api/auth/login`
 
-Starts a session for an existing user. Rate limited per client and route.
+Starts a session for an existing user. Rate limited per client and route
+(default: 10 requests / minute).
 
 Request:
 
@@ -46,6 +48,9 @@ Deletes the active session.
 ### `GET /api/auth/me`
 
 Returns the active user or `401` when unauthenticated.
+
+Response fields: `id`, `handle`, `email`, `display_name`, `role`, `created_at`
+(ISO-8601).
 
 ## Account
 
@@ -93,7 +98,8 @@ Query parameters:
 - `origin`: meme-only, `official`, `derived`, or `fan_made`
 - `artist`: art-only contains filter
 - `medium`: art-only contains filter
-- `rating`: art-only, defaults to `all_ages`
+- `rating`: art-only, defaults to `all_ages`. Guests may only request
+  `all_ages`; `r15` / `r18` require authentication.
 - `page`: optional, defaults to `1`
 - `limit`: optional, defaults to `24`, maximum `100`
 - `sort`: `created_at_desc`, `created_at_asc`, or `title_asc`
@@ -123,7 +129,8 @@ Response:
 ### `GET /api/works/:id`
 
 Returns a single work. Non-approved works are visible only to the uploader,
-moderators, or admins.
+moderators, or admins. Approved art with rating `r15` or `r18` requires
+authentication; guests receive `401`.
 
 ### `POST /api/works/upload`
 
@@ -179,6 +186,14 @@ Request:
 
 Allowed status values: `approved`, `rejected`, `takedown`.
 
+Allowed transitions only:
+- `pending` → `approved` | `rejected`
+- `approved` → `takedown`
+
+Illegal transitions return `409 Conflict` and leave the row unchanged.
+`takedown` best-effort deletes source objects in the media bucket; purge any CDN
+cache separately.
+
 ### `GET /api/moderation/log/:work_id`
 
 Returns moderation log entries for a work.
@@ -194,6 +209,7 @@ Response:
   "total_uploads": 120,
   "approved_uploads": 100,
   "pending_backlog": 12,
+  "approval_rate": 0.8333333333333334,
   "upload_success_rate": 0.8333333333333334,
   "pending_by_gallery": [
     { "gallery": "art", "count": 7 },
@@ -201,6 +217,10 @@ Response:
   ]
 }
 ```
+
+`approval_rate` is `approved_uploads / total_uploads`. `upload_success_rate` is a
+deprecated alias of the same value kept for existing dashboards; it is **not**
+multipart transport success.
 
 ## CSRF And CORS
 

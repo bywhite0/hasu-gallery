@@ -23,6 +23,29 @@ Members can:
 - `rejected`: not accepted for publication
 - `takedown`: removed after publication or rejected for a policy/rights issue
 
+## State transitions
+
+Moderator-driven transitions only:
+
+| From | To |
+|------|----|
+| `pending` | `approved` |
+| `pending` | `rejected` |
+| `approved` | `takedown` |
+
+Uploader resubmit (`rejected` → `pending`) is not exposed on the status API yet.
+Illegal transitions are rejected with HTTP 409.
+
+## Content rating access
+
+Art ratings:
+
+- `all_ages`: public to guests
+- `r15` / `r18`: require authentication for list, facets scope, and detail
+
+There is not yet a separate age-confirmation preference field; login is the
+minimum gate for mature ratings.
+
 ## Approval Checklist
 
 Approve only when:
@@ -57,3 +80,11 @@ Use `takedown` for works that need removal after approval, including:
 Each status change writes a moderation log entry with actor, action, note, and
 timestamp. Prefer concise notes that explain the decision without including
 private user information.
+
+
+## Media after takedown
+
+Takedown best-effort deletes original and thumbnail objects from the media
+bucket. If a CDN sits in front of the bucket, operators must purge or invalidate
+cached URLs according to the deployment runbook. Source deletion alone does not
+guarantee immediate CDN expiry.

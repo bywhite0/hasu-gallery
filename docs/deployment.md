@@ -26,8 +26,13 @@ S3_SECRET_KEY=...
 S3_BUCKET=hasu-gallery
 PUBLIC_MEDIA_BASE_URL=https://assets.example.com/hasu-gallery
 CORS_ALLOWED_ORIGINS=https://gallery.example.com
+TRUST_PROXY_HEADERS=false
 RUST_LOG=info,sqlx=warn
 ```
+
+Set `TRUST_PROXY_HEADERS=true` only when a trusted reverse proxy overwrites
+`X-Forwarded-For` / `X-Real-IP`. When false (default), rate limiting uses the
+TCP peer address and ignores client-supplied proxy headers.
 
 Frontend:
 
@@ -89,10 +94,22 @@ Uploaded objects are stored in S3 using UUID-based keys. Public URLs are
 constructed from `PUBLIC_MEDIA_BASE_URL`; trailing slashes are removed before
 joining keys.
 
+JPEG/PNG public originals are re-encoded on upload to strip EXIF/XMP-style
+metadata. GIF/WebP keep container bytes so animation is preserved.
+
 Recommended CDN/proxy behavior:
-- Cache uploaded original files and thumbnails as immutable objects.
+- Allow the production frontend origin for hotlinked `<img>` requests; a WAF
+  rule that blocks site Referer will break every gallery page.
+- Do not use Referer alone as the media authorization mechanism.
+- Cache approved originals/thumbnails carefully; on takedown the API deletes
+  source objects and operators must purge CDN URLs.
 - Proxy `https://assets.example.com/hasu-gallery/<key>` to the S3 bucket.
 - Keep API JSON responses separate from media CDN caching.
+
+Known limitation: pending objects currently use the same public media base URL
+as approved works. UUID keys reduce casual guessing, but true private staging
+(private bucket or auth media proxy) remains a follow-up before high-sensitivity
+deployments.
 
 ## Production Checklist
 

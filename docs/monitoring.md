@@ -42,8 +42,12 @@ middleware boundary so request method/path/status and duration stay consistent.
 - `total_uploads`
 - `approved_uploads`
 - `pending_backlog`
-- `upload_success_rate`
+- `approval_rate` (`approved_uploads / total_uploads`)
+- `upload_success_rate` (deprecated alias of `approval_rate`)
 - `pending_by_gallery`
+
+Do not treat `upload_success_rate` as multipart or S3 transport success. Track
+upload 5xx / object-store errors from request logs for that signal.
 
 Use it for a lightweight operations dashboard and release smoke checks.
 

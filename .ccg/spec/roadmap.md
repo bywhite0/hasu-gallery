@@ -108,7 +108,7 @@ Both galleries share the same authentication, upload, moderation, and storage sp
 - Authentication: argon2id + role-based (member/moderator/admin)
 - Moderation: State machine (pending → approved/rejected/takedown)
 - Storage: Repository `assets/` for official + S3-compatible for UGC
-- Deduplication: Perceptual hash (pHash) in MVP
+- Deduplication: Perceptual hash (pHash) planned; schema field exists, computation not shipped
 - Content policy: Mandatory provenance (derived/fan_made → source; art → source_url)
 - Rating: Art-only (all_ages/r15/r18)
 - No historical data migration (3499 test items sufficient)
@@ -394,7 +394,7 @@ backend/src/
 
 #### 5.2 Performance Optimization
 
-- ✅ Database indexing (on `gallery`, `status`, `created_at`, `phash`)
+- ✅ Database indexing (on `gallery`, `status`, `created_at`; `phash` index exists for future dedup)
 - ✅ Image optimization (thumbnail generation with fixed JPEG quality; progressive JPEG deferred to encoder/CDN support)
 - ✅ CDN integration for static assets
 - ✅ Lazy loading for gallery/profile grids

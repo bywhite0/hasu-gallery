@@ -11,7 +11,8 @@ Open either gallery from the top navigation:
 - Art Gallery supports artist, medium, rating, and sort filters.
 
 Art rating preference is stored locally in `hasu-gallery-preferences` so reloads
-restore the last selected rating.
+restore the last selected rating. Guests can only browse All Ages art; R-15 and
+R-18 listings and detail pages require sign-in.
 
 ## Uploading
 
@@ -22,7 +23,7 @@ Image requirements:
 - Maximum 10 MB
 - Maximum 8192 px per side
 - Maximum 64 MP total
-- Filename extension should match the actual image format
+- Filename extension must be present and must match the detected image format
 
 ## Meme Uploads
 
