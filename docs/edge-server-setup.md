@@ -1,108 +1,138 @@
-# Hasu Gallery - 边缘服务器快速安装指南
+# Edge Server Database Setup (Secure)
 
-## 连接服务器
+> **Security notice (2026-07):** The previous copy-paste guide that opened
+> PostgreSQL to `0.0.0.0/0` with a fixed password and `md5` is **withdrawn**.
+> Do not use it. If any host was configured that way, rotate the database
+> password immediately, audit login history, and re-lock network access.
 
-```bash
-ssh root@<edge-db-host>
-# 密码: <PASSWORD_REDACTED>
-```
+This document is for **private / lab / edge** hosts where the API and Postgres
+run on the same machine or a private network. It is **not** a public internet
+database installation guide.
 
-## 一键安装命令（复制粘贴执行）
+## Principles
 
-```bash
-# === 安装 PostgreSQL ===
-export DEBIAN_FRONTEND=noninteractive && \
-apt-get update -qq && \
-apt-get install -y postgresql postgresql-contrib && \
-systemctl start postgresql && \
-systemctl enable postgresql && \
-echo "✅ PostgreSQL 已安装" && \
+1. Postgres listens on localhost or a private interface only.
+2. Authentication uses a **strong unique password** (or SCRAM), never a shared
+   example password from this repo.
+3. Port `5432` is **not** exposed to the public internet.
+4. Connection strings stay in a secret manager or a local env file that is not
+   committed. Do not print credentials into shell history or chat logs.
+5. Prefer SSH tunnel, Tailscale/WireGuard, or a private VPC over opening DB ports.
 
-# === 创建数据库和用户 ===
-sudo -u postgres psql << 'EOF'
-CREATE USER hasu_user WITH PASSWORD 'hasu_pass';
-CREATE DATABASE hasu_gallery OWNER hasu_user;
-GRANT ALL PRIVILEGES ON DATABASE hasu_gallery TO hasu_user;
-\c hasu_gallery
-GRANT ALL ON SCHEMA public TO hasu_user;
-\q
-EOF
-echo "✅ 数据库已创建" && \
+## Recommended topologies
 
-# === 配置远程访问 ===
-PG_HBA=$(sudo -u postgres psql -t -P format=unaligned -c 'SHOW hba_file') && \
-PG_CONF=$(sudo -u postgres psql -t -P format=unaligned -c 'SHOW config_file') && \
-cp "$PG_HBA" "$PG_HBA.backup" && \
-cp "$PG_CONF" "$PG_CONF.backup" && \
-echo "host    all             all             0.0.0.0/0               md5" >> "$PG_HBA" && \
-sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/" "$PG_CONF" && \
-echo "" >> "$PG_CONF" && \
-echo "# 轻量级优化（512MB 内存）" >> "$PG_CONF" && \
-echo "shared_buffers = 128MB" >> "$PG_CONF" && \
-echo "effective_cache_size = 256MB" >> "$PG_CONF" && \
-echo "maintenance_work_mem = 32MB" >> "$PG_CONF" && \
-echo "work_mem = 4MB" >> "$PG_CONF" && \
-echo "max_connections = 20" >> "$PG_CONF" && \
-echo "✅ 配置已更新" && \
+### A. Same host as the API (preferred for a single edge box)
 
-# === 重启并测试 ===
-systemctl restart postgresql && \
-sleep 2 && \
-sudo -u postgres psql -d hasu_gallery -c "SELECT 'Database OK' AS status" && \
-echo "" && \
-echo "=== 安装完成 ===" && \
-echo "连接字符串: postgres://hasu_user:hasu_pass@<edge-db-host>:5432/hasu_gallery"
-```
+- Postgres: `listen_addresses = 'localhost'`
+- API: `DATABASE_URL=postgres://APP_USER:APP_PASSWORD@127.0.0.1:5432/hasu_gallery`
+- Firewall: no public `5432`
 
-## 防火墙配置（如需要）
+### B. Private network / VPN only
+
+- Postgres listens on a private interface or VPN IP
+- `pg_hba.conf` allows only the API host CIDR (example: `10.0.0.0/8` or your VPN range)
+- Prefer `scram-sha-256` over legacy `md5`
+- Cloud security groups / host firewall still block public `5432`
+
+### C. Developer access without exposing Postgres
 
 ```bash
-# UFW 防火墙
-ufw allow 5432/tcp
-
-# 或 firewalld
-firewall-cmd --permanent --add-port=5432/tcp
-firewall-cmd --reload
+# From your workstation: forward local 15432 to remote localhost:5432
+ssh -N -L 15432:127.0.0.1:5432 user@edge-host
 ```
 
-## 验证安装
-
-```bash
-# 本地测试
-psql -U hasu_user -d hasu_gallery -c "SELECT version();"
-
-# 查看 PostgreSQL 状态
-systemctl status postgresql
-```
-
-## 卸载（如需要）
-
-```bash
-apt-get remove --purge -y postgresql postgresql-contrib
-rm -rf /var/lib/postgresql /etc/postgresql
-```
-
----
-
-## 后端配置（回到开发机）
-
-更新 `D:\Repos\hasu-gallery\backend\.env`：
+Then set:
 
 ```env
-DATABASE_URL=postgres://hasu_user:hasu_pass@<edge-db-host>:5432/hasu_gallery
+DATABASE_URL=postgres://APP_USER:APP_PASSWORD@127.0.0.1:15432/hasu_gallery
 ```
 
-启动后端：
+## Install outline (Debian/Ubuntu)
+
+Replace placeholders yourself. Do **not** copy example passwords into production.
 
 ```bash
-cd D:\Repos\hasu-gallery
+sudo apt-get update
+sudo apt-get install -y postgresql postgresql-contrib
+sudo systemctl enable --now postgresql
+```
+
+Create a role and database as the `postgres` superuser:
+
+```bash
+# Generate a password locally, e.g.:
+# openssl rand -base64 32
+
+sudo -u postgres psql <<'SQL'
+CREATE USER app_user WITH PASSWORD 'REPLACE_WITH_STRONG_SECRET';
+CREATE DATABASE hasu_gallery OWNER app_user;
+\c hasu_gallery
+GRANT ALL ON SCHEMA public TO app_user;
+SQL
+```
+
+Keep Postgres local-only unless you intentionally use topology B:
+
+```bash
+# Confirm listen address stays local
+sudo -u postgres psql -c "SHOW listen_addresses;"
+# Expected for topology A: localhost
+```
+
+If you previously appended `host all all 0.0.0.0/0 md5` to `pg_hba.conf` or set
+`listen_addresses = '*'`, remove those lines, restart Postgres, rotate the
+password, and verify public probes to `5432` fail.
+
+## Firewall
+
+Do **not** open `5432/tcp` to the world.
+
+```bash
+# UFW example: allow SSH only (adjust for your admin access model)
+# ufw allow OpenSSH
+# ufw enable
+# Do not run: ufw allow 5432/tcp
+```
+
+## Application configuration
+
+On the API host (or via tunnel), put secrets only in env / secret storage:
+
+```env
+DATABASE_URL=postgres://APP_USER:APP_PASSWORD@127.0.0.1:5432/hasu_gallery
+```
+
+Apply migrations, then start the API from the repo root:
+
+```powershell
+# PowerShell on the development machine or edge host
+$env:DATABASE_URL = "postgres://APP_USER:APP_PASSWORD@127.0.0.1:5432/hasu_gallery"
+# apply backend/migrations/*.sql in lexical order, then:
 pnpm dev:api
 ```
 
-预期输出：
-```
+Expected health check:
+
+```text
 Connecting to database...
 Running migrations...
 Migrations completed
 hasu-gallery API listening at http://127.0.0.1:8787
 ```
+
+```bash
+curl -sS http://127.0.0.1:8787/health
+```
+
+## Incident response if the old guide was used
+
+1. Immediately rotate the database password and update `DATABASE_URL`.
+2. Inspect Postgres logs and active roles/extensions/scheduled jobs.
+3. Confirm no public security group / firewall rule allows `5432`.
+4. Verify backups and data integrity.
+5. Record date, owner, and remediation result for ops history.
+
+## Related docs
+
+- Deployment: [deployment.md](deployment.md)
+- Monitoring: [monitoring.md](monitoring.md)
