@@ -6,7 +6,9 @@ use tower_sessions::Session;
 use uuid::Uuid;
 
 use crate::{
-    image_processor::{detect_image_format, generate_thumbnail, get_image_dimensions},
+    image_processor::{
+        detect_image_format, generate_thumbnail, get_image_dimensions, prepare_public_original,
+    },
     storage, AppState,
 };
 
@@ -262,6 +264,11 @@ pub async fn upload_work(
 
     tracing::info!("Image dimensions: {}x{}", width, height);
 
+    // Strip camera/metadata-bearing payloads for public originals (JPEG/PNG).
+    let (public_file_data, public_content_type) = prepare_public_original(&file_data, &content_type)
+        .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
+    let content_type = public_content_type.to_string();
+
     // 生成唯一 ID 和文件名
     let work_id = Uuid::new_v4().to_string();
     let file_ext = match content_type.as_str() {
@@ -272,26 +279,38 @@ pub async fn upload_work(
         _ => "jpg",
     };
     let file_key = format!("{}.{}", work_id, file_ext);
+    let thumbnail_key = format!("{}_thumb.jpg", work_id);
+    let bucket = storage::s3_bucket();
+    let mut uploaded_keys: Vec<String> = Vec::new();
 
-    // 上传原图到 S3
-    let bucket = std::env::var("S3_BUCKET").unwrap_or_else(|_| "hasu-gallery".to_string());
-    let file_url = storage::upload_file(
+    // 上传原图到 S3（使用清理后的公开字节）
+    let file_url = match storage::upload_file(
         &state.s3_client,
         &bucket,
         &file_key,
-        file_data.clone(),
+        public_file_data.clone(),
         &content_type,
     )
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
+    {
+        Ok(url) => {
+            uploaded_keys.push(file_key.clone());
+            url
+        }
+        Err(e) => return Err((StatusCode::INTERNAL_SERVER_ERROR, e)),
+    };
 
-    // 生成缩略图
-    let thumbnail_data = generate_thumbnail(&file_data, THUMBNAIL_SIZE)
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
+    // 生成缩略图（从已清理字节解码，避免写入 EXIF）
+    let thumbnail_data = match generate_thumbnail(&public_file_data, THUMBNAIL_SIZE) {
+        Ok(data) => data,
+        Err(e) => {
+            storage::delete_files_best_effort(&state.s3_client, &bucket, &uploaded_keys).await;
+            return Err((StatusCode::INTERNAL_SERVER_ERROR, e));
+        }
+    };
 
     // 上传缩略图到 S3
-    let thumbnail_key = format!("{}_thumb.jpg", work_id);
-    let thumbnail_url = storage::upload_file(
+    let thumbnail_url = match storage::upload_file(
         &state.s3_client,
         &bucket,
         &thumbnail_key,
@@ -299,19 +318,36 @@ pub async fn upload_work(
         "image/jpeg",
     )
     .await
-    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e))?;
+    {
+        Ok(url) => {
+            uploaded_keys.push(thumbnail_key.clone());
+            url
+        }
+        Err(e) => {
+            storage::delete_files_best_effort(&state.s3_client, &bucket, &uploaded_keys).await;
+            return Err((StatusCode::INTERNAL_SERVER_ERROR, e));
+        }
+    };
 
-    // 插入数据库记录（使用参数化查询防止 SQL 注入）
+    // works + art_meta 必须同事务；失败时补偿删除已写对象
+    let mut tx = match state.db.begin().await {
+        Ok(tx) => tx,
+        Err(e) => {
+            storage::delete_files_best_effort(&state.s3_client, &bucket, &uploaded_keys).await;
+            return Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string()));
+        }
+    };
+
     let query_str = r#"
         INSERT INTO works (id, gallery, origin, title, source, source_url, status, uploader_id, asset_file, thumbnail_asset_file, width, height)
         VALUES ($1, $2::gallery_kind, $3::meme_origin, $4, $5, $6, 'pending'::work_status, $7, $8, $9, $10, $11)
         RETURNING id, title, status::text as status
     "#;
 
-    let work = sqlx::query(query_str)
+    let work = match sqlx::query(query_str)
         .bind(&work_id)
         .bind(&gallery_kind)
-        .bind(non_empty_str(&origin)) // None 会自动转换为 NULL
+        .bind(non_empty_str(&origin))
         .bind(&title)
         .bind(&source)
         .bind(&source_url)
@@ -320,22 +356,37 @@ pub async fn upload_work(
         .bind(&thumbnail_url)
         .bind(width as i32)
         .bind(height as i32)
-        .fetch_one(&state.db)
+        .fetch_one(&mut *tx)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+    {
+        Ok(row) => row,
+        Err(e) => {
+            let _ = tx.rollback().await;
+            storage::delete_files_best_effort(&state.s3_client, &bucket, &uploaded_keys).await;
+            return Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string()));
+        }
+    };
 
-    // 插入 art 元数据
     if gallery_kind == "art" {
-        sqlx::query(
+        if let Err(e) = sqlx::query(
             "INSERT INTO work_art_meta (work_id, artist, medium, rating) VALUES ($1, $2, $3, $4::art_rating)"
         )
         .bind(&work_id)
         .bind(&artist)
         .bind(non_empty_str(&medium))
         .bind(&rating)
-        .execute(&state.db)
+        .execute(&mut *tx)
         .await
-        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+        {
+            let _ = tx.rollback().await;
+            storage::delete_files_best_effort(&state.s3_client, &bucket, &uploaded_keys).await;
+            return Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string()));
+        }
+    }
+
+    if let Err(e) = tx.commit().await {
+        storage::delete_files_best_effort(&state.s3_client, &bucket, &uploaded_keys).await;
+        return Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string()));
     }
 
     let work_id_ret: String = work

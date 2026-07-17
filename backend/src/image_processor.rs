@@ -1,7 +1,10 @@
-use image::{codecs::jpeg::JpegEncoder, imageops::FilterType, GenericImageView, ImageFormat};
+use image::{
+    codecs::jpeg::JpegEncoder, imageops::FilterType, DynamicImage, GenericImageView, ImageFormat,
+};
 use std::io::Cursor;
 
 const JPEG_THUMBNAIL_QUALITY: u8 = 82;
+const JPEG_PUBLIC_QUALITY: u8 = 92;
 
 /// 生成缩略图
 ///
@@ -54,6 +57,59 @@ pub fn get_image_dimensions(data: &[u8]) -> Result<(u32, u32), String> {
     Ok(img.dimensions())
 }
 
+/// Prepare bytes that are safe to publish as the public original.
+///
+/// JPEG and PNG are re-encoded so EXIF/XMP/GPS and similar metadata are dropped.
+/// Animated GIF/WebP keep original container bytes so frame animation is not lost;
+/// those formats rarely embed GPS-style EXIF the way camera JPEGs do.
+pub fn prepare_public_original(
+    image_data: &[u8],
+    content_type: &str,
+) -> Result<(Vec<u8>, &'static str), String> {
+    match content_type {
+        "image/jpeg" => {
+            let img = load_image(image_data)?;
+            Ok((encode_jpeg(&img, JPEG_PUBLIC_QUALITY)?, "image/jpeg"))
+        }
+        "image/png" => {
+            let img = load_image(image_data)?;
+            let mut buffer = Vec::new();
+            img.write_to(&mut Cursor::new(&mut buffer), ImageFormat::Png)
+                .map_err(|e| format!("Failed to encode public PNG: {}", e))?;
+            Ok((buffer, "image/png"))
+        }
+        "image/gif" | "image/webp" => Ok((image_data.to_vec(), content_type_static(content_type)?)),
+        _ => Err(format!(
+            "Unsupported content type for public original: {}",
+            content_type
+        )),
+    }
+}
+
+fn content_type_static(content_type: &str) -> Result<&'static str, String> {
+    match content_type {
+        "image/gif" => Ok("image/gif"),
+        "image/webp" => Ok("image/webp"),
+        "image/jpeg" => Ok("image/jpeg"),
+        "image/png" => Ok("image/png"),
+        _ => Err(format!("Unsupported content type: {}", content_type)),
+    }
+}
+
+fn load_image(image_data: &[u8]) -> Result<DynamicImage, String> {
+    image::load_from_memory(image_data).map_err(|e| format!("Failed to load image: {}", e))
+}
+
+fn encode_jpeg(img: &DynamicImage, quality: u8) -> Result<Vec<u8>, String> {
+    let mut buffer = Vec::new();
+    let rgb = img.to_rgb8();
+    let mut encoder = JpegEncoder::new_with_quality(&mut buffer, quality);
+    encoder
+        .encode_image(&rgb)
+        .map_err(|e| format!("Failed to encode public JPEG: {}", e))?;
+    Ok(buffer)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -98,5 +154,38 @@ mod tests {
         // JPEG 魔数
         let jpeg_data = vec![0xFF, 0xD8, 0xFF];
         assert_eq!(detect_image_format(&jpeg_data).unwrap(), "image/jpeg");
+    }
+
+    #[test]
+    fn prepare_public_original_reencodes_jpeg_without_exif_app1() {
+        // Minimal JPEG with APP1 EXIF marker after SOI.
+        // FF D8 SOI, FF E1 APP1 with short payload, then a tiny baseline frame is hard-coded.
+        // We build via image crate then inject an APP1 segment.
+        let img = DynamicImage::new_rgb8(2, 2);
+        let jpeg = encode_jpeg(&img, 90).unwrap();
+        assert_eq!(&jpeg[..2], &[0xFF, 0xD8]);
+
+        // Insert a fake APP1 segment after SOI: FF E1 00 08 + "Exif\0\0"
+        let mut with_exif = Vec::new();
+        with_exif.extend_from_slice(&jpeg[..2]);
+        with_exif.extend_from_slice(&[0xFF, 0xE1, 0x00, 0x08, b'E', b'x', b'i', b'f', 0, 0]);
+        with_exif.extend_from_slice(&jpeg[2..]);
+        assert!(with_exif.windows(4).any(|w| w == b"Exif"));
+
+        let (cleaned, content_type) = prepare_public_original(&with_exif, "image/jpeg").unwrap();
+        assert_eq!(content_type, "image/jpeg");
+        assert_eq!(&cleaned[..2], &[0xFF, 0xD8]);
+        assert!(!cleaned.windows(4).any(|w| w == b"Exif"));
+        assert!(image::load_from_memory(&cleaned).is_ok());
+    }
+
+    #[test]
+    fn prepare_public_original_keeps_gif_bytes() {
+        let gif = [
+            0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x3B,
+        ];
+        let (out, content_type) = prepare_public_original(&gif, "image/gif").unwrap();
+        assert_eq!(content_type, "image/gif");
+        assert_eq!(out, gif);
     }
 }

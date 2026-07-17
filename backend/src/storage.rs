@@ -47,11 +47,46 @@ pub async fn upload_file(
     Ok(format!("{}/{}", public_media_base_url(), key))
 }
 
+/// Best-effort object deletion used for upload compensation and takedown.
+pub async fn delete_file(client: &Client, bucket: &str, key: &str) -> Result<(), String> {
+    client
+        .delete_object()
+        .bucket(bucket)
+        .key(key)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to delete S3 object {}: {}", key, e))?;
+    Ok(())
+}
+
+/// Delete every key, logging failures without aborting the rest.
+pub async fn delete_files_best_effort(client: &Client, bucket: &str, keys: &[String]) {
+    for key in keys {
+        if let Err(error) = delete_file(client, bucket, key).await {
+            tracing::warn!(key = %key, error = %error, "failed to delete uploaded object");
+        }
+    }
+}
+
+/// Extract object key from a stored public media URL when possible.
+pub fn object_key_from_public_url(url: &str) -> Option<String> {
+    let base = public_media_base_url();
+    let prefix = format!("{}/", base);
+    url.strip_prefix(&prefix)
+        .map(str::trim)
+        .filter(|key| !key.is_empty())
+        .map(ToString::to_string)
+}
+
 pub fn public_media_base_url() -> String {
     env::var("PUBLIC_MEDIA_BASE_URL")
         .unwrap_or_else(|_| DEFAULT_PUBLIC_MEDIA_BASE_URL.to_string())
         .trim_end_matches('/')
         .to_string()
+}
+
+pub fn s3_bucket() -> String {
+    env::var("S3_BUCKET").unwrap_or_else(|_| "hasu-gallery".to_string())
 }
 
 #[cfg(test)]
@@ -79,6 +114,22 @@ mod tests {
         env::set_var("PUBLIC_MEDIA_BASE_URL", "https://cdn.example/hasu/");
 
         assert_eq!(public_media_base_url(), "https://cdn.example/hasu");
+        env::remove_var("PUBLIC_MEDIA_BASE_URL");
+    }
+
+    #[test]
+    fn object_key_from_public_url_strips_configured_base() {
+        let _guard = env_lock();
+        env::set_var("PUBLIC_MEDIA_BASE_URL", "https://cdn.example/hasu");
+
+        assert_eq!(
+            object_key_from_public_url("https://cdn.example/hasu/abc.jpg").as_deref(),
+            Some("abc.jpg")
+        );
+        assert_eq!(
+            object_key_from_public_url("https://other.example/hasu/abc.jpg"),
+            None
+        );
         env::remove_var("PUBLIC_MEDIA_BASE_URL");
     }
 }
