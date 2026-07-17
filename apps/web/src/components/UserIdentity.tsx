@@ -12,7 +12,7 @@ export interface PublicUserIdentity {
 
 export interface UserAvatarProps {
   identity: PublicUserIdentity;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
 }
 
@@ -33,6 +33,7 @@ const avatarSizeClass = {
   sm: 'h-8 w-8 text-xs',
   md: 'h-12 w-12 text-base',
   lg: 'h-16 w-16 text-xl',
+  xl: 'h-24 w-24 text-3xl',
 } as const;
 
 function getDisplayName(identity: PublicUserIdentity) {

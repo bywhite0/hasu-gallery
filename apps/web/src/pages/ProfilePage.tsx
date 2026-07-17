@@ -3,12 +3,12 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { AlertTriangle, CheckCircle, Clock, Upload, XCircle } from 'lucide-react';
 import type { WorkStatus } from '@hasu-gallery/types';
-import { Button } from '@hasu-gallery/ui';
+import { Button, cn } from '@hasu-gallery/ui';
 import { useAuthStore } from '../store/auth';
 import { getMyWorks, getMyStats } from '../api/profile';
 import { MyWorksList } from '../components/MyWorksList';
 import { Pagination } from '../components/Pagination';
-import { UserBadge, UserProfileCard, type PublicUserIdentity } from '../components/UserIdentity';
+import { UserAvatar, type PublicUserIdentity } from '../components/UserIdentity';
 import { useI18n, type TranslationKey } from '../i18n';
 
 type StatusFilter = 'all' | WorkStatus;
@@ -22,7 +22,7 @@ const filterKeys = {
 } as const satisfies Record<StatusFilter, TranslationKey>;
 
 export function ProfilePage() {
-  const { t, formatNumber } = useI18n();
+  const { t, formatDate, formatNumber } = useI18n();
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
@@ -81,6 +81,10 @@ export function ProfilePage() {
     joinedAt: userInfo.created_at,
     publicWorkCount: approved,
   };
+  const displayName = identity.displayName?.trim() || identity.handle;
+  const joined = identity.joinedAt
+    ? t('profile.joined', { date: formatDate(identity.joinedAt) })
+    : t('common.unknown');
   const filterCounts: Record<StatusFilter, number> = {
     all: total,
     pending,
@@ -89,6 +93,13 @@ export function ProfilePage() {
     takedown,
   };
   const workspaceMetrics = [
+    {
+      key: 'total',
+      label: t('profile.totalUploads'),
+      value: total,
+      icon: Upload,
+      className: 'text-ink',
+    },
     {
       key: 'pending',
       label: t('profile.summaryWaiting'),
@@ -113,43 +124,61 @@ export function ProfilePage() {
   ];
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-6 sm:py-8">
-      <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="space-y-3">
-          <h1 className="text-3xl font-semibold leading-tight text-ink sm:text-4xl">
-            {t('profile.meTitle')}
-          </h1>
-          <UserBadge identity={identity} />
-          <Button type="button" onClick={handleUploadClick}>
-            <Upload className="mr-2 h-4 w-4" aria-hidden="true" />
-            {t('home.uploadWork')}
-          </Button>
+    <div className="mx-auto w-full max-w-6xl px-4 pb-28 pt-6 sm:py-8">
+      <section className="overflow-hidden rounded-md border border-ink/10 bg-surface shadow-sm">
+        <div className="relative h-40 bg-[linear-gradient(135deg,rgba(252,232,230,0.98),rgba(239,239,232,0.94)_48%,rgba(83,131,195,0.18))] sm:h-52">
+          <div className="absolute inset-x-0 bottom-0 h-24 bg-[linear-gradient(180deg,rgba(247,247,243,0),rgba(56,56,52,0.18))]" />
         </div>
 
-        <UserProfileCard identity={identity} />
-      </section>
-
-      <section className="grid grid-cols-1 gap-3 md:grid-cols-3">
-        {workspaceMetrics.map((metric) => {
-          const Icon = metric.icon;
-
-          return (
-            <article key={metric.key} className="rounded-md border border-ink/10 bg-surface p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-sm font-semibold text-ink">{metric.label}</h2>
+        <div className="px-4 pb-4 sm:px-6 sm:pb-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start">
+              <UserAvatar
+                identity={identity}
+                size="xl"
+                className="relative z-10 -mt-8 border-4 border-surface shadow-sm sm:-mt-10"
+              />
+              <div className="min-w-0 pt-1 sm:pt-4">
+                <p className="text-xs font-medium uppercase tracking-normal text-ink-2">
+                  {t('profile.meTitle')}
+                </p>
+                <h1 className="truncate text-3xl font-semibold leading-tight text-ink sm:text-4xl">
+                  {displayName}
+                </h1>
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-2">
+                  <span className="font-medium text-ink">@{identity.handle}</span>
+                  <span>{joined}</span>
                 </div>
-                <Icon className={`h-5 w-5 shrink-0 ${metric.className}`} aria-hidden="true" />
               </div>
-              <p className={`mt-4 text-3xl font-semibold ${metric.className}`}>
-                {statsLoading ? '0' : formatNumber(metric.value)}
-              </p>
-            </article>
-          );
-        })}
+            </div>
+
+            <Button type="button" onClick={handleUploadClick} className="w-full sm:mt-4 sm:w-auto">
+              <Upload className="mr-2 h-4 w-4" aria-hidden="true" />
+              {t('home.uploadWork')}
+            </Button>
+          </div>
+
+          <dl className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-md border border-ink/10 bg-ink/10 md:grid-cols-4">
+            {workspaceMetrics.map((metric) => {
+              const Icon = metric.icon;
+
+              return (
+                <div key={metric.key} className="bg-paper px-3 py-3 sm:px-4">
+                  <dt className="flex min-w-0 items-start gap-2 text-xs font-medium leading-tight text-ink-2">
+                    <Icon className={cn('h-4 w-4 shrink-0', metric.className)} aria-hidden="true" />
+                    <span>{metric.label}</span>
+                  </dt>
+                  <dd className={cn('mt-2 text-2xl font-semibold leading-none', metric.className)}>
+                    {statsLoading ? '0' : formatNumber(metric.value)}
+                  </dd>
+                </div>
+              );
+            })}
+          </dl>
+        </div>
       </section>
 
-      <section className="space-y-4">
+      <section className="mt-6 space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <h2 className="text-2xl font-semibold text-ink">{t('profile.submissionWorkspace')}</h2>
@@ -163,16 +192,28 @@ export function ProfilePage() {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2" aria-label={t('filter.status')}>
+        <div className="flex gap-1 overflow-x-auto rounded-md border border-ink/10 bg-surface p-1" aria-label={t('filter.status')}>
           {(Object.keys(filterKeys) as StatusFilter[]).map((status) => (
-            <Button
+            <button
               key={status}
-              variant={statusFilter === status ? 'default' : 'outline'}
+              type="button"
+              className={cn(
+                'inline-flex h-9 shrink-0 items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-paper',
+                statusFilter === status
+                  ? 'bg-ink text-paper'
+                  : 'text-ink-2 hover:bg-accent hover:text-ink',
+              )}
               onClick={() => handleStatusFilter(status)}
-              size="sm"
+              aria-pressed={statusFilter === status}
             >
-              {t(filterKeys[status])} ({formatNumber(filterCounts[status])})
-            </Button>
+              <span>{t(filterKeys[status])}</span>
+              <span className={cn(
+                'rounded-full px-1.5 py-0.5 text-xs',
+                statusFilter === status ? 'bg-paper/20 text-paper' : 'bg-ink/5 text-ink-2',
+              )}>
+                {formatNumber(filterCounts[status])}
+              </span>
+            </button>
           ))}
         </div>
 
