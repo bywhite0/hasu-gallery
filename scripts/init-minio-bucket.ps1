@@ -1,59 +1,59 @@
-# 初始化 MinIO bucket
+# Initialize MinIO/S3 bucket using environment configuration only.
+# Required env:
+#   S3_ENDPOINT, S3_ACCESS_KEY, S3_SECRET_KEY
+# Optional:
+#   S3_BUCKET (default: hasu-gallery), S3_REGION (default: us-east-1)
 
-$endpoint = "https://minio.example.com"
-$accessKey = "REDACTED_S3_ACCESS_KEY"
-$secretKey = "REDACTED_S3_SECRET_KEY"
-$bucketName = "hasu-gallery"
+$ErrorActionPreference = "Stop"
 
-Write-Host "=== MinIO Bucket 初始化 ===" -ForegroundColor Cyan
+$endpoint = $env:S3_ENDPOINT
+$accessKey = $env:S3_ACCESS_KEY
+$secretKey = $env:S3_SECRET_KEY
+$bucketName = if ($env:S3_BUCKET) { $env:S3_BUCKET } else { "hasu-gallery" }
+$region = if ($env:S3_REGION) { $env:S3_REGION } else { "us-east-1" }
+
+if (-not $endpoint -or -not $accessKey -or -not $secretKey) {
+    Write-Host "Missing required env: S3_ENDPOINT, S3_ACCESS_KEY, S3_SECRET_KEY" -ForegroundColor Red
+    Write-Host "Load them from backend/.env or your secret store, then re-run." -ForegroundColor Yellow
+    exit 1
+}
+
+Write-Host "=== MinIO Bucket init ===" -ForegroundColor Cyan
+Write-Host "Endpoint: $endpoint"
+Write-Host "Bucket:   $bucketName"
 Write-Host ""
 
-Write-Host "[1/3] 检查 MinIO 连接..." -ForegroundColor Yellow
+Write-Host "[1/3] Health check..." -ForegroundColor Yellow
 try {
-    $response = Invoke-WebRequest -Uri "$endpoint/minio/health/live" -Method GET -UseBasicParsing
-    Write-Host "✅ MinIO 在线" -ForegroundColor Green
+    Invoke-WebRequest -Uri "$endpoint/minio/health/live" -Method GET -UseBasicParsing | Out-Null
+    Write-Host "OK: storage reachable" -ForegroundColor Green
 } catch {
-    Write-Host "❌ 无法连接到 MinIO: $_" -ForegroundColor Red
-    exit 1
+    Write-Host "WARN: health endpoint failed (continuing if AWS CLI works): $_" -ForegroundColor Yellow
 }
 
-Write-Host ""
-Write-Host "[2/3] 安装 AWS CLI（如果需要）..." -ForegroundColor Yellow
 if (!(Get-Command aws -ErrorAction SilentlyContinue)) {
-    Write-Host "请安装 AWS CLI: https://aws.amazon.com/cli/" -ForegroundColor Red
-    Write-Host "或使用 Scoop: scoop install aws" -ForegroundColor Yellow
+    Write-Host "AWS CLI is required. Install: https://aws.amazon.com/cli/" -ForegroundColor Red
     exit 1
-} else {
-    Write-Host "✅ AWS CLI 已安装" -ForegroundColor Green
 }
 
-Write-Host ""
-Write-Host "[3/3] 创建 bucket..." -ForegroundColor Yellow
-
-# 配置 AWS CLI
 $env:AWS_ACCESS_KEY_ID = $accessKey
 $env:AWS_SECRET_ACCESS_KEY = $secretKey
-$env:AWS_DEFAULT_REGION = "us-east-1"
+$env:AWS_DEFAULT_REGION = $region
 
-# 检查 bucket 是否存在
+Write-Host "[2/3] Ensure bucket exists..." -ForegroundColor Yellow
 $bucketExists = aws s3 ls --endpoint-url $endpoint 2>$null | Select-String $bucketName
-
 if ($bucketExists) {
-    Write-Host "✅ Bucket '$bucketName' 已存在" -ForegroundColor Green
+    Write-Host "OK: bucket already exists" -ForegroundColor Green
 } else {
-    # 创建 bucket
     aws s3 mb "s3://$bucketName" --endpoint-url $endpoint
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "✅ Bucket '$bucketName' 创建成功" -ForegroundColor Green
-    } else {
-        Write-Host "❌ 创建 bucket 失败" -ForegroundColor Red
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "FAIL: create bucket" -ForegroundColor Red
         exit 1
     }
+    Write-Host "OK: bucket created" -ForegroundColor Green
 }
 
-# 设置 bucket 为公开读取（用于媒体访问）
-Write-Host ""
-Write-Host "[Optional] 设置 bucket 公开访问策略..." -ForegroundColor Yellow
+Write-Host "[3/3] Optional public-read policy (best-effort)..." -ForegroundColor Yellow
 $policy = @"
 {
   "Version": "2012-10-17",
@@ -67,19 +67,15 @@ $policy = @"
   ]
 }
 "@
-
-$policyFile = "$env:TEMP\bucket-policy.json"
-$policy | Out-File -FilePath $policyFile -Encoding UTF8
-
+$policyFile = Join-Path $env:TEMP "hasu-gallery-bucket-policy.json"
+$policy | Out-File -FilePath $policyFile -Encoding utf8
 aws s3api put-bucket-policy --bucket $bucketName --policy "file://$policyFile" --endpoint-url $endpoint 2>$null
 if ($LASTEXITCODE -eq 0) {
-    Write-Host "✅ 公开访问策略已设置" -ForegroundColor Green
+    Write-Host "OK: public-read policy applied" -ForegroundColor Green
 } else {
-    Write-Host "⚠️  设置公开访问策略失败（可能需要 MinIO 管理员权限）" -ForegroundColor Yellow
+    Write-Host "SKIP: policy not applied (may need admin rights or private CDN proxy)" -ForegroundColor Yellow
 }
-
 Remove-Item $policyFile -ErrorAction SilentlyContinue
 
 Write-Host ""
-Write-Host "=== 初始化完成 ===" -ForegroundColor Green
-Write-Host "Bucket URL: $endpoint/$bucketName" -ForegroundColor Cyan
+Write-Host "=== Done ===" -ForegroundColor Green

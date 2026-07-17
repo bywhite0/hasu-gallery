@@ -15,9 +15,9 @@ Phase 1 完成了 Hasu Gallery 的核心基础设施搭建，包括数据库架�
 - 约束：gallery-origin 规则、文件字段互斥约束
 
 **部署位置**
-- 服务器：`<edge-db-host>:5432`
+- 服务器：私有边缘主机（具体主机/凭证仅保存在本地 ops 文档）
 - 数据库：`hasu_gallery`
-- 凭证：`hasu_user` / `hasu_pass`
+- 凭证：通过本地 `backend/.env` 或密钥管理配置，不写入仓库
 
 **迁移管理**
 - 使用 `sqlx-cli` 管理
@@ -45,10 +45,10 @@ Phase 1 完成了 Hasu Gallery 的核心基础设施搭建，包括数据库架�
 ### 1.3 上传流水线 ✅
 
 **技术栈**
-- 对象存储：MinIO S3 (内网 `http://<edge-s3-host>:9000`)
+- 对象存储：MinIO S3（内网 endpoint，由 `S3_ENDPOINT` 配置）
 - 图片处理：`image` crate（缩略图生成、尺寸提取）
 - 文件上传：`axum-extra` multipart
-- 公开访问：Nginx 反向代理（`https://cdn.example.com/hasu-gallery/`）
+- 公开访问：Nginx 反向代理（由 `PUBLIC_MEDIA_BASE_URL` 配置）
 
 **功能特性**
 - 支持格式：PNG、JPEG、GIF、WebP
@@ -72,8 +72,8 @@ S3 Bucket: hasu-gallery
 ```
 
 **URL 生成**
-- 内部上传：`http://<edge-s3-host>:9000`（后端直连）
-- 公开访问：`https://cdn.example.com/hasu-gallery/{filename}`
+- 内部上传：S3/MinIO endpoint（后端直连，来自环境变量）
+- 公开访问：`{PUBLIC_MEDIA_BASE_URL}/{filename}`
 
 **测试结果**
 - 上传成功：✅ 返回 work ID
@@ -84,22 +84,26 @@ S3 Bucket: hasu-gallery
 
 ## 配置文件
 
-### 后端 `.env`
+### 后端 `.env`（仅本地，勿提交）
+
+见 `backend/.env.example`。真实主机、账号、密钥只放在本机环境文件或 `.codex-local/ops/`。
+
 ```env
-DATABASE_URL=postgres://hasu_user:hasu_pass@<edge-db-host>:5432/hasu_gallery
-S3_ENDPOINT=http://<edge-s3-host>:9000
+DATABASE_URL=postgres://APP_USER:APP_PASSWORD@127.0.0.1:5432/hasu_gallery
+S3_ENDPOINT=http://127.0.0.1:9000
 S3_REGION=us-east-1
-S3_ACCESS_KEY=<隐藏>
-S3_SECRET_KEY=<隐藏>
+S3_ACCESS_KEY=<local-or-secret-store>
+S3_SECRET_KEY=<local-or-secret-store>
 S3_BUCKET=hasu-gallery
-PUBLIC_MEDIA_BASE_URL=https://cdn.example.com/hasu-gallery
+PUBLIC_MEDIA_BASE_URL=http://127.0.0.1:8787/media
 HOST=127.0.0.1
 PORT=8787
 RUST_LOG=info,sqlx=warn
 ```
 
 ### Nginx 配置
-**位置**：`/etc/nginx/sites-available/assets.conf`
+
+**位置**：由部署主机自行管理（示例路径 `/etc/nginx/sites-available/assets.conf`）
 
 **新增路径**：
 ```nginx
@@ -115,42 +119,41 @@ location /hasu-gallery/ {
 ## 部署架构
 
 ```
-开发机 (Windows 11)
-    ↓ (开发)
+开发机
+    ↓
 hasu-gallery/backend
-    ↓ (cargo run)
-localhost:8787 (API)
-    ↓ (内网)
-<edge-db-host>:5432    ← PostgreSQL
-<edge-s3-host>:9000    ← MinIO S3 API
-    ↓ (Nginx 反向代理)
-https://cdn.example.com/hasu-gallery/  ← 公开访问
+    ↓
+127.0.0.1:8787 (API)
+    ↓ (private network / VPN / SSH tunnel)
+PostgreSQL + MinIO
+    ↓ (reverse proxy)
+PUBLIC_MEDIA_BASE_URL
 ```
+
+真实拓扑与主机映射仅保存在本地 ops 文档。
 
 ## 测试数据
 
-**测试用户**
+**测试用户（本地开发示例）**
 - Handle: `testuser`
 - Password: `password123`
 - Email: `test@example.com`
 - Role: `member`
 
 **测试上传**
-- Work ID: `5c98beab-e79b-43f5-aedd-191e964aa966`
-- 原图: [https://cdn.example.com/hasu-gallery/5c98beab-e79b-43f5-aedd-191e964aa966.png](https://cdn.example.com/hasu-gallery/5c98beab-e79b-43f5-aedd-191e964aa966.png)
-- 缩略图: [https://cdn.example.com/hasu-gallery/5c98beab-e79b-43f5-aedd-191e964aa966_thumb.jpg](https://cdn.example.com/hasu-gallery/5c98beab-e79b-43f5-aedd-191e964aa966_thumb.jpg)
+- Work ID / 媒体 URL 为本地或私有 CDN 资源，不在公开文档中硬编码生产地址
 
 ## 运行命令
 
 ### 启动后端
 ```powershell
-cd D:\Repos\hasu-gallery\backend
+cd backend
 cargo run
 ```
 
 ### 运行迁移
 ```powershell
-sqlx migrate run --database-url "postgres://hasu_user:hasu_pass@<edge-db-host>:5432/hasu_gallery"
+sqlx migrate run --database-url "$env:DATABASE_URL"
 ```
 
 ### 测试上传
@@ -203,25 +206,14 @@ curl -X POST http://localhost:8787/api/works/upload \
 - [ ] CI/CD 流水线（GitHub Actions）
 - [ ] 性能优化（连接池调优、CDN、虚拟滚动）
 
-## 提交历史
-
-- `286d2e8`: Merge Phase 1: Complete backend infrastructure
-- `eb94104`: docs: add Phase 1 implementation summary
-- `a10784f`: fix(phase1.3): add origin field validation and fix public URL generation
-- `5af364e`: feat(phase1.3): add upload pipeline with S3 and thumbnail generation
-- `dd69954`: Merge Phase 1.2: Authentication System
-- `9bc0fa9`: feat(phase1.2): add authentication system
-- `0d39d0d`: Merge Phase 1.1: Database Migration
-- `0ae93e8`: docs: add edge server setup guide and scripts
-- `e5e6b01`: feat(phase1.1): add database migration and connection pool
-
 ## 参考文档
 
-- [Edge Server Setup](../../docs/edge-server-setup.md) - PostgreSQL 部署指南
-- [Upload Testing Scripts](../../scripts/) - 上传测试脚本
+- [Edge Server Setup](../../docs/edge-server-setup.md) - PostgreSQL 安全部署指南
+- [Deployment](../../docs/deployment.md) - 环境变量与迁移
 - [Phase 2 Plan](./phase2-plan.md) - 前端画廊界面计划
+- 本地基础设施明细：`.codex-local/ops/`（不进 Git）
 
 ---
 
-**最后更新**：2026-06-17  
-**文档版本**：1.1
+**最后更新**：2026-07-17  
+**文档版本**：1.2（已移除基础设施敏感信息）

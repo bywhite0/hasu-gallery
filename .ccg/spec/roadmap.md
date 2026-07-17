@@ -17,9 +17,9 @@
 | Phase | 路线图声明 | 实际代码状态 | 差距 |
 |---|---|---|---|
 | **0: Foundation & Design** | ✅ COMPLETE | ✅ 规范文件已落地（`.ccg/spec/phase0-content-core-model.md`），决策表完整 | — |
-| **1.1 Postgres 迁移** | ✅ COMPLETE | ✅ `backend/migrations/001_initial.sql` 已部署（9 表 + 5 枚举 + 2 触发器），边缘服务器 `<edge-db-host>:5432` 运行中 | — |
+| **1.1 Postgres 迁移** | ✅ COMPLETE | ✅ `backend/migrations/001_initial.sql` 已部署（9 表 + 5 枚举 + 2 触发器），边缘服务器 `edge-db-host:5432` 运行中 | — |
 | **1.2 认证系统** | ✅ COMPLETE | ✅ argon2id + tower-sessions（PostgreSQL 存储），4 个 API 端点（register/login/logout/me） | — |
-| **1.3 上传流水线** | ✅ COMPLETE | ✅ S3/MinIO 上传 + 缩略图生成（400x400 Lanczos3）+ multipart 验证，Nginx 公开代理 `https://cdn.example.com/hasu-gallery/` | — |
+| **1.3 上传流水线** | ✅ COMPLETE | ✅ S3/MinIO 上传 + 缩略图生成（400x400 Lanczos3）+ multipart 验证，Nginx 公开代理 `http://127.0.0.1:8787/media/` | — |
 | **1.4 模块化 main.rs** | ✅ COMPLETE | ✅ `backend/src/` 已模块化：`auth.rs`、`db.rs`、`storage.rs`、`image_processor.rs`、`models/`、`routes/` | — |
 | **2.1 认证界面** | ✅ COMPLETE | ✅ LoginPage + RegisterPage + AuthGuard（543 行）| — |
 | **2.2 作品列表页** | ✅ COMPLETE | ✅ GalleryPage + WorksGrid + FilterPanel + Pagination（575 行），后端 `GET /api/works` | — |
@@ -63,7 +63,7 @@
 
 **2026-07-07 前端懒加载切片**: Gallery/Home 已使用 lazy image；个人页 `MyWorksList` 从 CSS background-image 改为 `<img loading="lazy" decoding="async">`，让缩略图加载行为统一受浏览器懒加载控制。
 
-**2026-07-07 CDN base URL 切片**: 统一 `PUBLIC_MEDIA_BASE_URL` 解析到 `storage::public_media_base_url()`，上传返回 URL 与作品列表/详情 URL 共用同一 CDN base，默认值为 `https://cdn.example.com/hasu-gallery` 并自动去除尾斜杠。
+**2026-07-07 CDN base URL 切片**: 统一 `PUBLIC_MEDIA_BASE_URL` 解析到 `storage::public_media_base_url()`，上传返回 URL 与作品列表/详情 URL 共用同一 CDN base，默认值为 `http://127.0.0.1:8787/media` 并自动去除尾斜杠。
 
 **2026-07-07 审核逻辑测试切片**: moderation queue 参数校验、状态流转目标校验与 review note 规范化抽成纯函数并补单元测试；review note 现在 trim 后入库，空白 note 转为 `NULL`，长度限制 1000 字符。
 

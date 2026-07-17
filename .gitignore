@@ -30,3 +30,18 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# Local agent / ops secrets (never commit)
+.codex-local/
+.local-ops/
+.local-secrets/
+*.pem
+*.p12
+id_rsa
+id_ed25519
+
+# Env variants
+.env.*
+!.env.example
+!**/.env.example
+backend/.env

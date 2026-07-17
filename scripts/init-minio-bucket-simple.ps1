@@ -1,47 +1,31 @@
-# 使用 MinIO REST API 创建 bucket（不需要 AWS CLI）
+# Guidance-only helper for creating a MinIO bucket without AWS CLI.
+# Credentials must come from the environment; nothing secret is hardcoded.
 
-$endpoint = "https://minio.example.com"
-$accessKey = "REDACTED_S3_ACCESS_KEY"
-$secretKey = "REDACTED_S3_SECRET_KEY"
-$bucketName = "hasu-gallery"
+$endpoint = $env:S3_ENDPOINT
+$accessKey = $env:S3_ACCESS_KEY
+$secretKey = $env:S3_SECRET_KEY
+$bucketName = if ($env:S3_BUCKET) { $env:S3_BUCKET } else { "hasu-gallery" }
 
-Write-Host "=== MinIO Bucket 初始化（HTTP API）===" -ForegroundColor Cyan
+Write-Host "=== MinIO bucket setup hints ===" -ForegroundColor Cyan
 Write-Host ""
 
-Write-Host "[1/2] 检查 MinIO 连接..." -ForegroundColor Yellow
-try {
-    $response = Invoke-WebRequest -Uri "$endpoint/minio/health/live" -Method GET -UseBasicParsing
-    Write-Host "✅ MinIO 在线" -ForegroundColor Green
-} catch {
-    Write-Host "❌ 无法连接到 MinIO: $_" -ForegroundColor Red
+if (-not $endpoint -or -not $accessKey -or -not $secretKey) {
+    Write-Host "Set S3_ENDPOINT, S3_ACCESS_KEY, S3_SECRET_KEY (and optional S3_BUCKET) first." -ForegroundColor Yellow
+    Write-Host "Prefer loading from backend/.env or a secret manager." -ForegroundColor Yellow
     exit 1
 }
 
+Write-Host "Option 1 - MinIO Console:" -ForegroundColor Cyan
+Write-Host "  1. Open: $endpoint"
+Write-Host "  2. Sign in with the access/secret keys from your environment"
+Write-Host "  3. Create bucket: $bucketName"
+Write-Host "  4. Set access policy according to your CDN/proxy design"
 Write-Host ""
-Write-Host "[2/2] 检查/创建 bucket..." -ForegroundColor Yellow
+Write-Host "Option 2 - AWS CLI script:" -ForegroundColor Cyan
+Write-Host "  .\scripts\init-minio-bucket.ps1"
 Write-Host ""
-Write-Host "⚠️  由于 MinIO REST API 需要复杂的签名，推荐以下方式之一：" -ForegroundColor Yellow
-Write-Host ""
-Write-Host "方式1 - 使用 MinIO Web Console（推荐）：" -ForegroundColor Cyan
-Write-Host "  1. 访问: $endpoint"
-Write-Host "  2. 使用以下凭证登录："
-Write-Host "     Access Key: $accessKey"
-Write-Host "     Secret Key: $secretKey"
-Write-Host "  3. 点击 'Buckets' -> 'Create Bucket'"
-Write-Host "  4. 输入 bucket 名称: $bucketName"
-Write-Host "  5. 创建后，设置 Access Policy 为 'Public'"
-Write-Host ""
-
-Write-Host "方式2 - 安装 AWS CLI：" -ForegroundColor Cyan
-Write-Host "  scoop install aws"
-Write-Host "  然后重新运行此脚本"
-Write-Host ""
-
-Write-Host "方式3 - 使用 mc (MinIO Client)：" -ForegroundColor Cyan
-Write-Host "  scoop install minio-client"
-Write-Host "  mc alias set minio $endpoint $accessKey $secretKey"
+Write-Host "Option 3 - mc (MinIO Client):" -ForegroundColor Cyan
+Write-Host "  mc alias set minio `$env:S3_ENDPOINT `$env:S3_ACCESS_KEY `$env:S3_SECRET_KEY"
 Write-Host "  mc mb minio/$bucketName"
-Write-Host "  mc anonymous set download minio/$bucketName"
 Write-Host ""
-
-Write-Host "=== 请手动完成 bucket 创建后，继续测试上传功能 ===" -ForegroundColor Green
+Write-Host "Do not commit real keys or production hostnames into the repository." -ForegroundColor Yellow

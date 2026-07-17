@@ -1,27 +1,38 @@
 #!/bin/bash
-# 测试远程数据库连接
+# Smoke-test local API + database using environment configuration only.
 
-echo "=== 测试 Hasu Gallery 数据库连接 ==="
+set -euo pipefail
+
+echo "=== Hasu Gallery connection smoke test ==="
 echo ""
 
-# 测试 API health check
-echo "[1/3] 测试 API health check..."
-if curl -f -s http://localhost:8787/health > /dev/null 2>&1; then
-    echo "✅ API 健康检查通过"
+API_BASE="${API_BASE:-http://127.0.0.1:8787}"
+DATABASE_URL="${DATABASE_URL:-}"
+
+echo "[1/3] API health..."
+if curl -f -s "${API_BASE}/health" >/dev/null 2>&1; then
+    echo "OK: API health"
 else
-    echo "❌ API 未启动或健康检查失败"
+    echo "FAIL: API not reachable at ${API_BASE}/health"
     exit 1
 fi
 
-# 检查数据库表
-echo ""
-echo "[2/3] 检查数据库表..."
-PGPASSWORD=hasu_pass psql -h <edge-db-host> -U hasu_user -d hasu_gallery -c "\dt" 2>&1 | head -20
+if [ -z "$DATABASE_URL" ]; then
+    echo ""
+    echo "[2/3] DATABASE_URL not set; skipping direct psql checks."
+    echo "Set DATABASE_URL to also inspect tables and migrations."
+    echo ""
+    echo "=== Done (API only) ==="
+    exit 0
+fi
 
-# 检查迁移历史
 echo ""
-echo "[3/3] 检查迁移历史..."
-PGPASSWORD=hasu_pass psql -h <edge-db-host> -U hasu_user -d hasu_gallery -c "SELECT * FROM _sqlx_migrations ORDER BY installed_on DESC LIMIT 5"
+echo "[2/3] List tables..."
+psql "$DATABASE_URL" -c "\dt" | head -20
 
 echo ""
-echo "=== 测试完成 ==="
+echo "[3/3] Recent migrations..."
+psql "$DATABASE_URL" -c "SELECT * FROM _sqlx_migrations ORDER BY installed_on DESC LIMIT 5"
+
+echo ""
+echo "=== Done ==="

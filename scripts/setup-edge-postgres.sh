@@ -1,133 +1,79 @@
 #!/bin/bash
-# Hasu Gallery - 边缘服务器 Postgres 设置脚本
-# 适用于 512MB 内存的轻量级服务器
+# Hasu Gallery - local/private Postgres setup (secure defaults)
+# Does NOT open PostgreSQL to the public internet.
+# Credentials must come from the environment; nothing secret is hardcoded.
 
-set -e
+set -euo pipefail
 
-echo "=== Hasu Gallery Postgres 轻量级安装 ==="
+echo "=== Hasu Gallery Postgres setup (localhost / private only) ==="
 echo ""
 
-# 检测系统
 if [ -f /etc/os-release ]; then
     . /etc/os-release
     OS=$ID
-    echo "检测到系统: $OS $VERSION_ID"
+    echo "Detected OS: $OS ${VERSION_ID:-}"
 else
-    echo "无法检测系统类型"
+    echo "Unable to detect OS"
     exit 1
 fi
 
-# 安装 Postgres
+DB_NAME="${DB_NAME:-hasu_gallery}"
+DB_USER="${DB_USER:-hasu_user}"
+DB_PASSWORD="${DB_PASSWORD:-}"
+
+if [ -z "$DB_PASSWORD" ]; then
+    echo "Set DB_PASSWORD to a strong unique secret before running this script."
+    echo "Example: DB_PASSWORD=\$(openssl rand -base64 32) $0"
+    exit 1
+fi
+
 echo ""
-echo "[1/5] 安装 PostgreSQL..."
+echo "[1/4] Install PostgreSQL..."
 if [ "$OS" = "ubuntu" ] || [ "$OS" = "debian" ]; then
     apt-get update -qq
     apt-get install -y postgresql postgresql-contrib
-    systemctl start postgresql
-    systemctl enable postgresql
+    systemctl enable --now postgresql
 elif [ "$OS" = "centos" ] || [ "$OS" = "rhel" ] || [ "$OS" = "fedora" ]; then
     dnf install -y postgresql-server postgresql-contrib
-    postgresql-setup --initdb
-    systemctl start postgresql
-    systemctl enable postgresql
+    postgresql-setup --initdb || true
+    systemctl enable --now postgresql
 else
-    echo "不支持的系统: $OS"
+    echo "Unsupported OS: $OS"
     exit 1
 fi
 
-echo "✅ PostgreSQL 已安装"
-
-# 配置 Postgres 用户和数据库
 echo ""
-echo "[2/5] 创建数据库和用户..."
-sudo -u postgres psql << 'EOF'
--- 创建用户
-CREATE USER hasu_user WITH PASSWORD 'hasu_pass';
-
--- 创建数据库
-CREATE DATABASE hasu_gallery OWNER hasu_user;
-
--- 授权
-GRANT ALL PRIVILEGES ON DATABASE hasu_gallery TO hasu_user;
-
--- 连接到 hasu_gallery 数据库并授权 schema
-\c hasu_gallery
-GRANT ALL ON SCHEMA public TO hasu_user;
-
--- 退出
-\q
+echo "[2/4] Create role and database..."
+sudo -u postgres psql <<EOF
+DO \$\$
+BEGIN
+  IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '${DB_USER}') THEN
+    CREATE ROLE ${DB_USER} LOGIN PASSWORD '${DB_PASSWORD}';
+  END IF;
+END
+\$\$;
+SELECT 'CREATE DATABASE ${DB_NAME} OWNER ${DB_USER}'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${DB_NAME}')\gexec
+\c ${DB_NAME}
+GRANT ALL ON SCHEMA public TO ${DB_USER};
 EOF
 
-echo "✅ 数据库和用户已创建"
-
-# 配置远程访问（允许本地网络）
 echo ""
-echo "[3/5] 配置远程访问..."
-
-PG_HBA=$(sudo -u postgres psql -t -P format=unaligned -c 'SHOW hba_file')
+echo "[3/4] Keep listen address local (topology A)..."
 PG_CONF=$(sudo -u postgres psql -t -P format=unaligned -c 'SHOW config_file')
-
-# 备份配置
-cp "$PG_HBA" "$PG_HBA.backup"
-cp "$PG_CONF" "$PG_CONF.backup"
-
-# 允许密码认证（从任何地址）
-if ! grep -q "host.*all.*all.*0.0.0.0/0.*md5" "$PG_HBA"; then
-    echo "host    all             all             0.0.0.0/0               md5" >> "$PG_HBA"
+# Prefer localhost-only. Do not append 0.0.0.0/0 to pg_hba.conf.
+if grep -q "^#listen_addresses" "$PG_CONF" 2>/dev/null; then
+    sed -i "s/^#listen_addresses.*/listen_addresses = 'localhost'/" "$PG_CONF" || true
 fi
 
-# 监听所有地址
-if ! grep -q "^listen_addresses = '\*'" "$PG_CONF"; then
-    sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/" "$PG_CONF"
-fi
-
-# 优化内存设置（512MB 环境）
-cat >> "$PG_CONF" << 'EOF'
-
-# 轻量级优化（512MB 内存）
-shared_buffers = 128MB
-effective_cache_size = 256MB
-maintenance_work_mem = 32MB
-work_mem = 4MB
-max_connections = 20
-EOF
-
-echo "✅ 远程访问已配置"
-
-# 重启 Postgres
 echo ""
-echo "[4/5] 重启 PostgreSQL..."
+echo "[4/4] Restart PostgreSQL and smoke-test..."
 systemctl restart postgresql
+sudo -u postgres psql -d "$DB_NAME" -c "SELECT 1" >/dev/null
 
-echo "✅ PostgreSQL 已重启"
-
-# 测试连接
 echo ""
-echo "[5/5] 测试连接..."
-if sudo -u postgres psql -d hasu_gallery -c "SELECT 1" > /dev/null 2>&1; then
-    echo "✅ 数据库连接测试成功"
-else
-    echo "❌ 数据库连接测试失败"
-    exit 1
-fi
-
-# 显示连接信息
-echo ""
-echo "=== 安装完成 ==="
-echo ""
-echo "数据库连接信息："
-echo "  Host: <edge-db-host>"
-echo "  Port: 5432"
-echo "  Database: hasu_gallery"
-echo "  User: hasu_user"
-echo "  Password: hasu_pass"
-echo ""
-echo "连接字符串："
-echo "  postgres://hasu_user:hasu_pass@<edge-db-host>:5432/hasu_gallery"
-echo ""
-echo "⚠️  注意：请确保防火墙允许 5432 端口访问"
-if command -v ufw > /dev/null 2>&1; then
-    echo ""
-    echo "运行以下命令开放端口（如果使用 ufw）："
-    echo "  sudo ufw allow 5432/tcp"
-fi
+echo "=== Done ==="
+echo "Use a local DATABASE_URL such as:"
+echo "  postgres://${DB_USER}:****@127.0.0.1:5432/${DB_NAME}"
+echo "Do not expose port 5432 to the public internet."
+echo "See docs/edge-server-setup.md for private-network / SSH-tunnel options."

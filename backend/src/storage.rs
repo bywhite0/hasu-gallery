@@ -5,7 +5,7 @@ use aws_sdk_s3::{
 };
 use std::env;
 
-const DEFAULT_PUBLIC_MEDIA_BASE_URL: &str = "https://cdn.example.com/hasu-gallery";
+const DEFAULT_PUBLIC_MEDIA_BASE_URL: &str = "http://127.0.0.1:8787/media";
 
 /// 创建 S3 客户端
 pub async fn create_s3_client() -> Client {

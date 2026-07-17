@@ -1,19 +1,24 @@
 #!/bin/bash
-# 远程验证数据库表结构
+# Verify database schema on the host where Postgres is installed.
+# Prefer running as a role that can access hasu_gallery without printing secrets.
 
-echo "=== 验证 Hasu Gallery 数据库 ==="
+set -euo pipefail
+
+DB_NAME="${DB_NAME:-hasu_gallery}"
+
+echo "=== Verify Hasu Gallery database ==="
 echo ""
 
-echo "[1/3] 列出所有表..."
-sudo -u postgres psql -d hasu_gallery -c "\dt"
+echo "[1/3] List tables..."
+sudo -u postgres psql -d "$DB_NAME" -c "\dt"
 
 echo ""
-echo "[2/3] 检查迁移历史..."
-sudo -u postgres psql -d hasu_gallery -c "SELECT version, description, installed_on FROM _sqlx_migrations ORDER BY installed_on DESC;"
+echo "[2/3] Migration history..."
+sudo -u postgres psql -d "$DB_NAME" -c "SELECT version, description, installed_on FROM _sqlx_migrations ORDER BY installed_on DESC;"
 
 echo ""
-echo "[3/3] 统计表记录数..."
-sudo -u postgres psql -d hasu_gallery << 'EOF'
+echo "[3/3] Approximate row counts..."
+sudo -u postgres psql -d "$DB_NAME" <<'EOF'
 SELECT
   schemaname,
   tablename,
@@ -30,4 +35,4 @@ ORDER BY tablename;
 EOF
 
 echo ""
-echo "=== 验证完成 ==="
+echo "=== Done ==="
