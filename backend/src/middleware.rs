@@ -8,6 +8,7 @@ use axum::{
 use sqlx::PgPool;
 use std::{
     collections::HashMap,
+    net::SocketAddr,
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
@@ -92,11 +93,15 @@ pub async fn csrf_origin_guard(
     Ok(next.run(request).await)
 }
 
+const DEFAULT_MAX_BUCKETS: usize = 10_000;
+
 #[derive(Clone)]
 pub struct RateLimiter {
     inner: Arc<Mutex<HashMap<String, RateLimitBucket>>>,
     max_requests: u32,
     window: Duration,
+    max_buckets: usize,
+    trust_proxy_headers: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -107,15 +112,43 @@ struct RateLimitBucket {
 
 impl RateLimiter {
     pub fn new(max_requests: u32, window: Duration) -> Self {
+        Self::with_options(max_requests, window, DEFAULT_MAX_BUCKETS, false)
+    }
+
+    pub fn with_options(
+        max_requests: u32,
+        window: Duration,
+        max_buckets: usize,
+        trust_proxy_headers: bool,
+    ) -> Self {
         Self {
             inner: Arc::new(Mutex::new(HashMap::new())),
             max_requests,
             window,
+            max_buckets: max_buckets.max(1),
+            trust_proxy_headers,
         }
+    }
+
+    pub fn trust_proxy_headers(&self) -> bool {
+        self.trust_proxy_headers
     }
 
     fn allow_at(&self, key: &str, now: Instant) -> bool {
         let mut buckets = self.inner.lock().expect("rate limiter mutex poisoned");
+        self.evict_locked(&mut buckets, now);
+
+        if !buckets.contains_key(key) && buckets.len() >= self.max_buckets {
+            // Make room for a new key by dropping the oldest remaining window.
+            if let Some(oldest_key) = buckets
+                .iter()
+                .min_by_key(|(_, bucket)| bucket.window_started_at)
+                .map(|(k, _)| k.clone())
+            {
+                buckets.remove(&oldest_key);
+            }
+        }
+
         let bucket = buckets
             .entry(key.to_string())
             .or_insert_with(|| RateLimitBucket {
@@ -135,6 +168,33 @@ impl RateLimiter {
         bucket.requests += 1;
         true
     }
+
+    fn evict_locked(&self, buckets: &mut HashMap<String, RateLimitBucket>, now: Instant) {
+        buckets.retain(|_, bucket| now.duration_since(bucket.window_started_at) < self.window);
+
+        if buckets.len() <= self.max_buckets {
+            return;
+        }
+
+        let mut entries: Vec<(String, Instant)> = buckets
+            .iter()
+            .map(|(key, bucket)| (key.clone(), bucket.window_started_at))
+            .collect();
+        entries.sort_by_key(|(_, started_at)| *started_at);
+
+        let remove_count = buckets.len().saturating_sub(self.max_buckets);
+        for (key, _) in entries.into_iter().take(remove_count) {
+            buckets.remove(&key);
+        }
+    }
+
+    #[cfg(test)]
+    fn bucket_count(&self) -> usize {
+        self.inner
+            .lock()
+            .expect("rate limiter mutex poisoned")
+            .len()
+    }
 }
 
 pub async fn rate_limit(
@@ -142,7 +202,7 @@ pub async fn rate_limit(
     request: Request<Body>,
     next: Next,
 ) -> Result<Response, StatusCode> {
-    let key = request_rate_limit_key(&request);
+    let key = request_rate_limit_key(&request, limiter.trust_proxy_headers());
     if !limiter.allow_at(&key, Instant::now()) {
         return Err(StatusCode::TOO_MANY_REQUESTS);
     }
@@ -150,31 +210,40 @@ pub async fn rate_limit(
     Ok(next.run(request).await)
 }
 
-fn request_rate_limit_key(request: &Request<Body>) -> String {
+fn request_rate_limit_key(request: &Request<Body>, trust_proxy_headers: bool) -> String {
     format!(
         "{}:{}:{}",
-        client_fingerprint(request.headers()),
+        client_fingerprint(request, trust_proxy_headers),
         request.method(),
         request.uri().path()
     )
 }
 
-fn client_fingerprint(headers: &HeaderMap) -> String {
-    headers
-        .get("x-forwarded-for")
-        .and_then(|value| value.to_str().ok())
-        .and_then(|value| value.split(',').next())
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .or_else(|| {
-            headers
-                .get("x-real-ip")
-                .and_then(|value| value.to_str().ok())
-                .map(str::trim)
-                .filter(|value| !value.is_empty())
-        })
-        .unwrap_or("unknown")
-        .to_string()
+fn client_fingerprint(request: &Request<Body>, trust_proxy_headers: bool) -> String {
+    if trust_proxy_headers {
+        if let Some(forwarded) = header_value(request.headers(), "x-forwarded-for")
+            .and_then(|value| {
+                value
+                    .split(',')
+                    .next()
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                    .map(ToString::to_string)
+            })
+        {
+            return forwarded;
+        }
+
+        if let Some(real_ip) = header_value(request.headers(), "x-real-ip") {
+            return real_ip;
+        }
+    }
+
+    if let Some(addr) = request.extensions().get::<axum::extract::ConnectInfo<SocketAddr>>() {
+        return addr.0.ip().to_string();
+    }
+
+    "unknown".to_string()
 }
 
 fn header_value(headers: &HeaderMap, name: &str) -> Option<String> {
@@ -206,13 +275,11 @@ pub async fn require_moderator(
         .ok_or(StatusCode::UNAUTHORIZED)?;
 
     // Query user role from database
-    let role: String = sqlx::query_scalar(
-        "SELECT role::TEXT FROM users WHERE id = $1"
-    )
-    .bind(user_id)
-    .fetch_one(&pool)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let role: String = sqlx::query_scalar("SELECT role::TEXT FROM users WHERE id = $1")
+        .bind(user_id)
+        .fetch_one(&pool)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     // Check if user is moderator or admin
     if role != "moderator" && role != "admin" {
@@ -226,6 +293,7 @@ pub async fn require_moderator(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::http::Request as HttpRequest;
 
     #[test]
     fn rate_limiter_blocks_after_limit_until_window_resets() {
@@ -249,15 +317,36 @@ mod tests {
     }
 
     #[test]
-    fn client_fingerprint_prefers_forwarded_headers() {
-        let mut headers = HeaderMap::new();
-        headers.insert("x-real-ip", "198.51.100.2".parse().unwrap());
-        headers.insert(
-            "x-forwarded-for",
-            "203.0.113.7, 198.51.100.2".parse().unwrap(),
-        );
+    fn rate_limiter_evicts_expired_and_caps_bucket_count() {
+        let limiter = RateLimiter::with_options(1, Duration::from_secs(10), 2, false);
+        let start = Instant::now();
 
-        assert_eq!(client_fingerprint(&headers), "203.0.113.7");
+        assert!(limiter.allow_at("a", start));
+        assert!(limiter.allow_at("b", start));
+        assert!(limiter.allow_at("c", start + Duration::from_secs(1)));
+        assert!(limiter.bucket_count() <= 2);
+
+        // After the window, expired keys are removed before insert.
+        assert!(limiter.allow_at("d", start + Duration::from_secs(11)));
+        assert!(limiter.bucket_count() <= 2);
+    }
+
+    #[test]
+    fn client_fingerprint_ignores_proxy_headers_unless_trusted() {
+        let mut request = HttpRequest::builder()
+            .method("POST")
+            .uri("/api/auth/login")
+            .body(Body::empty())
+            .unwrap();
+        request
+            .headers_mut()
+            .insert("x-forwarded-for", "203.0.113.7, 198.51.100.2".parse().unwrap());
+        request
+            .headers_mut()
+            .insert("x-real-ip", "198.51.100.2".parse().unwrap());
+
+        assert_eq!(client_fingerprint(&request, false), "unknown");
+        assert_eq!(client_fingerprint(&request, true), "203.0.113.7");
     }
 
     #[test]

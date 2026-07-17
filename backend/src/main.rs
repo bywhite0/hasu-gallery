@@ -69,8 +69,38 @@ async fn main() {
 
     // Create shared state
     let state = AppState { db, s3_client };
-    let login_rate_limiter = middleware::RateLimiter::new(10, Duration::from_secs(60));
-    let upload_rate_limiter = middleware::RateLimiter::new(20, Duration::from_secs(60 * 60));
+    let trust_proxy_headers = std::env::var("TRUST_PROXY_HEADERS")
+        .map(|value| {
+            matches!(
+                value.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes" | "on"
+            )
+        })
+        .unwrap_or(false);
+    if trust_proxy_headers {
+        tracing::warn!(
+            "TRUST_PROXY_HEADERS enabled: X-Forwarded-For / X-Real-IP will be trusted for rate limits"
+        );
+    }
+
+    let login_rate_limiter = middleware::RateLimiter::with_options(
+        10,
+        Duration::from_secs(60),
+        10_000,
+        trust_proxy_headers,
+    );
+    let register_rate_limiter = middleware::RateLimiter::with_options(
+        5,
+        Duration::from_secs(60 * 60),
+        10_000,
+        trust_proxy_headers,
+    );
+    let upload_rate_limiter = middleware::RateLimiter::with_options(
+        20,
+        Duration::from_secs(60 * 60),
+        10_000,
+        trust_proxy_headers,
+    );
 
     // 从环境变量读取 CORS 配置
     let allowed_origins_str = std::env::var("CORS_ALLOWED_ORIGINS")
@@ -99,16 +129,22 @@ async fn main() {
             "/api/monitoring/summary",
             get(routes::moderation::get_monitoring_summary),
         )
-        .with_state(state.db.clone())
         .layer(from_fn_with_state(
             state.db.clone(),
             middleware::require_moderator
-        ));
+        ))
+        .with_state(state.clone());
 
     // Public routes - use AppState
     let app = Router::new()
         .route("/health", get(health_check))
-        .route("/api/auth/register", post(routes::auth::register))
+        .route(
+            "/api/auth/register",
+            post(routes::auth::register).route_layer(from_fn_with_state(
+                register_rate_limiter,
+                middleware::rate_limit,
+            )),
+        )
         .route(
             "/api/auth/login",
             post(routes::auth::login).route_layer(from_fn_with_state(
@@ -161,7 +197,12 @@ async fn main() {
     tracing::info!("hasu-gallery API listening at http://{}", addr);
 
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .await
+    .unwrap();
 }
 
 async fn health_check(State(state): State<AppState>) -> impl IntoResponse {
