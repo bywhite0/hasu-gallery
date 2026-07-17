@@ -10,7 +10,7 @@ use validator::Validate;
 
 use crate::{
     auth::{hash_password, verify_password},
-    models::{user, LoginRequest, RegisterRequest, User},
+    models::{user, LoginRequest, RegisterRequest},
     AppState,
 };
 
@@ -68,6 +68,14 @@ pub async fn register(
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
+    let created_at: chrono::DateTime<chrono::Utc> = sqlx::query_scalar(
+        "SELECT created_at FROM users WHERE id = $1",
+    )
+    .bind(user.id)
+    .fetch_one(&state.db)
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
     Ok((
         StatusCode::CREATED,
         Json(json!({
@@ -76,6 +84,7 @@ pub async fn register(
             "email": user.email,
             "display_name": user.display_name,
             "role": user.role,
+            "created_at": created_at.to_rfc3339(),
         })),
     ))
 }
@@ -112,12 +121,21 @@ pub async fn login(
         .await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
+    let created_at: chrono::DateTime<chrono::Utc> = sqlx::query_scalar(
+        "SELECT created_at FROM users WHERE id = $1",
+    )
+    .bind(user.id)
+    .fetch_one(&state.db)
+    .await
+    .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
     Ok(Json(json!({
         "id": user.id,
         "handle": user.handle,
         "email": user.email,
         "display_name": user.display_name,
         "role": user.role,
+        "created_at": created_at.to_rfc3339(),
     })))
 }
 
@@ -143,25 +161,30 @@ pub async fn me(
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
         .ok_or_else(|| (StatusCode::UNAUTHORIZED, "Not authenticated".to_string()))?;
 
-    // 查询用户
-    let user: User = sqlx::query_as!(
-        User,
+    // 查询用户（含 created_at 供前端 Profile join date）
+    let row = sqlx::query(
         r#"
-        SELECT id, handle, email, password_hash, display_name, role::text as "role!"
+        SELECT id, handle, email, display_name, role::text AS role, created_at
         FROM users
         WHERE id = $1
         "#,
-        user_id
     )
+    .bind(user_id)
     .fetch_one(&state.db)
     .await
     .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
+    use sqlx::Row;
+    let created_at: chrono::DateTime<chrono::Utc> = row
+        .try_get("created_at")
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
     Ok(Json(json!({
-        "id": user.id,
-        "handle": user.handle,
-        "email": user.email,
-        "display_name": user.display_name,
-        "role": user.role,
+        "id": row.try_get::<i64, _>("id").map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?,
+        "handle": row.try_get::<String, _>("handle").map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?,
+        "email": row.try_get::<String, _>("email").map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?,
+        "display_name": row.try_get::<String, _>("display_name").map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?,
+        "role": row.try_get::<String, _>("role").map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?,
+        "created_at": created_at.to_rfc3339(),
     })))
 }
