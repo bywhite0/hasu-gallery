@@ -1,5 +1,12 @@
 # API Reference
 
+> **Current-runtime document.** This page documents the existing JSON API.
+> Architecture V2 replaces the business transport with plain HTTP + Protobuf
+> under `/api/v2` and adds first-class Fiction work, revision, series, and
+> reading contracts, but that contract is not implemented yet. See
+> [Architecture V2](../.ccg/spec/architecture-v2.md) for the approved route
+> families, schema rules, limits, and migration order.
+
 Hasu Gallery API uses cookie-backed sessions. Browser clients should send
 credentials with every request. JSON endpoints return non-2xx responses with a
 plain error string or JSON error payload depending on the handler.

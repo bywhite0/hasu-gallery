@@ -9,19 +9,24 @@ summary files, not here.
 - Phase 1-5 baseline is complete.
 - Frontend: React 19 + Rspack + TanStack Router/Query + zustand + Tailwind v4.
 - Backend: Rust Axum + PostgreSQL + MinIO/S3 + tower-sessions.
+- Current production model is still an independently served SPA plus JSON API.
+- Architecture V2 is approved but not implemented: one Rust executable embeds
+  the SPA, serves a same-origin Protobuf API, uses managed PostgreSQL, and keeps
+  private/public media in external S3-compatible storage. V2 adds Fiction as a
+  first-class content domain alongside Meme and Art.
 - CI is intentionally lightweight: frontend typecheck/build/component tests and
   backend Postgres + `cargo test`.
 - Playwright E2E is a local pre-release acceptance script, not part of CI.
-- Current product-design track: keep release acceptance green, support
-  production hookup, then evolve Profile into a submission workspace before
-  larger community interaction or popularity metrics.
+- Current engineering track: migrate toward Architecture V2 in bounded slices
+  while keeping the completed guest/account/moderation baseline green.
 
 ## Source Of Truth
 
 - Product and implementation roadmap: `.ccg/spec/roadmap.md`
+- Approved target architecture: `.ccg/spec/architecture-v2.md`
 - Data model: `.ccg/spec/phase0-content-core-model.md`
-- API contract: `docs/api.md`
-- Deployment: `docs/deployment.md`
+- Current API contract: `docs/api.md`
+- Current deployment: `docs/deployment.md`
 - Monitoring: `docs/monitoring.md`
 - Moderation policy: `docs/moderation-guidelines.md`
 - Local product/design guidance: `.codex-local/PRODUCT.md` and
@@ -29,14 +34,30 @@ summary files, not here.
 
 ## Architecture Rules
 
-- Frontend and backend are independently deployable. Do not couple frontend
-  build output to backend runtime.
-- Data flow: PostgreSQL -> Rust API -> React frontend.
-- Upload flow: authenticated user -> Rust validation -> S3/MinIO original and
-  thumbnail -> public media URL.
-- Keep API contracts stable. Frontend consumes JSON responses only.
-- Do not place user-uploaded works in frontend `public/`.
-- Large gallery filtering must stay server-side via `GET /api/works` params.
+- Treat `.ccg/spec/architecture-v2.md` as the target architecture source of
+  truth. Do not describe an unimplemented V2 capability as already shipped.
+- Preserve the current JSON API and independently served SPA until the
+  corresponding V2 migration slice passes regression and rollback checks.
+- V2 keeps the existing React/Rspack/TanStack/zustand/Tailwind architecture but
+  embeds its production build in one Rust executable; independent static
+  frontend deployment is not a requirement.
+- V2 business APIs use plain HTTP + Protobuf under `/api/v2`; large media bytes
+  never travel inside Protobuf messages.
+- V2 uses PostgreSQL as the system of record and external S3-compatible storage
+  such as AWS S3 or Cloudflare R2.
+- V2 replaces the dual-gallery-only classification with a shared content kind:
+  Meme, Art, or Fiction. Fiction uses versioned PostgreSQL text revisions,
+  series ordering, shared moderation, and safe constrained markup rather than
+  raw HTML.
+- Public media URLs use a distinct UUIDv4 media ID. Originals, pending objects,
+  and review variants remain private; only approved sanitized variants are
+  public.
+- Production frontend and API are same-origin, production CORS is disabled, and
+  protected operations pass through a centralized deny-by-default policy layer.
+- Do not place user-uploaded works in frontend `public/` or expose raw upload
+  bytes from the public media origin.
+- Large gallery filtering must stay server-side: current
+  `GET /api/works`, target `GET /api/v2/public/works`.
 - Upload requires login. `gallery=meme` requires `origin`; `gallery=art`
   requires artist, rating, and source URL.
 
@@ -50,6 +71,8 @@ summary files, not here.
 - UI tokens/primitives: `packages/ui/src/styles/tokens.css`,
   `packages/ui/src/primitives/`
 - Shared types: `packages/types/src/models.ts`, `packages/types/src/api.ts`
+- Target architecture: `.ccg/spec/architecture-v2.md`
+- Target Protobuf schemas: `proto/hasu/gallery/v2/` (to be added)
 - Backend entry: `backend/src/main.rs`
 - Backend routes: `backend/src/routes/`
 - Backend middleware: `backend/src/middleware.rs`
@@ -121,16 +144,24 @@ resolves another pnpm version.
 
 ## Next Product Direction
 
-The next design/implementation track should start with the account submission
-workspace:
+The next architecture/product track is the bounded Architecture V2 migration.
+It must preserve the completed Meme/Art baseline while adding the Fiction
+foundation:
 
-- Group owned works by Waiting for review, Published, Needs changes, and Not
-  accepted.
-- Show submission date, review state, reviewer note, and next action.
-- Keep private reviewer notes separate from future public comments.
-- Add Account Settings only after the submission workflow stays clear.
-- Add favorites/likes/reporting before comments; do not add direct messages in
-  the near term.
+- Fiction is a first-class content kind, not an Art attachment.
+- Support single works and ordered series.
+- Keep drafts and pending revisions private.
+- Publishing a replacement revision must atomically switch the public pointer
+  without overwriting the currently published version before approval.
+- Store bounded safe markup and plain-text search projections in PostgreSQL;
+  never accept or render author-provided raw HTML.
+- Reuse UUIDv4 private/public media handling for covers and inline
+  illustrations.
+- Keep reviewer notes private and separate from future public comments.
+
+After the V2 foundation is stable, continue the existing product sequencing:
+account settings, then favorites/likes/reporting, then carefully moderated
+comments. Direct messages remain out of the near-term plan.
 
 ## Git
 

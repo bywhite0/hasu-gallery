@@ -1,5 +1,14 @@
 # Phase 0: hasu-gallery Content Core Model
 
+> **Historical/current-model baseline.** The content classification,
+> moderation state machine, and PostgreSQL core remain relevant. Architecture
+> V2 supersedes this document's dual-gallery classification, API transport,
+> application packaging, and media URL/storage decisions. The target adds
+> Fiction as a first-class content kind with versioned PostgreSQL text/series
+> models, Protobuf `/api/v2`, a single embedded-SPA Rust artifact, UUIDv4 media
+> IDs, private originals/review assets, and public sanitized variants. See
+> [Architecture V2](architecture-v2.md).
+
 **Status**: Draft  
 **Created**: 2026-06-09  
 **Last Updated**: 2026-06-09  

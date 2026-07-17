@@ -1,6 +1,14 @@
 # Deployment Guide
 
-Hasu Gallery is deployed as a static frontend plus an independent Rust API.
+> **Current-runtime document.** This guide describes the deployed Phase 1-5
+> baseline. The approved but not-yet-implemented target is the single-binary,
+> same-origin Protobuf topology in
+> [Architecture V2](../.ccg/spec/architecture-v2.md). Update this guide only
+> when the corresponding migration slice has shipped and passed rollback
+> checks.
+
+Hasu Gallery is currently deployed as a static frontend plus an independent
+Rust API.
 The API owns Postgres, sessions, S3-compatible object storage, thumbnail
 generation, upload validation, moderation, and public media URL construction.
 
@@ -109,7 +117,8 @@ Recommended CDN/proxy behavior:
 Known limitation: pending objects currently use the same public media base URL
 as approved works. UUID keys reduce casual guessing, but true private staging
 (private bucket or auth media proxy) remains a follow-up before high-sensitivity
-deployments.
+deployments. Architecture V2 replaces this with UUIDv4 media IDs, a private
+staging/review namespace, and public sanitized variants only.
 
 ## Production Checklist
 

@@ -1,18 +1,27 @@
 # hasu-gallery Evolution Roadmap
 
 **Project**: hasu-gallery (新仓独立项目)  
-**Vision**: Dual-gallery UGC platform (Meme Gallery + Art Gallery) with upload & moderation  
-**Created**: 2026-06-09  
-**Last Synced**: 2026-07-07
-**Status**: ✅ Phase 1-5 已完成；production hardening baseline 已通过本地验证
+**Vision**: Multi-content UGC platform for Meme, Art, and Fiction with publishing, moderation, and reading
+**Created**: 2026-06-09
+**Last Synced**: 2026-07-18
+
+**Status**: ✅ Phase 1-5 已完成；Architecture V2 已批准，迁移尚未开始
 
 > **架构更新 (2026-06-14)**: 基于 linkura-apps 分析，采用 Rspack + TanStack Router/Query + zustand + Tailwind v4 技术栈
+>
+> **Architecture V2 决策 (2026-07-18)**: 保持现有前端技术栈，生产形态迁移为
+> 单个 Rust 可执行文件内嵌 SPA、同源 HTTP + Protobuf API、托管 PostgreSQL、
+> 外部 S3/R2、UUIDv4 媒体 URL、私有审核媒体与 CDN 公开净化变体；同时新增
+> Fiction 一等内容域，以 PostgreSQL 保存安全文本、草稿/审核修订与系列关系。
+> 权威设计与最新架构图见 `.ccg/spec/architecture-v2.md`。
 
 ---
 
-## 状态快照（2026-07-06 对照）
+## 状态快照（Phase baseline 2026-07-06；Architecture V2 2026-07-18）
 
-> 本节由 `master` 分支 + `backend/src/` + `apps/web/src/` + 真实浏览器回归客观核对得出。
+> Phase 1-5 状态由 `master` 分支 + `backend/src/` + `apps/web/src/` +
+> 2026-07-06 真实浏览器回归客观核对；Architecture V2 行仅表示 2026-07-18
+> 已批准设计已落盘，不表示运行时实现。
 
 | Phase | 路线图声明 | 实际代码状态 | 差距 |
 |---|---|---|---|
@@ -30,6 +39,7 @@
 | **3.2 审核仪表板** | ✅ COMPLETE | ✅ ModerationPage + ModerationActions + ModerationLog（524 行）| — |
 | **4: Art Gallery** | ✅ BASELINE COMPLETE | ✅ Baseline launch 已验证：Meme/Art 导航、Art upload metadata、rating 筛选、`work_art_meta` 写入、MinIO 上传成功路径与审核发布均通过真实浏览器验收 | 自动化 E2E 与 production hardening 已转入 Phase 5 |
 | **5: Polish & Hardening** | ✅ COMPLETE | ✅ Art polish、轻量 CI、后端测试、安全加固、性能索引/媒体优化、部署/审核/监控文档与监控摘要 API 均已落地；Playwright E2E 作为本地脚本保留 | 后续仅剩外部 APM/Sentry、发布自动化与前端组件测试等增强项 |
+| **Architecture V2 migration track** | APPROVED / NOT STARTED | ✅ 单二进制、Protobuf、UUIDv4 媒体、Fiction 文本/修订/系列、安全边界、资源预算与迁移 slices 已落盘 | 现有运行时仍是独立 SPA + JSON API + Meme/Art 双画廊 |
 
 **Phase 2 总计**: +2,562 行前端代码，11 个 API 端点，完整的画廊浏览和上传功能。
 
@@ -79,17 +89,31 @@
 
 **2026-07-07 监控 Runbook 切片**: 新增 `docs/monitoring.md`，覆盖 request duration 日志/响应头、错误追踪日志接入、`GET /api/monitoring/summary` 运维探针、Postgres `pg_stat_statements` 查询 profiling 与发布后检查。
 
+**2026-07-18 Architecture V2 设计切片**: 新增
+`.ccg/spec/architecture-v2.md`，锁定单二进制模块化单体、普通 HTTP +
+Protobuf `/api/v2`、托管 PostgreSQL、外部 S3/R2、UUIDv4 公共媒体 URL、
+私有原图/审核链路、Fiction 安全文本/草稿/修订/系列模型、集中权限策略、
+1C512M 资源预算与 A-G 迁移 slices。此切片只更新设计和入口文档，不代表 V2
+运行时代码或 Fiction 服务已经实现。
+
 **方向已确定**：方案 C（双轨拆仓）。hasu-memes 保持只读画廊终态，hasu-gallery 为新建 UGC 平台。
 
 ---
 
 ## Overview
 
-Build the independent UGC platform for:
+The implemented baseline provides:
 1. **Meme Gallery** (表情包画廊): Official + activity screenshots + fan-made memes
 2. **Art Gallery** (美术部): Fan-created artwork (excluding memes)
 
-Both galleries share the same authentication, upload, moderation, and storage spine.
+Architecture V2 adds:
+
+3. **Fiction** (同人文): Pixiv-novel-like single works and ordered series with
+   author drafts, moderated revisions, public reading, and optional
+   cover/illustration media.
+
+All content domains share authentication, attribution, moderation, reporting,
+audit, and discovery boundaries while keeping domain-specific storage models.
 
 > **方向已收敛**：早期“静态化 vs UGC 平台”的分歧已由 2026-06-14 方案 C 解决。`hasu-memes` 保持只读画廊终态，`hasu-gallery` 独立承接 UGC、上传、审核与生产化加固。
 
@@ -428,14 +452,25 @@ backend/src/
 
 ## Next Actions
 
-> **Current Status (2026-07-07)**: Phase 1-5 baseline 已完成。CI 保持轻量，覆盖前端 typecheck/build/component tests 与后端 Postgres + `cargo test`；Playwright E2E 作为本地脚本用于发布前验收。
+> **Current Status (2026-07-18)**: Phase 1-5 baseline 已完成且必须保持回归
+> 绿色。Architecture V2 已批准但尚未实现；迁移顺序以
+> `.ccg/spec/architecture-v2.md` 的 bounded slices 为准。
 
 **Immediate Next Steps**:
-1. 发布前本地验收：运行 `pnpm test`、`pnpm typecheck`、`pnpm build`、`cargo test --manifest-path backend/Cargo.toml` 与 `pnpm e2e`。
-2. 生产环境接入：按 `docs/deployment.md` 与 `docs/monitoring.md` 配置 Postgres、S3/MinIO、CDN、日志采集与监控摘要探针。
-3. 增强项规划：外部 APM/Sentry SDK、发布自动化、前端组件测试覆盖扩展、专用 progressive JPEG/CDN 转码。
+1. 维持当前发布前验收：`pnpm test`、`pnpm typecheck`、`pnpm build`、
+   `cargo test --manifest-path backend/Cargo.toml` 与 `pnpm e2e`。
+2. 实施 V2 Slice A：建立 `proto/hasu/gallery/v2/`、content kind/Fiction
+   契约、确定性代码生成、`/api/v2` 错误/健康基线，并让同一个 Rust
+   可执行文件内嵌和服务现有 SPA。
+3. 按 B-G 顺序推进现有画廊 Protobuf 读路径、Fiction 基础、私有媒体模型、
+   预签名直传/有界处理、集中安全边界和生产切换；每个 slice 独立测试并保留
+   回滚边界。
+4. 在 V2 切换前，`docs/api.md` 与 `docs/deployment.md` 继续描述当前实际
+   JSON API 和独立部署拓扑。
 
 **Long-term Priorities**:
+- Architecture V2: 完成 1C512M、权限矩阵、恶意媒体、CDN、备份恢复验收
+- Fiction: 完成安全正文、草稿/修订、系列、阅读与文本审核基线
 - Phase 5 follow-up: 外部监控平台、发布流水线与前端组件测试覆盖扩展
 - Future product work: 批量审核、通知、搜索体验与运营后台增强
 
@@ -448,6 +483,12 @@ backend/src/
 3. ~~缺少后端集成测试~~ ✅ Phase 5 已补 facets API HTTP 集成路径
 4. 缺少发布/部署流水线（轻量 CI 已覆盖 typecheck/build/frontend tests/cargo test；E2E 作为本地脚本）
 5. ~~缺少生产环境监控~~ ✅ Phase 5 已补日志/响应头/监控摘要 API 与监控 runbook；外部 APM/Sentry 接入为后续增强
+6. Architecture V2 尚未实现：当前仍为独立 SPA + JSON API，生产单二进制与
+   Protobuf 契约待按 slices 迁移
+7. 当前 pending 对象仍与 approved 对象共享公共 media base；V2 私有暂存、
+   审核签名 URL 和公开净化变体尚未落地
+8. Fiction 内容域尚未实现：共享 content kind/rating、正文修订、系列、阅读
+   API、文本安全与搜索投影仅存在于 Architecture V2 设计
 
 ---
 

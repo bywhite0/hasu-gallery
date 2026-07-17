@@ -1,5 +1,10 @@
 # User Guide
 
+> **Current-runtime document.** This guide covers the implemented Meme and Art
+> galleries. Architecture V2 adds Fiction publishing, series, and reading, but
+> those routes are not available yet. See
+> [Architecture V2](../.ccg/spec/architecture-v2.md).
+
 Hasu Gallery has two public galleries:
 - Meme Gallery for official, derived, and fan-made meme content.
 - Art Gallery for fan artwork.

@@ -1,5 +1,11 @@
 # Edge Server Database Setup (Secure)
 
+> **Current/lab topology only.** Architecture V2 recommends managed PostgreSQL
+> for production so the 1 vCPU / 512 MB application origin runs only galleryd.
+> Keep this guide for private development or an explicitly approved local-DB
+> deployment; it is not the V2 production default. See
+> [Architecture V2](../.ccg/spec/architecture-v2.md).
+
 > **Security notice (2026-07):** The previous copy-paste guide that opened
 > PostgreSQL to `0.0.0.0/0` with a fixed password and `md5` is **withdrawn**.
 > Do not use it. If any host was configured that way, rotate the database

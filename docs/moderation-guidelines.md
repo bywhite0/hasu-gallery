@@ -1,5 +1,10 @@
 # Moderation Guidelines
 
+> **Current-runtime document.** These rules cover the implemented Meme/Art
+> workflow. Architecture V2 adds Fiction revision and series moderation, but
+> that service is not implemented yet. See
+> [Architecture V2](../.ccg/spec/architecture-v2.md).
+
 Moderation keeps public galleries safe, searchable, and rights-aware. Every
 submission starts as `pending` and must be reviewed before it appears in public
 approved listings.
