@@ -29,18 +29,18 @@ export function ProfilePage() {
   const [page, setPage] = useState(1);
 
   const { data: userInfo } = useQuery({
-    queryKey: ['auth', 'me'],
+    queryKey: ['auth', 'me', user?.id],
     queryFn: () => Promise.resolve(user),
     enabled: !!user,
   });
 
   const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ['user', 'stats'],
+    queryKey: ['user', user?.id, 'stats'],
     queryFn: getMyStats,
   });
 
   const { data: worksData, isLoading: worksLoading } = useQuery({
-    queryKey: ['user', 'works', statusFilter, page],
+    queryKey: ['user', user?.id, 'works', statusFilter, page],
     queryFn: () => getMyWorks({ status: statusFilter === 'all' ? undefined : statusFilter, page }),
   });
 

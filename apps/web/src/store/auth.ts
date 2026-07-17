@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { User } from '@hasu-gallery/types';
 import { login as apiLogin, register as apiRegister, logout as apiLogout, me as apiMe } from '../api/auth';
+import { queryClient } from '../lib/queryClient';
 
 interface AuthState {
   user: User | null;
@@ -28,6 +29,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const user = await apiLogin({ handle, password });
       set({ user, isLoading: false, hasCheckedAuth: true });
+      queryClient.clear();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Login failed';
       set({ error: errorMessage, isLoading: false, hasCheckedAuth: true });
@@ -41,6 +43,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const user = await apiRegister({ handle, email, password, display_name: displayName });
       set({ user, isLoading: false, hasCheckedAuth: true });
+      queryClient.clear();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Registration failed';
       set({ error: errorMessage, isLoading: false, hasCheckedAuth: true });
@@ -54,6 +57,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       await apiLogout();
       set({ user: null, isLoading: false, hasCheckedAuth: true });
+      queryClient.clear();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Logout failed';
       set({ error: errorMessage, isLoading: false, hasCheckedAuth: true });
