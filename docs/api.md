@@ -1,11 +1,18 @@
 # API Reference
 
-> **Current-runtime document.** This page documents the existing JSON API.
-> Architecture V2 replaces the business transport with plain HTTP + Protobuf
-> under `/api/v2` and adds first-class Fiction work, revision, series, and
-> reading contracts, but that contract is not implemented yet. See
-> [Architecture V2](../.ccg/spec/architecture-v2.md) for the approved route
-> families, schema rules, limits, and migration order.
+> **Current-runtime document.** This page documents the existing JSON API used by
+> the product UI. Architecture V2 also exposes a growing plain HTTP + Protobuf
+> surface under `/api/v2`. Slice A/B currently ship:
+>
+> - `GET /api/v2/public/health`
+> - `GET /api/v2/public/works`
+> - `GET /api/v2/public/works/{id}`
+> - `GET /api/v2/public/works/facets`
+>
+> with media type `application/vnd.hasu-gallery.v2+protobuf`. Public V2 routes do
+> not inspect cookies and only return approved all-ages content. Fiction and the
+> remaining command families are not implemented yet. See
+> [Architecture V2](../.ccg/spec/architecture-v2.md).
 
 Hasu Gallery API uses cookie-backed sessions. Browser clients should send
 credentials with every request. JSON endpoints return non-2xx responses with a

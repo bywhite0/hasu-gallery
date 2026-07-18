@@ -567,7 +567,7 @@ async fn fetch_art_facet(
         .collect())
 }
 
-fn work_order_by(sort: Option<&str>) -> Result<&'static str, (StatusCode, String)> {
+pub fn work_order_by(sort: Option<&str>) -> Result<&'static str, (StatusCode, String)> {
     match sort.unwrap_or("created_at_desc") {
         "created_at_desc" => Ok("w.created_at DESC"),
         "created_at_asc" => Ok("w.created_at ASC"),

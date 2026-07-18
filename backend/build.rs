@@ -5,6 +5,7 @@ fn main() {
     let proto_files = [
         proto_root.join("hasu/gallery/v2/common.proto"),
         proto_root.join("hasu/gallery/v2/fiction.proto"),
+        proto_root.join("hasu/gallery/v2/works.proto"),
     ];
 
     for proto_file in &proto_files {

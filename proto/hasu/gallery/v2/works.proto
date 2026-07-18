@@ -1,0 +1,85 @@
+syntax = "proto3";
+
+package hasu.gallery.v2;
+
+import "hasu/gallery/v2/common.proto";
+
+// Public gallery filter values mirror the current product surface (meme|art).
+// ContentKind is the longer-term shared taxonomy; GalleryKind remains for V1 parity.
+enum GalleryKind {
+  GALLERY_KIND_UNSPECIFIED = 0;
+  GALLERY_KIND_MEME = 1;
+  GALLERY_KIND_ART = 2;
+}
+
+enum WorkStatus {
+  WORK_STATUS_UNSPECIFIED = 0;
+  WORK_STATUS_PENDING = 1;
+  WORK_STATUS_APPROVED = 2;
+  WORK_STATUS_REJECTED = 3;
+  WORK_STATUS_TAKEDOWN = 4;
+}
+
+enum MemeOrigin {
+  MEME_ORIGIN_UNSPECIFIED = 0;
+  MEME_ORIGIN_OFFICIAL = 1;
+  MEME_ORIGIN_DERIVED = 2;
+  MEME_ORIGIN_FAN_MADE = 3;
+}
+
+message PublicUserSummary {
+  string handle = 1;
+  string display_name = 2;
+  string joined_at = 3;
+  int64 approved_public_work_count = 4;
+}
+
+message PublicArtMeta {
+  string artist = 1;
+  string medium = 2;
+  ContentRating content_rating = 3;
+}
+
+// Audience-specific public work projection (no private review fields).
+message PublicWork {
+  string id = 1;
+  GalleryKind gallery = 2;
+  MemeOrigin origin = 3;
+  string title = 4;
+  WorkStatus status = 5;
+  string thumbnail_url = 6;
+  string file_url = 7;
+  int32 width = 8;
+  int32 height = 9;
+  string created_at = 10;
+  string uploader_name = 11;
+  PublicUserSummary uploader = 12;
+  string source = 13;
+  string source_url = 14;
+  string rights_note = 15;
+  PublicArtMeta art_meta = 16;
+}
+
+message Pagination {
+  uint32 page = 1;
+  uint32 limit = 2;
+  int64 total = 3;
+  uint32 total_pages = 4;
+}
+
+message PublicWorksResponse {
+  repeated PublicWork works = 1;
+  Pagination pagination = 2;
+}
+
+message FacetItem {
+  string value = 1;
+  string label = 2;
+  int64 count = 3;
+}
+
+message PublicArtFacetsResponse {
+  repeated FacetItem artists = 1;
+  repeated FacetItem media = 2;
+  repeated FacetItem ratings = 3;
+}

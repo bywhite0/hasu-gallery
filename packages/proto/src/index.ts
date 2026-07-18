@@ -92,3 +92,80 @@ export interface FictionSeries {
   contentRating: ContentRating;
   authorHandle: string;
 }
+
+export enum GalleryKind {
+  UNSPECIFIED = 0,
+  MEME = 1,
+  ART = 2,
+}
+
+export enum WorkStatus {
+  UNSPECIFIED = 0,
+  PENDING = 1,
+  APPROVED = 2,
+  REJECTED = 3,
+  TAKEDOWN = 4,
+}
+
+export enum MemeOrigin {
+  UNSPECIFIED = 0,
+  OFFICIAL = 1,
+  DERIVED = 2,
+  FAN_MADE = 3,
+}
+
+export interface PublicUserSummary {
+  handle: string;
+  displayName: string;
+  joinedAt: string;
+  approvedPublicWorkCount: number;
+}
+
+export interface PublicArtMeta {
+  artist: string;
+  medium: string;
+  contentRating: ContentRating;
+}
+
+export interface PublicWork {
+  id: string;
+  gallery: GalleryKind;
+  origin: MemeOrigin;
+  title: string;
+  status: WorkStatus;
+  thumbnailUrl: string;
+  fileUrl: string;
+  width: number;
+  height: number;
+  createdAt: string;
+  uploaderName: string;
+  uploader?: PublicUserSummary;
+  source: string;
+  sourceUrl: string;
+  rightsNote: string;
+  artMeta?: PublicArtMeta;
+}
+
+export interface Pagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface PublicWorksResponse {
+  works: PublicWork[];
+  pagination?: Pagination;
+}
+
+export interface FacetItem {
+  value: string;
+  label: string;
+  count: number;
+}
+
+export interface PublicArtFacetsResponse {
+  artists: FacetItem[];
+  media: FacetItem[];
+  ratings: FacetItem[];
+}
