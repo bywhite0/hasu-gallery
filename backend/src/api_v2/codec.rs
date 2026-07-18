@@ -50,8 +50,7 @@ pub fn error_response(
     protobuf_response(status, &body)
 }
 
-/// Build a 415 Protobuf error. Reserved for future command routes that require a body.
-#[allow(dead_code)]
+/// Build a 415 Protobuf error for command routes that require a body.
 pub fn unsupported_media_type(request_id: &str) -> Response {
     error_response(
         StatusCode::UNSUPPORTED_MEDIA_TYPE,
@@ -97,7 +96,6 @@ pub fn accepts_protobuf(headers: &HeaderMap) -> bool {
 }
 
 /// True when Content-Type is exactly the V2 protobuf media type (parameters ignored).
-#[allow(dead_code)] // used by future command routes that decode request bodies
 pub fn content_type_is_protobuf(headers: &HeaderMap) -> bool {
     headers
         .get(header::CONTENT_TYPE)

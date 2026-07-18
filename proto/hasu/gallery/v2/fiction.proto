@@ -12,6 +12,10 @@ message PublicFictionSummary {
   ContentRating content_rating = 5;
   string cover_media_id = 6;
   string author_handle = 7;
+  string fandom = 8;
+  string language = 9;
+  int32 word_count = 10;
+  string published_revision_id = 11;
 }
 
 message PublicFictionDetail {
@@ -24,6 +28,11 @@ message PublicFictionDetail {
   string cover_media_id = 7;
   string author_handle = 8;
   string published_at = 9;
+  string fandom = 10;
+  string language = 11;
+  int32 word_count = 12;
+  string published_revision_id = 13;
+  string content_sha256 = 14;
 }
 
 message OwnerFictionDraft {
@@ -33,6 +42,12 @@ message OwnerFictionDraft {
   string body = 4;
   ContentRating content_rating = 5;
   string updated_at = 6;
+  string state = 7;
+  int32 revision_number = 8;
+  int64 work_version = 9;
+  string synopsis = 10;
+  string fandom = 11;
+  string language = 12;
 }
 
 message FictionRevision {
@@ -44,6 +59,8 @@ message FictionRevision {
   ContentRating content_rating = 6;
   string status = 7;
   string created_at = 8;
+  string plain_text_excerpt = 9;
+  int32 word_count = 10;
 }
 
 message FictionSeries {
@@ -52,4 +69,71 @@ message FictionSeries {
   string description = 3;
   ContentRating content_rating = 4;
   string author_handle = 5;
+}
+
+message PublicFictionListResponse {
+  repeated PublicFictionSummary items = 1;
+  uint32 page = 2;
+  uint32 limit = 3;
+  int64 total = 4;
+  uint32 total_pages = 5;
+}
+
+message CreateFictionRequest {
+  string title = 1;
+  string synopsis = 2;
+  string fandom = 3;
+  string language = 4;
+  ContentRating content_rating = 5;
+  string body = 6;
+}
+
+message CreateFictionResponse {
+  string work_id = 1;
+  string revision_id = 2;
+  int32 revision_number = 3;
+  int32 word_count = 4;
+}
+
+message SaveFictionDraftRequest {
+  string title = 1;
+  string body = 2;
+  ContentRating content_rating = 3;
+  string synopsis = 4;
+  string fandom = 5;
+}
+
+message SaveFictionDraftResponse {
+  string work_id = 1;
+  string revision_id = 2;
+  int32 revision_number = 3;
+  int32 word_count = 4;
+}
+
+message SubmitFictionRequest {
+  int64 expected_work_version = 1;
+}
+
+message SubmitFictionResponse {
+  string revision_id = 1;
+  string state = 2;
+}
+
+message FictionDecisionRequest {
+  bool approve = 1;
+  string note = 2;
+}
+
+message FictionDecisionResponse {
+  string work_id = 1;
+  string revision_id = 2;
+  string state = 3;
+}
+
+message OwnerFictionListResponse {
+  repeated OwnerFictionDraft items = 1;
+}
+
+message ModerationFictionQueueResponse {
+  repeated FictionRevision items = 1;
 }

@@ -17,11 +17,10 @@
 ## 架构方向
 
 当前实现仍以独立 Rspack SPA + Rust JSON API 为权威运行时。Architecture V2
-Slice A foundation 已落地：`galleryd` 可嵌入 SPA、提供
-`GET /api/v2/public/health` Protobuf smoke，并保留全部现有 JSON 路由。Slice B
-补充了 `GET /api/v2/public/works*` 公共 Protobuf 读路径（approved/all-ages，
-不读 cookie）。后续 slice 才会迁移前端消费、媒体 UUID 与 Fiction 运行时。完整
-架构图见 [Architecture V2](.ccg/spec/architecture-v2.md)。
+Slice A–C foundations 已落地：`galleryd` 嵌入 SPA、公共 Protobuf works 读路径、
+Fiction 表结构/安全 markup/草稿提交与审核发布 API。前端 Meme/Art 仍以 JSON 为
+权威；后续 slice 再做媒体 UUID、直传与 JSON 下线。完整架构图见
+[Architecture V2](.ccg/spec/architecture-v2.md)。
 
 ## 快速开始
 

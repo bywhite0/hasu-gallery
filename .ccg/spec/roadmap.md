@@ -5,7 +5,7 @@
 **Created**: 2026-06-09
 **Last Synced**: 2026-07-18
 
-**Status**: ✅ Phase 1-5 已完成；Architecture V2 已批准；Slice A+B foundation 已落地
+**Status**: ✅ Phase 1-5 已完成；Architecture V2 已批准；Slice A–C foundation 已落地
 
 > **架构更新 (2026-06-14)**: 基于 linkura-apps 分析，采用 Rspack + TanStack Router/Query + zustand + Tailwind v4 技术栈
 >
@@ -39,7 +39,7 @@
 | **3.2 审核仪表板** | ✅ COMPLETE | ✅ ModerationPage + ModerationActions + ModerationLog（524 行）| — |
 | **4: Art Gallery** | ✅ BASELINE COMPLETE | ✅ Baseline launch 已验证：Meme/Art 导航、Art upload metadata、rating 筛选、`work_art_meta` 写入、MinIO 上传成功路径与审核发布均通过真实浏览器验收 | 自动化 E2E 与 production hardening 已转入 Phase 5 |
 | **5: Polish & Hardening** | ✅ COMPLETE | ✅ Art polish、轻量 CI、后端测试、安全加固、性能索引/媒体优化、部署/审核/监控文档与监控摘要 API 均已落地；Playwright E2E 作为本地脚本保留 | 后续仅剩外部 APM/Sentry、发布自动化与前端组件测试等增强项 |
-| **Architecture V2 migration track** | APPROVED / Slice A+B | ✅ Slice A packaging + Slice B public Protobuf works list/detail/facets；JSON `/api/*` 仍为前端权威 | Slice C+ Fiction/media/security/cutover 未开始 |
+| **Architecture V2 migration track** | APPROVED / Slice A–C | ✅ packaging + public works Protobuf + Fiction schema/markup/routes foundation | Slice D+ media UUID/direct upload/security/cutover；前端仍以 JSON 为主 |
 
 **Phase 2 总计**: +2,562 行前端代码，11 个 API 端点，完整的画廊浏览和上传功能。
 
@@ -105,6 +105,11 @@ JSON 路由与 Meme/Art 行为保持不变；Fiction DB/业务与媒体 UUID 不
 **2026-07-18 Architecture V2 Slice B public read path**: 新增
 `proto/.../works.proto` 与 `GET /api/v2/public/works`、`/works/:id`、`/works/facets`。
 公共端点固定 approved + Art all_ages，不读 cookie；JSON API 与前端仍保持现有路径。
+
+**2026-07-18 Architecture V2 Slice C Fiction foundation**: 新增
+`003_fiction_foundation.sql`、HFM safe-markup、draft/submit/atomic publish 领域服务，
+以及 public/account/moderation Fiction Protobuf 路由。公开仅可读已发布 revision；
+草稿/审核副本 no-store。Meme/Art JSON 行为保持不变。
 
 **方向已确定**：方案 C（双轨拆仓）。hasu-memes 保持只读画廊终态，hasu-gallery 为新建 UGC 平台。
 
@@ -271,7 +276,7 @@ backend/src/
 ### Phase 2: Frontend Gallery Interface ✅ COMPLETE
 
 **Goal**: Build complete user-facing gallery and upload experience  
-**Status**: ✅ 已完成（2026-06-17），+2,562 行代码
+**Status**: ✅ Phase 1-5 已完成；Architecture V2 已批准；Slice A–C foundation 已落地
 
 #### 2.1 Authentication UI ✅
 

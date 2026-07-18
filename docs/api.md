@@ -8,10 +8,15 @@
 > - `GET /api/v2/public/works`
 > - `GET /api/v2/public/works/{id}`
 > - `GET /api/v2/public/works/facets`
+> - `GET /api/v2/public/fictions`
+> - `GET /api/v2/public/fictions/{work_id}`
+> - account/moderation Fiction draft/submit/decision routes under `/api/v2/account/fictions*`
+>   and `/api/v2/moderation/fictions*`
 >
 > with media type `application/vnd.hasu-gallery.v2+protobuf`. Public V2 routes do
-> not inspect cookies and only return approved all-ages content. Fiction and the
-> remaining command families are not implemented yet. See
+> not inspect cookies and only return approved all-ages content. Fiction drafts
+> and review copies use `Cache-Control: no-store`. The SPA still uses the JSON
+> API for Meme/Art product flows. See
 > [Architecture V2](../.ccg/spec/architecture-v2.md).
 
 Hasu Gallery API uses cookie-backed sessions. Browser clients should send

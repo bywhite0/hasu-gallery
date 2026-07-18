@@ -16,6 +16,7 @@ mod api_v2;
 mod auth;
 mod cli;
 mod db;
+mod fiction;
 mod image_processor;
 mod middleware;
 mod models;

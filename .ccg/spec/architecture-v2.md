@@ -1,6 +1,6 @@
 # Hasu Gallery Architecture V2
 
-- **Status**: Approved target architecture; Slice A packaging + Slice B public Protobuf read path landed in-repo
+- **Status**: Approved target architecture; Slice A–C foundations landed in-repo (packaging, public works Protobuf, Fiction domain)
   (proto, galleryd packaging, `/api/v2` health/error smoke). Runtime product
   behavior remains the pre-V2 JSON API + independent SPA until later slices ship.
 - **Decision date**: 2026-07-18

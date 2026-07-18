@@ -1,4 +1,5 @@
 pub mod codec;
+pub mod fiction;
 pub mod health;
 pub mod public_works;
 pub mod spa;
@@ -11,4 +12,5 @@ pub fn router() -> Router<AppState> {
     Router::new()
         .route("/api/v2/public/health", get(health::public_health))
         .merge(public_works::public_works_routes())
+        .merge(fiction::fiction_routes())
 }

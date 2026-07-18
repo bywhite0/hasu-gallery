@@ -10,15 +10,15 @@ summary files, not here.
 - Frontend: React 19 + Rspack + TanStack Router/Query + zustand + Tailwind v4.
 - Backend: Rust Axum + PostgreSQL + MinIO/S3 + tower-sessions.
 - Current production model is still an independently served SPA plus JSON API.
-- Architecture V2 Slice A+B foundations are in tree: `proto/hasu/gallery/v2`,
-  `galleryd` with embedded SPA fallback, `GET /api/v2/public/health`, and public
-  Protobuf works list/detail/facets under `/api/v2/public/works*`. Existing JSON
-  `/api/*` remains the frontend-facing contract. Fiction runtime, media UUID
-  pipeline, and JSON cutover are not shipped.
+- Architecture V2 Slice A–C foundations are in tree: `proto/hasu/gallery/v2`,
+  `galleryd` with embedded SPA fallback, public Protobuf works routes, and
+  Fiction schema + safe-markup + draft/submit/publish Protobuf routes. Existing
+  JSON `/api/*` remains the SPA-facing contract. Media UUID pipeline and JSON
+  cutover are not shipped.
 - CI is intentionally lightweight: frontend typecheck/build/component tests and
   backend Postgres + `cargo test`.
 - Playwright E2E is a local pre-release acceptance script, not part of CI.
-- Current engineering track: continue Architecture V2 slices C+ while keeping
+- Current engineering track: continue Architecture V2 slices D+ while keeping
   the completed guest/account/moderation baseline green.
 
 ## Source Of Truth
