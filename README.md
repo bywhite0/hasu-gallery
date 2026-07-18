@@ -16,12 +16,10 @@
 
 ## 架构方向
 
-当前实现仍是独立 Rspack SPA + Rust JSON API。已批准的 Architecture V2
-将保持现有 React 前端架构，但把生产 SPA 内嵌进单个 Rust 可执行文件，
-业务 API 迁移到 Protobuf，并使用托管 PostgreSQL、AWS S3/Cloudflare R2
-一类外部对象存储以及 UUIDv4 公共媒体 URL。V2 同时新增 Fiction 内容域，
-以 PostgreSQL 保存版本化正文、草稿、审核修订和系列关系，封面/插图复用
-私有媒体链路。迁移状态与完整架构图见
+当前实现仍以独立 Rspack SPA + Rust JSON API 为权威运行时。Architecture V2
+Slice A foundation 已落地：`galleryd` 可嵌入 SPA、提供
+`GET /api/v2/public/health` Protobuf smoke，并保留全部现有 JSON 路由。后续
+slice 才会迁移业务 API、媒体 UUID 与 Fiction 运行时。完整架构图见
 [Architecture V2](.ccg/spec/architecture-v2.md)。
 
 ## 快速开始
@@ -36,8 +34,11 @@ pnpm dev                  # http://localhost:5173
 # 启动 Storybook
 pnpm storybook            # http://localhost:6006
 
-# 启动后端 API
+# 启动后端 API（galleryd serve）
 pnpm dev:api              # http://localhost:8787
+
+# 将前端生产构建同步进 galleryd 嵌入目录后发布构建
+pnpm run build:galleryd
 ```
 
 ## Monorepo 结构
@@ -48,8 +49,10 @@ hasu-gallery/
 │   └── web/              # @hasu-gallery/web - React 前端应用
 ├── packages/
 │   ├── ui/               # @hasu-gallery/ui - 组件库 + Storybook
-│   └── types/            # @hasu-gallery/types - 共享类型定义
-└── backend/              # Rust API 服务
+│   ├── types/            # @hasu-gallery/types - 共享类型定义
+│   └── proto/            # @hasu-gallery/proto - V2 Protobuf TS 镜像
+├── proto/                # hasu.gallery.v2 schema source
+└── backend/              # galleryd / hasu-gallery-api (Rust)
 ```
 
 ## 文档

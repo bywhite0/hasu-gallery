@@ -1,24 +1,29 @@
 use axum::{
     Router,
-    routing::{get, post, patch},
-    response::IntoResponse,
-    http::StatusCode,
     extract::State,
+    http::StatusCode,
     middleware::{from_fn, from_fn_with_state},
+    response::IntoResponse,
+    routing::{get, patch, post},
 };
 use std::net::SocketAddr;
 use std::time::Duration;
 use tower_http::cors::CorsLayer;
-use tower_sessions::{SessionManagerLayer, Expiry};
+use tower_sessions::{Expiry, SessionManagerLayer};
 use tower_sessions_sqlx_store::PostgresStore;
 
-mod db;
+mod api_v2;
 mod auth;
-mod models;
-mod routes;
-mod storage;
+mod cli;
+mod db;
 mod image_processor;
 mod middleware;
+mod models;
+mod proto;
+mod routes;
+mod storage;
+
+use cli::{Cli, Commands};
 
 #[derive(Clone)]
 struct AppState {
@@ -36,9 +41,83 @@ async fn main() {
     // Initialize tracing
     tracing_subscriber::fmt::init();
 
-    // Get database URL
-    let database_url = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "postgres://hasu_user:hasu_pass@localhost:5432/hasu_gallery".to_string());
+    let cli = Cli::parse_args();
+    match cli.command.unwrap_or(Commands::Serve) {
+        Commands::Serve => serve().await,
+        Commands::Migrate => migrate().await,
+        Commands::Doctor => doctor(),
+        Commands::MediaWorker => {
+            eprintln!("galleryd media-worker is not implemented in Architecture V2 Slice A");
+            std::process::exit(2);
+        }
+    }
+}
+
+async fn migrate() {
+    let database_url = database_url();
+    tracing::info!("Connecting to database for migrate...");
+    let db = db::create_pool(&database_url)
+        .await
+        .expect("Failed to create database pool");
+    tracing::info!("Running migrations...");
+    db::run_migrations(&db)
+        .await
+        .expect("Failed to run migrations");
+    tracing::info!("Migrations completed");
+}
+
+fn doctor() {
+    let database_url = std::env::var("DATABASE_URL").ok();
+    let s3_endpoint = std::env::var("S3_ENDPOINT").ok();
+    let s3_bucket = std::env::var("S3_BUCKET").ok();
+    let public_media = std::env::var("PUBLIC_MEDIA_BASE_URL").ok();
+    let host = std::env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let port = std::env::var("PORT").unwrap_or_else(|_| "8787".to_string());
+
+    println!("galleryd doctor");
+    println!("  package_version: {}", env!("CARGO_PKG_VERSION"));
+    println!("  listen: {}:{}", host, port);
+    println!(
+        "  DATABASE_URL: {}",
+        redact_database_url(database_url.as_deref())
+    );
+    println!(
+        "  S3_ENDPOINT: {}",
+        s3_endpoint.as_deref().unwrap_or("(unset)")
+    );
+    println!(
+        "  S3_BUCKET: {}",
+        s3_bucket.as_deref().unwrap_or("(unset)")
+    );
+    println!(
+        "  PUBLIC_MEDIA_BASE_URL: {}",
+        public_media.as_deref().unwrap_or("(unset)")
+    );
+    println!("  embedded SPA: backend/embedded-web (sync via pnpm run sync:web-embed)");
+    println!("  api surfaces: /api/* JSON (current) + /api/v2/* Protobuf (Slice A smoke)");
+}
+
+fn redact_database_url(url: Option<&str>) -> String {
+    let Some(url) = url else {
+        return "(unset)".to_string();
+    };
+    // Never print credentials. Keep scheme + host/db tail when credentials are present.
+    if let Some((scheme, rest)) = url.split_once("://") {
+        if let Some((_userinfo, host_and_path)) = rest.split_once('@') {
+            return format!("{}://***:***@{}", scheme, host_and_path);
+        }
+        return format!("{}://{}", scheme, rest);
+    }
+    "(set, redacted)".to_string()
+}
+
+fn database_url() -> String {
+    std::env::var("DATABASE_URL")
+        .unwrap_or_else(|_| "postgres://hasu_user:hasu_pass@localhost:5432/hasu_gallery".to_string())
+}
+
+async fn serve() {
+    let database_url = database_url();
 
     // Create database connection pool
     tracing::info!("Connecting to database...");
@@ -119,25 +198,68 @@ async fn main() {
 
     tracing::info!("CORS allowed origins: {:?}", allowed_origins);
 
-    // Build router
-    // Moderation routes (require moderator/admin role) - use PgPool as state
+    let app = build_app(
+        state,
+        login_rate_limiter,
+        register_rate_limiter,
+        upload_rate_limiter,
+        csrf_guard,
+        allowed_origins,
+        session_layer,
+    );
+
+    let host = std::env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let port: u16 = std::env::var("PORT")
+        .ok()
+        .and_then(|value| value.parse().ok())
+        .unwrap_or(8787);
+    let addr: SocketAddr = format!("{}:{}", host, port)
+        .parse()
+        .expect("HOST:PORT should form a valid socket address");
+    tracing::info!("galleryd listening at http://{}", addr);
+
+    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+    )
+    .await
+    .unwrap();
+}
+
+fn build_app(
+    state: AppState,
+    login_rate_limiter: middleware::RateLimiter,
+    register_rate_limiter: middleware::RateLimiter,
+    upload_rate_limiter: middleware::RateLimiter,
+    csrf_guard: middleware::CsrfOriginGuard,
+    allowed_origins: Vec<axum::http::HeaderValue>,
+    session_layer: SessionManagerLayer<PostgresStore>,
+) -> Router {
+    // Moderation routes (require moderator/admin role)
     let moderation_routes = Router::new()
         .route("/api/moderation/queue", get(routes::moderation::get_queue))
-        .route("/api/works/:id/status", patch(routes::moderation::update_status))
-        .route("/api/moderation/log/:work_id", get(routes::moderation::get_log))
+        .route(
+            "/api/works/:id/status",
+            patch(routes::moderation::update_status),
+        )
+        .route(
+            "/api/moderation/log/:work_id",
+            get(routes::moderation::get_log),
+        )
         .route(
             "/api/monitoring/summary",
             get(routes::moderation::get_monitoring_summary),
         )
         .layer(from_fn_with_state(
             state.db.clone(),
-            middleware::require_moderator
+            middleware::require_moderator,
         ))
         .with_state(state.clone());
 
-    // Public routes - use AppState
-    let app = Router::new()
+    Router::new()
         .route("/health", get(health_check))
+        .merge(api_v2::router())
         .route(
             "/api/auth/register",
             post(routes::auth::register).route_layer(from_fn_with_state(
@@ -167,6 +289,7 @@ async fn main() {
         .route("/api/users/me/works", get(routes::users::handle_my_works))
         .route("/api/users/me/stats", get(routes::users::handle_my_stats))
         .merge(moderation_routes)
+        .fallback(api_v2::spa::serve_embedded)
         .with_state(state)
         .layer(session_layer)
         .layer(from_fn(middleware::request_observability))
@@ -188,29 +311,15 @@ async fn main() {
                 .allow_headers([
                     axum::http::header::CONTENT_TYPE,
                     axum::http::header::AUTHORIZATION,
+                    axum::http::header::ACCEPT,
                 ])
                 .allow_credentials(true),
-        );
-
-    // Start server
-    let addr = SocketAddr::from(([127, 0, 0, 1], 8787));
-    tracing::info!("hasu-gallery API listening at http://{}", addr);
-
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-    axum::serve(
-        listener,
-        app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
-    )
-    .await
-    .unwrap();
+        )
 }
 
 async fn health_check(State(state): State<AppState>) -> impl IntoResponse {
     // Test database connection
-    match sqlx::query("SELECT 1")
-        .fetch_one(&state.db)
-        .await
-    {
+    match sqlx::query("SELECT 1").fetch_one(&state.db).await {
         Ok(_) => (StatusCode::OK, "OK"),
         Err(e) => {
             tracing::error!("Database health check failed: {}", e);
@@ -229,9 +338,13 @@ mod tests {
         http::Request,
         routing::get,
     };
+    use prost::Message;
     use sqlx::postgres::PgPoolOptions;
     use tower::ServiceExt;
     use tower_sessions::{MemoryStore, SessionManagerLayer};
+
+    use crate::api_v2::codec::PROTO_MEDIA_TYPE;
+    use crate::proto::hasu::gallery::v2::HealthResponse;
 
     fn test_s3_client() -> aws_sdk_s3::Client {
         let s3_config = aws_sdk_s3::Config::builder()
@@ -259,6 +372,14 @@ mod tests {
             db,
             s3_client: test_s3_client(),
         }
+    }
+
+    fn test_app_without_db_session() -> Router {
+        Router::new()
+            .merge(api_v2::router())
+            .fallback(api_v2::spa::serve_embedded)
+            .with_state(test_state())
+            .layer(SessionManagerLayer::new(MemoryStore::default()))
     }
 
     async fn request_work_facets(path: &str) -> (StatusCode, String) {
@@ -331,6 +452,89 @@ mod tests {
 
         assert_eq!(status, StatusCode::UNAUTHORIZED);
         assert!(body.contains("Authentication required to view non-approved facets"));
+    }
+
+    #[tokio::test]
+    async fn v2_public_health_returns_protobuf() {
+        let app = test_app_without_db_session();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v2/public/health")
+                    .header(axum::http::header::ACCEPT, PROTO_MEDIA_TYPE)
+                    .body(Body::empty())
+                    .expect("request should build"),
+            )
+            .await
+            .expect("request should complete");
+
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(
+            response
+                .headers()
+                .get(axum::http::header::CONTENT_TYPE)
+                .and_then(|v| v.to_str().ok()),
+            Some(PROTO_MEDIA_TYPE)
+        );
+
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("body should read");
+        let health = HealthResponse::decode(body.as_ref()).expect("health protobuf");
+        assert_eq!(health.status, "ok");
+        assert_eq!(health.api, "v2");
+        assert!(!health.version.is_empty());
+    }
+
+    #[tokio::test]
+    async fn v2_public_health_rejects_json_only_accept() {
+        let app = test_app_without_db_session();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/api/v2/public/health")
+                    .header(axum::http::header::ACCEPT, "application/json")
+                    .body(Body::empty())
+                    .expect("request should build"),
+            )
+            .await
+            .expect("request should complete");
+
+        assert_eq!(response.status(), StatusCode::NOT_ACCEPTABLE);
+        assert_eq!(
+            response
+                .headers()
+                .get(axum::http::header::CONTENT_TYPE)
+                .and_then(|v| v.to_str().ok()),
+            Some(PROTO_MEDIA_TYPE)
+        );
+    }
+
+    #[tokio::test]
+    async fn spa_fallback_serves_embedded_index() {
+        let app = test_app_without_db_session();
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/gallery/meme")
+                    .body(Body::empty())
+                    .expect("request should build"),
+            )
+            .await
+            .expect("request should complete");
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let content_type = response
+            .headers()
+            .get(axum::http::header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or_default();
+        assert!(content_type.starts_with("text/html"));
+        let body = to_bytes(response.into_body(), usize::MAX)
+            .await
+            .expect("body should read");
+        let text = String::from_utf8(body.to_vec()).expect("utf8");
+        assert!(text.contains("Hasu Gallery"));
     }
 
     #[tokio::test]

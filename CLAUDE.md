@@ -10,15 +10,16 @@ summary files, not here.
 - Frontend: React 19 + Rspack + TanStack Router/Query + zustand + Tailwind v4.
 - Backend: Rust Axum + PostgreSQL + MinIO/S3 + tower-sessions.
 - Current production model is still an independently served SPA plus JSON API.
-- Architecture V2 is approved but not implemented: one Rust executable embeds
-  the SPA, serves a same-origin Protobuf API, uses managed PostgreSQL, and keeps
-  private/public media in external S3-compatible storage. V2 adds Fiction as a
-  first-class content domain alongside Meme and Art.
+- Architecture V2 Slice A foundation is in tree: `proto/hasu/gallery/v2`,
+  `galleryd` binary with embedded SPA fallback, and
+  `GET /api/v2/public/health` Protobuf smoke. Existing JSON `/api/*` remains
+  authoritative. Fiction runtime, media UUID pipeline, and JSON cutover are not
+  shipped.
 - CI is intentionally lightweight: frontend typecheck/build/component tests and
   backend Postgres + `cargo test`.
 - Playwright E2E is a local pre-release acceptance script, not part of CI.
-- Current engineering track: migrate toward Architecture V2 in bounded slices
-  while keeping the completed guest/account/moderation baseline green.
+- Current engineering track: continue Architecture V2 slices B+ while keeping
+  the completed guest/account/moderation baseline green.
 
 ## Source Of Truth
 
@@ -72,8 +73,10 @@ summary files, not here.
   `packages/ui/src/primitives/`
 - Shared types: `packages/types/src/models.ts`, `packages/types/src/api.ts`
 - Target architecture: `.ccg/spec/architecture-v2.md`
-- Target Protobuf schemas: `proto/hasu/gallery/v2/` (to be added)
-- Backend entry: `backend/src/main.rs`
+- Target Protobuf schemas: `proto/hasu/gallery/v2/`
+- V2 TS mirrors: `packages/proto`
+- Backend entry / galleryd: `backend/src/main.rs`
+- V2 HTTP plumbing: `backend/src/api_v2/`
 - Backend routes: `backend/src/routes/`
 - Backend middleware: `backend/src/middleware.rs`
 - DB migrations: `backend/migrations/`
@@ -89,13 +92,21 @@ pnpm run dev:api
 pnpm run storybook
 ```
 
+Architecture V2 packaging helpers:
+
+```powershell
+pnpm run sync:web-embed
+pnpm run build:galleryd
+cargo run --manifest-path backend/Cargo.toml --bin galleryd -- doctor
+```
+
 Pre-release/local acceptance:
 
 ```powershell
 pnpm test
 pnpm typecheck
 pnpm build
-cargo test --manifest-path backend/Cargo.toml
+cargo test --manifest-path backend/Cargo.toml --bin galleryd
 pnpm e2e
 ```
 

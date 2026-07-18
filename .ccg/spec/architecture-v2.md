@@ -1,6 +1,8 @@
 # Hasu Gallery Architecture V2
 
-- **Status**: Approved target architecture; implementation has not started
+- **Status**: Approved target architecture; Slice A foundation landed in-repo
+  (proto, galleryd packaging, `/api/v2` health/error smoke). Runtime product
+  behavior remains the pre-V2 JSON API + independent SPA until later slices ship.
 - **Decision date**: 2026-07-18
 - **Scope**: Content domains, application packaging, API transport, persistence,
   media delivery, security, resource limits, and migration sequencing

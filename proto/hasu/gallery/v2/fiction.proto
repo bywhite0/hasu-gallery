@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+package hasu.gallery.v2;
+
+import "hasu/gallery/v2/common.proto";
+
+message PublicFictionSummary {
+  string id = 1;
+  string title = 2;
+  string summary = 3;
+  ContentKind content_kind = 4;
+  ContentRating content_rating = 5;
+  string cover_media_id = 6;
+  string author_handle = 7;
+}
+
+message PublicFictionDetail {
+  string id = 1;
+  string title = 2;
+  string summary = 3;
+  string body = 4;
+  ContentKind content_kind = 5;
+  ContentRating content_rating = 6;
+  string cover_media_id = 7;
+  string author_handle = 8;
+  string published_at = 9;
+}
+
+message OwnerFictionDraft {
+  string id = 1;
+  string fiction_id = 2;
+  string title = 3;
+  string body = 4;
+  ContentRating content_rating = 5;
+  string updated_at = 6;
+}
+
+message FictionRevision {
+  string id = 1;
+  string fiction_id = 2;
+  string title = 3;
+  string body = 4;
+  int32 revision_number = 5;
+  ContentRating content_rating = 6;
+  string status = 7;
+  string created_at = 8;
+}
+
+message FictionSeries {
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  ContentRating content_rating = 4;
+  string author_handle = 5;
+}

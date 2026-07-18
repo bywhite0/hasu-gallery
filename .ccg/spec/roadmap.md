@@ -5,7 +5,7 @@
 **Created**: 2026-06-09
 **Last Synced**: 2026-07-18
 
-**Status**: ✅ Phase 1-5 已完成；Architecture V2 已批准，迁移尚未开始
+**Status**: ✅ Phase 1-5 已完成；Architecture V2 已批准；Slice A foundation 已落地
 
 > **架构更新 (2026-06-14)**: 基于 linkura-apps 分析，采用 Rspack + TanStack Router/Query + zustand + Tailwind v4 技术栈
 >
@@ -21,7 +21,7 @@
 
 > Phase 1-5 状态由 `master` 分支 + `backend/src/` + `apps/web/src/` +
 > 2026-07-06 真实浏览器回归客观核对；Architecture V2 行仅表示 2026-07-18
-> 已批准设计已落盘，不表示运行时实现。
+> 已批准设计已落盘；Slice A foundation 已入仓，业务运行时仍以 JSON API 为准。
 
 | Phase | 路线图声明 | 实际代码状态 | 差距 |
 |---|---|---|---|
@@ -39,7 +39,7 @@
 | **3.2 审核仪表板** | ✅ COMPLETE | ✅ ModerationPage + ModerationActions + ModerationLog（524 行）| — |
 | **4: Art Gallery** | ✅ BASELINE COMPLETE | ✅ Baseline launch 已验证：Meme/Art 导航、Art upload metadata、rating 筛选、`work_art_meta` 写入、MinIO 上传成功路径与审核发布均通过真实浏览器验收 | 自动化 E2E 与 production hardening 已转入 Phase 5 |
 | **5: Polish & Hardening** | ✅ COMPLETE | ✅ Art polish、轻量 CI、后端测试、安全加固、性能索引/媒体优化、部署/审核/监控文档与监控摘要 API 均已落地；Playwright E2E 作为本地脚本保留 | 后续仅剩外部 APM/Sentry、发布自动化与前端组件测试等增强项 |
-| **Architecture V2 migration track** | APPROVED / NOT STARTED | ✅ 单二进制、Protobuf、UUIDv4 媒体、Fiction 文本/修订/系列、安全边界、资源预算与迁移 slices 已落盘 | 现有运行时仍是独立 SPA + JSON API + Meme/Art 双画廊 |
+| **Architecture V2 migration track** | APPROVED / Slice A foundation | ✅ Slice A：`proto/hasu/gallery/v2`、`galleryd` 嵌入 SPA、`GET /api/v2/public/health` Protobuf smoke；设计文档完整 | JSON `/api/*` 仍为权威；Slice B+（Protobuf read path、Fiction、媒体 UUID 等）未开始 |
 
 **Phase 2 总计**: +2,562 行前端代码，11 个 API 端点，完整的画廊浏览和上传功能。
 
@@ -95,6 +95,12 @@ Protobuf `/api/v2`、托管 PostgreSQL、外部 S3/R2、UUIDv4 公共媒体 URL�
 私有原图/审核链路、Fiction 安全文本/草稿/修订/系列模型、集中权限策略、
 1C512M 资源预算与 A-G 迁移 slices。此切片只更新设计和入口文档，不代表 V2
 运行时代码或 Fiction 服务已经实现。
+**2026-07-18 Architecture V2 Slice A foundation**: 新增
+`proto/hasu/gallery/v2/{common,fiction}.proto`、backend prost `build.rs`、
+`galleryd` CLI（serve/migrate/doctor/media-worker stub）、嵌入 SPA 回退
+（`backend/embedded-web` + sync 脚本）、`GET /api/v2/public/health` 与
+Protobuf 错误/媒体类型管线、`packages/proto` TypeScript 契约镜像。现有
+JSON 路由与 Meme/Art 行为保持不变；Fiction DB/业务与媒体 UUID 不在本切片。
 
 **方向已确定**：方案 C（双轨拆仓）。hasu-memes 保持只读画廊终态，hasu-gallery 为新建 UGC 平台。
 
