@@ -391,7 +391,18 @@ pub async fn get_monitoring_summary(
         SELECT
           COUNT(*)::BIGINT AS total_uploads,
           COUNT(*) FILTER (WHERE status = 'approved'::work_status)::BIGINT AS approved_uploads,
-          COUNT(*) FILTER (WHERE status = 'pending'::work_status)::BIGINT AS pending_backlog
+          COUNT(*) FILTER (
+            WHERE status = 'pending'::work_status
+              AND (
+                gallery <> 'fiction'::gallery_kind
+                OR EXISTS (
+                  SELECT 1
+                  FROM fiction_revisions fr
+                  WHERE fr.work_id = works.id
+                    AND fr.state = 'pending'::fiction_revision_state
+                )
+              )
+          )::BIGINT AS pending_backlog
         FROM works
         "#
     )
@@ -404,6 +415,15 @@ pub async fn get_monitoring_summary(
         SELECT gallery::TEXT AS gallery, COUNT(*)::BIGINT AS count
         FROM works
         WHERE status = 'pending'::work_status
+          AND (
+            gallery <> 'fiction'::gallery_kind
+            OR EXISTS (
+              SELECT 1
+              FROM fiction_revisions fr
+              WHERE fr.work_id = works.id
+                AND fr.state = 'pending'::fiction_revision_state
+            )
+          )
         GROUP BY gallery
         ORDER BY gallery
         "#

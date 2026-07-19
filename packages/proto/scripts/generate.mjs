@@ -23,10 +23,8 @@ const protoc = process.env.PROTOC || "protoc";
 const plugin = path.join(
   packageRoot,
   "node_modules",
-  "@bufbuild",
-  "protoc-gen-es",
-  "bin",
-  "protoc-gen-es",
+  ".bin",
+  process.platform === "win32" ? "protoc-gen-es.cmd" : "protoc-gen-es",
 );
 
 const args = [
@@ -36,6 +34,7 @@ const args = [
   `--plugin=protoc-gen-es=${plugin}`,
   path.join(protoRoot, "hasu/gallery/v2/common.proto"),
   path.join(protoRoot, "hasu/gallery/v2/fiction.proto"),
+  path.join(protoRoot, "hasu/gallery/v2/works.proto"),
 ];
 
 const result = spawnSync(protoc, args, { stdio: "inherit", shell: process.platform === "win32" });

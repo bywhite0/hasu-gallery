@@ -19,10 +19,10 @@ use crate::fiction::{
 };
 use crate::proto::hasu::gallery::v2::{
     ContentKind, ContentRating, CreateFictionRequest, CreateFictionResponse,
-    FictionDecisionRequest, FictionDecisionResponse, FictionRevision, ModerationFictionQueueResponse,
-    OwnerFictionDraft, OwnerFictionListResponse, PublicFictionDetail, PublicFictionListResponse,
-    PublicFictionSummary, SaveFictionDraftRequest, SaveFictionDraftResponse, SubmitFictionRequest,
-    SubmitFictionResponse,
+    FictionDecision, FictionDecisionRequest, FictionDecisionResponse, FictionRevision,
+    ModerationFictionQueueResponse, OwnerFictionDraft, OwnerFictionListResponse,
+    PublicFictionDetail, PublicFictionListResponse, PublicFictionSummary, SaveFictionDraftRequest,
+    SaveFictionDraftResponse, SubmitFictionRequest, SubmitFictionResponse,
 };
 use crate::routes::auth::SESSION_USER_ID_KEY;
 
@@ -345,6 +345,7 @@ async fn save_fiction_draft(
         Some(rating_to_str(req.content_rating))
     };
 
+    // Always pass synopsis/fandom so authors can intentionally clear them.
     match save_draft_revision(
         &state.db,
         user_id,
@@ -352,16 +353,8 @@ async fn save_fiction_draft(
         &req.title,
         &req.body,
         rating,
-        if req.synopsis.is_empty() {
-            None
-        } else {
-            Some(req.synopsis.as_str())
-        },
-        if req.fandom.is_empty() {
-            None
-        } else {
-            Some(req.fandom.as_str())
-        },
+        Some(req.synopsis.as_str()),
+        Some(req.fandom.as_str()),
     )
     .await
     {
@@ -399,7 +392,18 @@ async fn submit_fiction(
         }
     };
 
-    match submit_revision(&state.db, user_id, &work_id, req.expected_work_version).await {
+    let expected_work_version = match req.expected_work_version {
+        Some(version) => version,
+        None => {
+            return domain_error(
+                StatusCode::BAD_REQUEST,
+                "missing_expected_work_version",
+                "expected_work_version is required",
+            );
+        }
+    };
+
+    match submit_revision(&state.db, user_id, &work_id, expected_work_version).await {
         Ok(revision_id) => no_store(protobuf_response(
             StatusCode::OK,
             &SubmitFictionResponse {
@@ -425,10 +429,10 @@ async fn list_owner_fictions(
     };
 
     let rows = sqlx::query(
-        "SELECT w.id AS work_id, w.title, m.version, m.synopsis, m.fandom, m.language,
-                m.content_rating::text AS rating,
+        "SELECT w.id AS work_id, m.version, w.updated_at,
                 r.id AS revision_id, r.state::text AS state, r.revision_number,
-                r.markup_source, r.created_at
+                r.title, r.synopsis, r.fandom, r.language,
+                r.content_rating::text AS rating, r.markup_source, r.created_at
          FROM works w
          JOIN work_fiction_meta m ON m.work_id = w.id
          LEFT JOIN LATERAL (
@@ -449,7 +453,10 @@ async fn list_owner_fictions(
     let items = rows
         .iter()
         .map(|row| {
-            let created_at: Option<chrono::DateTime<chrono::Utc>> = row.try_get("created_at").ok();
+            let updated_at: Option<chrono::DateTime<chrono::Utc>> = row
+                .try_get("updated_at")
+                .ok()
+                .or_else(|| row.try_get("created_at").ok());
             OwnerFictionDraft {
                 id: row
                     .try_get::<Option<Uuid>, _>("revision_id")
@@ -461,7 +468,7 @@ async fn list_owner_fictions(
                 title: row.try_get("title").unwrap_or_default(),
                 body: row.try_get("markup_source").unwrap_or_default(),
                 content_rating: map_rating_str(row.try_get("rating").ok()),
-                updated_at: created_at.map(|v| v.to_rfc3339()).unwrap_or_default(),
+                updated_at: updated_at.map(|v| v.to_rfc3339()).unwrap_or_default(),
                 state: row.try_get("state").unwrap_or_default(),
                 revision_number: row.try_get("revision_number").unwrap_or(0),
                 work_version: row.try_get("version").unwrap_or(0),
@@ -496,9 +503,9 @@ async fn moderation_queue(
 
     let rows = sqlx::query(
         "SELECT r.id, r.work_id, r.title, r.markup_source, r.revision_number, r.state::text AS state,
-                r.created_at, r.word_count, r.plain_text_projection, m.content_rating::text AS rating
+                r.created_at, r.word_count, r.plain_text_projection,
+                r.content_rating::text AS rating
          FROM fiction_revisions r
-         JOIN work_fiction_meta m ON m.work_id = r.work_id
          WHERE r.state = 'pending'::fiction_revision_state
          ORDER BY r.submitted_at ASC NULLS LAST, r.created_at ASC
          LIMIT 100",
@@ -566,13 +573,24 @@ async fn moderation_decision(
             return domain_error(StatusCode::BAD_REQUEST, "invalid_protobuf", "Invalid body");
         }
     };
+    let approve = match FictionDecision::try_from(req.decision) {
+        Ok(FictionDecision::Approve) => true,
+        Ok(FictionDecision::Reject) => false,
+        _ => {
+            return domain_error(
+                StatusCode::BAD_REQUEST,
+                "invalid_decision",
+                "decision must be approve or reject",
+            );
+        }
+    };
 
     match decide_revision(
         &state.db,
         user_id,
         &work_id,
         revision_uuid,
-        req.approve,
+        approve,
         if req.note.is_empty() {
             None
         } else {
@@ -586,7 +604,7 @@ async fn moderation_decision(
             &FictionDecisionResponse {
                 work_id,
                 revision_id: revision_uuid.to_string(),
-                state: if req.approve {
+                state: if approve {
                     "published".into()
                 } else {
                     "rejected".into()

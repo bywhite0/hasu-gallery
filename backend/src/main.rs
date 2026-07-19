@@ -602,8 +602,8 @@ mod tests {
         medium: &str,
     ) -> Result<(), sqlx::Error> {
         sqlx::query(
-            "INSERT INTO works (id, gallery, title, status, asset_file, width, height, source_url)
-             VALUES ($1, 'art'::gallery_kind, $2, 'approved'::work_status, $3, 32, 32, $4)",
+            "INSERT INTO works (id, gallery, content_kind, content_rating, title, status, asset_file, width, height, source_url)
+             VALUES ($1, 'art'::gallery_kind, 'art'::content_kind, 'all_ages'::content_rating, $2, 'approved'::work_status, $3, 32, 32, $4)",
         )
         .bind(work_id)
         .bind(format!("Integration Work {}", work_id))

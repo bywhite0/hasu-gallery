@@ -4,6 +4,12 @@ package hasu.gallery.v2;
 
 import "hasu/gallery/v2/common.proto";
 
+enum FictionDecision {
+  FICTION_DECISION_UNSPECIFIED = 0;
+  FICTION_DECISION_APPROVE = 1;
+  FICTION_DECISION_REJECT = 2;
+}
+
 message PublicFictionSummary {
   string id = 1;
   string title = 2;
@@ -111,7 +117,7 @@ message SaveFictionDraftResponse {
 }
 
 message SubmitFictionRequest {
-  int64 expected_work_version = 1;
+  optional int64 expected_work_version = 1;
 }
 
 message SubmitFictionResponse {
@@ -120,7 +126,7 @@ message SubmitFictionResponse {
 }
 
 message FictionDecisionRequest {
-  bool approve = 1;
+  FictionDecision decision = 1;
   string note = 2;
 }
 

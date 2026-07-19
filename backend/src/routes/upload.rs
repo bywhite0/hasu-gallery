@@ -338,15 +338,23 @@ pub async fn upload_work(
         }
     };
 
+    let content_rating = if gallery_kind == "art" {
+        rating.as_str()
+    } else {
+        "all_ages"
+    };
+
     let query_str = r#"
-        INSERT INTO works (id, gallery, origin, title, source, source_url, status, uploader_id, asset_file, thumbnail_asset_file, width, height)
-        VALUES ($1, $2::gallery_kind, $3::meme_origin, $4, $5, $6, 'pending'::work_status, $7, $8, $9, $10, $11)
+        INSERT INTO works (id, gallery, content_kind, content_rating, origin, title, source, source_url, status, uploader_id, asset_file, thumbnail_asset_file, width, height)
+        VALUES ($1, $2::gallery_kind, $3::content_kind, $4::content_rating, $5::meme_origin, $6, $7, $8, 'pending'::work_status, $9, $10, $11, $12, $13)
         RETURNING id, title, status::text as status
     "#;
 
     let work = match sqlx::query(query_str)
         .bind(&work_id)
         .bind(&gallery_kind)
+        .bind(&gallery_kind)
+        .bind(content_rating)
         .bind(non_empty_str(&origin))
         .bind(&title)
         .bind(&source)
