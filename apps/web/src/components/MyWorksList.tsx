@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { AlertTriangle, CheckCircle, Clock, ImageOff, XCircle } from 'lucide-react';
+import { AlertTriangle, BookOpenText, CheckCircle, Clock, ImageOff, XCircle } from 'lucide-react';
 import { Button } from '@hasu-gallery/ui';
 import type { WorkListItem, WorkStatus } from '@hasu-gallery/types';
 import { useI18n, type TranslationKey } from '../i18n';
 
 interface MyWorksListProps {
   works: WorkListItem[];
-  onWorkClick: (id: string) => void;
+  onWorkClick: (work: WorkListItem) => void;
 }
 
 const statusConfig = {
@@ -31,25 +31,43 @@ const statusConfig = {
   className: string;
 }>;
 
-const actionKeys = {
+const imageActionKeys = {
   pending: 'profile.actionWait',
   approved: 'profile.actionOpenPublished',
   rejected: 'profile.actionReviewNote',
   takedown: 'profile.actionContactReview',
 } as const satisfies Record<WorkStatus, TranslationKey>;
 
+const fictionActionKeys = {
+  pending: 'profile.actionFictionWait',
+  approved: 'profile.actionFictionOpenPublished',
+  rejected: 'profile.actionFictionRevise',
+  takedown: 'profile.actionFictionContact',
+} as const satisfies Record<WorkStatus, TranslationKey>;
+
+function isFiction(work: WorkListItem) {
+  return work.gallery === 'fiction';
+}
+
 function WorkThumbnail({ work, onOpen }: { work: WorkListItem; onOpen: () => void }) {
   const { t } = useI18n();
   const [imageFailed, setImageFailed] = useState(false);
-  const hasThumbnail = Boolean(work.thumbnail_url) && !imageFailed;
+  const fiction = isFiction(work);
+  const hasThumbnail = !fiction && Boolean(work.thumbnail_url) && !imageFailed;
 
   return (
     <button
       type="button"
       onClick={onOpen}
       className="h-24 w-24 shrink-0 overflow-hidden rounded-md border border-ink/10 bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-paper sm:h-28 sm:w-28"
+      aria-label={fiction ? t('profile.openFictionAria', { title: work.title }) : t('home.thumbnailAlt', { title: work.title })}
     >
-      {hasThumbnail ? (
+      {fiction ? (
+        <span className="flex h-full w-full flex-col items-center justify-center gap-1 bg-surface text-ink-2">
+          <BookOpenText className="h-7 w-7" aria-hidden="true" />
+          <span className="px-1 text-[10px] font-medium uppercase tracking-wide">{t('gallery.fictionShort')}</span>
+        </span>
+      ) : hasThumbnail ? (
         <img
           src={work.thumbnail_url}
           alt={t('home.thumbnailAlt', { title: work.title })}
@@ -86,13 +104,20 @@ export function MyWorksList({ works, onWorkClick }: MyWorksListProps) {
         const createdDate = formatDate(work.created_at);
         const reviewedDate = work.reviewed_at ? formatDate(work.reviewed_at) : null;
         const note = work.review_note?.trim();
+        const fiction = isFiction(work);
+        const actionKey = fiction ? fictionActionKeys[work.status] : imageActionKeys[work.status];
+        const openLabel = fiction
+          ? work.status === 'approved'
+            ? t('profile.openFictionPublic')
+            : t('profile.openFictionWorkspace')
+          : t('profile.openWork');
 
         return (
           <article
             key={work.id}
             className="flex flex-col gap-4 rounded-md border border-ink/10 bg-surface p-3 shadow-sm sm:flex-row sm:p-4"
           >
-            <WorkThumbnail work={work} onOpen={() => onWorkClick(work.id)} />
+            <WorkThumbnail work={work} onOpen={() => onWorkClick(work)} />
 
             <div className="min-w-0 flex-1 space-y-3">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -131,10 +156,10 @@ export function MyWorksList({ works, onWorkClick }: MyWorksListProps) {
               <div className="flex flex-col gap-3 border-t border-ink/10 pt-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm text-ink-2">
                   <span className="font-medium text-ink">{t('profile.nextAction')}:</span>{' '}
-                  {t(actionKeys[work.status])}
+                  {t(actionKey)}
                 </p>
-                <Button type="button" variant="outline" size="sm" onClick={() => onWorkClick(work.id)}>
-                  {t('profile.openWork')}
+                <Button type="button" variant="outline" size="sm" onClick={() => onWorkClick(work)}>
+                  {openLabel}
                 </Button>
               </div>
             </div>

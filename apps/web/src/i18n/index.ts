@@ -34,11 +34,13 @@ const ratingKeys = {
 const galleryKeys = {
   meme: 'gallery.meme',
   art: 'gallery.art',
+  fiction: 'gallery.fiction',
 } as const satisfies Record<string, TranslationKey>;
 
 const shortGalleryKeys = {
   meme: 'gallery.memeShort',
   art: 'gallery.artShort',
+  fiction: 'gallery.fictionShort',
 } as const satisfies Record<string, TranslationKey>;
 
 function interpolate(template: string, params?: TranslationParams) {
@@ -65,6 +67,7 @@ export function useI18n() {
     const compactNumberFormatter = new Intl.NumberFormat(intlLocale, {
       maximumFractionDigits: 1,
     });
+    const languageFormatter = new Intl.DisplayNames([intlLocale], { type: 'language' });
 
     return {
       locale,
@@ -100,6 +103,13 @@ export function useI18n() {
           minute: '2-digit',
         }).format(new Date(value)),
       formatNumber: (value: number) => numberFormatter.format(value),
+      formatLanguage: (value: string) => {
+        try {
+          return languageFormatter.of(value) ?? value;
+        } catch {
+          return value;
+        }
+      },
       formatFileSize: (bytes: number) => {
         if (bytes < 1024) return `${numberFormatter.format(bytes)} B`;
         if (bytes < 1024 * 1024) return `${compactNumberFormatter.format(bytes / 1024)} KB`;

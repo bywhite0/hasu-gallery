@@ -6,10 +6,11 @@ import {
   Link,
   useRouterState,
 } from "@tanstack/react-router";
-import { Button } from "@hasu-gallery/ui";
+import { buttonStyles } from "@hasu-gallery/ui";
 import {
   House,
   Images,
+  BookOpenText,
   Palette,
   ShieldCheck,
   Upload,
@@ -24,12 +25,15 @@ import { WorkDetailPage } from "./pages/WorkDetailPage";
 import { UploadPage } from "./pages/UploadPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { ModerationPage } from "./pages/ModerationPage";
+import { FictionBrowsePage } from "./pages/FictionBrowsePage";
+import { FictionReaderPage } from "./pages/FictionReaderPage";
+import { FictionWorkspacePage } from "./pages/FictionWorkspacePage";
 import { AuthGuard } from "./components/AuthGuard";
 import { LanguageSelect } from "./components/LanguageSelect";
 import { useAuthStore } from "./store/auth";
 import { useI18n } from "./i18n";
 
-type NavPath = "/" | "/gallery/meme" | "/gallery/art" | "/upload" | "/profile" | "/moderation";
+type NavPath = "/" | "/gallery/meme" | "/gallery/art" | "/fiction" | "/upload" | "/profile" | "/moderation";
 
 interface NavItem {
   to: NavPath;
@@ -38,10 +42,17 @@ interface NavItem {
   Icon: LucideIcon;
 }
 
+interface FictionRouteSearch {
+  q?: string;
+  fandom?: string;
+  page?: number;
+}
+
 const publicNavItems: NavItem[] = [
   { to: "/", desktopLabelKey: "nav.home", mobileLabelKey: "nav.home", Icon: House },
   { to: "/gallery/meme", desktopLabelKey: "nav.meme", mobileLabelKey: "nav.meme", Icon: Images },
   { to: "/gallery/art", desktopLabelKey: "nav.art", mobileLabelKey: "nav.art", Icon: Palette },
+  { to: "/fiction", desktopLabelKey: "nav.fiction", mobileLabelKey: "nav.fiction", Icon: BookOpenText },
 ];
 
 const signedInTaskNavItems: NavItem[] = [
@@ -67,7 +78,9 @@ const rootRoute = createRootRoute({
     const desktopNavItems = user
       ? [...publicNavItems, ...signedInTaskNavItems, ...(isModerator ? [moderationNavItem] : [])]
       : publicNavItems;
-    const mobileNavItems = user ? [...publicNavItems, ...signedInTaskNavItems] : publicNavItems;
+    const mobileNavItems = user
+      ? [...publicNavItems, signedInTaskNavItems[1]]
+      : publicNavItems;
 
     const navLinkClass = (path: NavPath) =>
       currentPath === path
@@ -84,17 +97,20 @@ const rootRoute = createRootRoute({
             <div className="flex items-center gap-3">
               <nav className="hidden max-w-full flex-wrap justify-end gap-2 md:flex" aria-label="Primary navigation">
                 {desktopNavItems.map((item) => (
-                  <Link key={item.to} to={item.to} aria-current={currentPath === item.to ? "page" : undefined}>
-                    <Button variant="ghost" size="sm" className={navLinkClass(item.to)}>
-                      {t(item.desktopLabelKey)}
-                    </Button>
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    aria-current={currentPath === item.to ? "page" : undefined}
+                    className={buttonStyles({ variant: "ghost", size: "sm", className: navLinkClass(item.to) })}
+                  >
+                    {t(item.desktopLabelKey)}
                   </Link>
                 ))}
               </nav>
               <LanguageSelect />
               {!user && (
-                <Link to="/login" className="shrink-0">
-                  <Button size="sm">{t('nav.signIn')}</Button>
+                <Link to="/login" className={buttonStyles({ size: "sm", className: "shrink-0" })}>
+                  {t('nav.signIn')}
                 </Link>
               )}
             </div>
@@ -141,9 +157,19 @@ const indexRoute = createRoute({
 });
 
 // Login route
+const authSearchSchema = (search: Record<string, unknown>) => {
+  const next = typeof search.next === 'string' ? search.next : undefined;
+  const reason = typeof search.reason === 'string' ? search.reason : undefined;
+  return {
+    ...(next ? { next } : {}),
+    ...(reason ? { reason } : {}),
+  };
+};
+
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/login",
+  validateSearch: authSearchSchema,
   component: LoginPage,
 });
 
@@ -151,6 +177,7 @@ const loginRoute = createRoute({
 const registerRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/register",
+  validateSearch: authSearchSchema,
   component: RegisterPage,
 });
 
@@ -165,6 +192,28 @@ const artGalleryRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/gallery/art",
   component: () => <GalleryPage gallery="art" />,
+});
+
+const fictionBrowseRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/fiction",
+  validateSearch: (search: Record<string, unknown>): FictionRouteSearch => {
+    const validated: FictionRouteSearch = {};
+    if (typeof search.q === 'string' && search.q.trim()) validated.q = search.q.trim();
+    if (typeof search.fandom === 'string' && search.fandom.trim()) {
+      validated.fandom = search.fandom.trim();
+    }
+    const page = typeof search.page === 'number' ? search.page : Number(search.page);
+    if (Number.isFinite(page) && page > 1) validated.page = Math.floor(page);
+    return validated;
+  },
+  component: FictionBrowsePage,
+});
+
+const fictionReaderRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/fiction/$id",
+  component: FictionReaderPage,
 });
 
 // Work detail route
@@ -196,6 +245,16 @@ const profileRoute = createRoute({
   ),
 });
 
+const fictionWorkspaceRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/profile/fictions",
+  component: () => (
+    <AuthGuard reason="fiction" next="/profile/fictions">
+      <FictionWorkspacePage />
+    </AuthGuard>
+  ),
+});
+
 // Moderation route (moderator/admin only)
 const moderationRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -214,9 +273,12 @@ const routeTree = rootRoute.addChildren([
   registerRoute,
   memeGalleryRoute,
   artGalleryRoute,
+  fictionBrowseRoute,
+  fictionReaderRoute,
   workDetailRoute,
   uploadRoute,
   profileRoute,
+  fictionWorkspaceRoute,
   moderationRoute,
 ]);
 

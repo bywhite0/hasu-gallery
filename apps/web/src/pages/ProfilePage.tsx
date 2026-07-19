@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { AlertTriangle, CheckCircle, Clock, Upload, XCircle } from 'lucide-react';
-import type { WorkStatus } from '@hasu-gallery/types';
+import { AlertTriangle, CheckCircle, Clock, PenLine, Upload, XCircle } from 'lucide-react';
+import type { WorkListItem, WorkStatus } from '@hasu-gallery/types';
 import { Button, cn } from '@hasu-gallery/ui';
 import { useAuthStore } from '../store/auth';
 import { getMyWorks, getMyStats } from '../api/profile';
@@ -53,12 +53,24 @@ export function ProfilePage() {
     setPage(newPage);
   };
 
-  const handleWorkClick = (id: string) => {
-    navigate({ to: `/works/${id}` });
+  const handleWorkClick = (work: WorkListItem) => {
+    if (work.gallery === 'fiction') {
+      if (work.status === 'approved') {
+        navigate({ to: '/fiction/$id', params: { id: work.id } });
+      } else {
+        navigate({ to: '/profile/fictions' });
+      }
+      return;
+    }
+    navigate({ to: '/works/$id', params: { id: work.id } });
   };
 
   const handleUploadClick = () => {
     navigate({ to: '/upload' });
+  };
+
+  const handleFictionClick = () => {
+    navigate({ to: '/profile/fictions' });
   };
 
   if (!userInfo) {
@@ -152,10 +164,16 @@ export function ProfilePage() {
               </div>
             </div>
 
-            <Button type="button" onClick={handleUploadClick} className="w-full sm:mt-4 sm:w-auto">
-              <Upload className="mr-2 h-4 w-4" aria-hidden="true" />
-              {t('home.uploadWork')}
-            </Button>
+            <div className="flex w-full flex-col gap-2 sm:mt-4 sm:w-auto sm:flex-row">
+              <Button type="button" variant="outline" onClick={handleFictionClick} className="w-full sm:w-auto">
+                <PenLine className="mr-2 h-4 w-4" aria-hidden="true" />
+                {t('fictionWorkspace.open')}
+              </Button>
+              <Button type="button" onClick={handleUploadClick} className="w-full sm:w-auto">
+                <Upload className="mr-2 h-4 w-4" aria-hidden="true" />
+                {t('profile.uploadImage')}
+              </Button>
+            </div>
           </div>
 
           <dl className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-md border border-ink/10 bg-ink/10 md:grid-cols-4">

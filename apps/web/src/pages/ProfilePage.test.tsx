@@ -110,4 +110,57 @@ describe('ProfilePage', () => {
       expect(getMyWorks).toHaveBeenCalledWith({ status: 'takedown', page: 1 });
     });
   });
+
+  it('opens Fiction routes instead of image work detail', async () => {
+    const user = userEvent.setup();
+    vi.mocked(getMyWorks).mockResolvedValue({
+      works: [
+        {
+          id: 'fiction-1',
+          gallery: 'fiction',
+          origin: null,
+          title: 'Quiet Orbit Acceptance',
+          status: 'approved',
+          thumbnail_url: '',
+          file_url: '',
+          width: 1,
+          height: 1,
+          created_at: '2026-07-20T00:00:00.000Z',
+          reviewed_at: '2026-07-20T01:00:00.000Z',
+          review_note: null,
+        },
+        {
+          id: 'fiction-2',
+          gallery: 'fiction',
+          origin: null,
+          title: 'Pending chapter',
+          status: 'pending',
+          thumbnail_url: '',
+          file_url: '',
+          width: 1,
+          height: 1,
+          created_at: '2026-07-20T00:00:00.000Z',
+        },
+      ],
+      pagination: {
+        page: 1,
+        limit: 24,
+        total: 2,
+        total_pages: 1,
+      },
+    });
+
+    renderProfilePage();
+
+    expect(await screen.findByText('Quiet Orbit Acceptance')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Open Fiction' }));
+    expect(navigateMock).toHaveBeenCalledWith({
+      to: '/fiction/$id',
+      params: { id: 'fiction-1' },
+    });
+
+    navigateMock.mockClear();
+    await user.click(screen.getByRole('button', { name: 'Open Fiction workspace' }));
+    expect(navigateMock).toHaveBeenCalledWith({ to: '/profile/fictions' });
+  });
 });

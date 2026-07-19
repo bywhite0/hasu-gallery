@@ -1,6 +1,6 @@
 // 基础类型定义（按 Phase 0 规范）
 
-export type GalleryKind = 'meme' | 'art';
+export type GalleryKind = 'meme' | 'art' | 'fiction';
 export type MemeOrigin = 'official' | 'derived' | 'fan_made';
 export type WorkStatus = 'pending' | 'approved' | 'rejected' | 'takedown';
 export type UserRole = 'member' | 'moderator' | 'admin';

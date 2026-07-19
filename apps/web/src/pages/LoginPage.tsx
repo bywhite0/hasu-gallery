@@ -3,14 +3,14 @@ import { useNavigate, useRouterState } from '@tanstack/react-router';
 import { useAuthStore } from '../store/auth';
 import { AuthLayout } from '../components/AuthLayout';
 import { LoginForm } from '../components/LoginForm';
-import { getAuthIntent } from '../components/authIntent';
+import { getAuthIntent, type AuthIntentSearch } from '../components/authIntent';
 import { useI18n } from '../i18n';
 
 export function LoginPage() {
   const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const { t } = useI18n();
-  const search = useRouterState({ select: (state) => state.location.search });
+  const search = useRouterState({ select: (state) => state.location.search }) as AuthIntentSearch;
   const { next, reason } = getAuthIntent(search);
 
   useEffect(() => {

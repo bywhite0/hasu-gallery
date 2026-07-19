@@ -36,6 +36,9 @@ export function AuthLayout({ title, reason, children }: AuthLayoutProps) {
           <Link to="/gallery/art" className="font-medium text-ink underline underline-offset-4 hover:text-ink-2">
             {t('auth.continueArt')}
           </Link>
+          <Link to="/fiction" className="font-medium text-ink underline underline-offset-4 hover:text-ink-2">
+            {t('auth.continueFiction')}
+          </Link>
         </div>
       </div>
     </div>

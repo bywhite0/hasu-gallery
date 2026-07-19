@@ -111,6 +111,12 @@ JSON 路由与 Meme/Art 行为保持不变；Fiction DB/业务与媒体 UUID 不
 以及 public/account/moderation Fiction Protobuf 路由。公开仅可读已发布 revision；
 草稿/审核副本 no-store。Meme/Art JSON 行为保持不变。
 
+**2026-07-20 Fiction migration split**: PostgreSQL requires gallery_kind=fiction ADD VALUE to commit before use. Applied as 003_fiction_gallery_kind + 004_fiction_foundation + 005_fiction_revision_metadata.
+
+**2026-07-18 Architecture V2 Slice C Fiction SPA consumer**: 前端接入
+`/api/v2` Fiction 公共列表/详情、作者草稿工作台、修订元数据隔离（004 迁移）与
+审核队列；公开仅 all-ages 已发布 revision。Meme/Art JSON 路径保持不变。
+
 **方向已确定**：方案 C（双轨拆仓）。hasu-memes 保持只读画廊终态，hasu-gallery 为新建 UGC 平台。
 
 ---

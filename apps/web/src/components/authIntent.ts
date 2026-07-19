@@ -1,6 +1,6 @@
 import type { TranslationKey } from '../i18n';
 
-export type AuthIntentReason = 'upload' | 'profile' | 'moderation';
+export type AuthIntentReason = 'upload' | 'profile' | 'moderation' | 'fiction';
 
 export interface AuthIntentSearch {
   next?: unknown;
@@ -19,6 +19,10 @@ const authIntentCopyKeys: Record<AuthIntentReason, { title: TranslationKey; desc
   moderation: {
     title: 'auth.intentModerationTitle',
     description: 'auth.intentModerationDescription',
+  },
+  fiction: {
+    title: 'auth.intentFictionTitle',
+    description: 'auth.intentFictionDescription',
   },
 };
 
@@ -46,5 +50,5 @@ export function sanitizeNextPath(value: string) {
 }
 
 function isAuthIntentReason(value: unknown): value is AuthIntentReason {
-  return value === 'upload' || value === 'profile' || value === 'moderation';
+  return value === 'upload' || value === 'profile' || value === 'moderation' || value === 'fiction';
 }

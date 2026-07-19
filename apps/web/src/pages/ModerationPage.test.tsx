@@ -63,9 +63,11 @@ describe('ModerationPage', () => {
 
     renderModerationPage();
 
+    const queueKind = screen.getByLabelText('Queue');
     const galleryFilter = screen.getByLabelText('Gallery');
     const statusFilter = screen.getByLabelText('Status');
 
+    expect(queueKind).toHaveValue('media');
     expect(galleryFilter).toHaveValue('meme');
     expect(statusFilter).toHaveValue('pending');
 

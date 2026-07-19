@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { Button, EmptyState, ErrorState } from '@hasu-gallery/ui';
+import { Button, EmptyState, ErrorState, buttonStyles } from '@hasu-gallery/ui';
 import type { WorkListItem } from '@hasu-gallery/types';
 import { listWorks } from '../api/works';
+import { listPublicFictions } from '../api/fiction';
+import { FictionSummaryList } from '../components/FictionSummaryList';
 import { useAuthStore } from '../store/auth';
 import { useI18n } from '../i18n';
 import { reportClientError } from '../lib/errorReporting';
@@ -44,6 +46,11 @@ export function HomePage() {
       }),
   });
 
+  const fictionQuery = useQuery({
+    queryKey: ['home-feed', 'fiction'],
+    queryFn: () => listPublicFictions({ limit: 4 }),
+  });
+
   const feed = useMemo(() => {
     const works: HomeFeedItem[] = [
       ...(memeQuery.data?.works ?? []).map((work) => ({ ...work, gallery: 'meme' as const })),
@@ -69,14 +76,17 @@ export function HomePage() {
           <h1 className="text-3xl font-semibold tracking-normal text-ink">Hasu Gallery</h1>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link to="/gallery/meme">
-            <Button variant="outline">{t('gallery.meme')}</Button>
+          <Link to="/gallery/meme" className={buttonStyles({ variant: 'outline' })}>
+            {t('gallery.meme')}
           </Link>
-          <Link to="/gallery/art">
-            <Button variant="outline">{t('gallery.art')}</Button>
+          <Link to="/gallery/art" className={buttonStyles({ variant: 'outline' })}>
+            {t('gallery.art')}
           </Link>
-          <Link to="/upload">
-            <Button>{user ? t('nav.upload') : t('home.signInToUpload')}</Button>
+          <Link to="/fiction" className={buttonStyles({ variant: 'outline' })}>
+            {t('nav.fiction')}
+          </Link>
+          <Link to="/upload" className={buttonStyles()}>
+            {user ? t('nav.upload') : t('home.signInToUpload')}
           </Link>
         </div>
       </section>
@@ -126,8 +136,8 @@ export function HomePage() {
         <EmptyState
           title={t('home.emptyTitle')}
           action={
-            <Link to="/upload">
-              <Button>{user ? t('home.uploadWork') : t('home.signInToUpload')}</Button>
+            <Link to="/upload" className={buttonStyles()}>
+              {user ? t('home.uploadWork') : t('home.signInToUpload')}
             </Link>
           }
         />
@@ -187,6 +197,47 @@ export function HomePage() {
           </div>
         </section>
       )}
+
+      <section className="space-y-4 border-t border-ink/10 pt-7">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-ink">{t('home.fictionTitle')}</h2>
+          <Link
+            to="/fiction"
+            className="inline-flex min-h-11 items-center rounded-md px-2 text-sm font-medium text-ink underline underline-offset-4 hover:text-ink-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-paper"
+          >
+            {t('home.viewFiction')}
+          </Link>
+        </div>
+
+        {fictionQuery.isLoading && (
+          <div className="space-y-4" aria-busy="true" aria-live="polite">
+            <p className="sr-only">{t('fiction.loading')}</p>
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div key={index} className="border-b border-ink/10 pb-4">
+                <div className="h-4 w-2/5 animate-pulse rounded bg-ink/10" />
+                <div className="mt-2 h-3 w-3/5 animate-pulse rounded bg-ink/10" />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {fictionQuery.error && (
+          <div className="flex flex-col gap-3 rounded-md border border-danger/20 bg-danger/5 px-4 py-3 text-sm text-ink sm:flex-row sm:items-center sm:justify-between">
+            <p>{t('home.fictionUnavailable')}</p>
+            <Button type="button" variant="ghost" size="sm" onClick={() => void fictionQuery.refetch()}>
+              {t('common.retry')}
+            </Button>
+          </div>
+        )}
+
+        {fictionQuery.data && fictionQuery.data.items.length > 0 && (
+          <FictionSummaryList items={fictionQuery.data.items} compact />
+        )}
+
+        {fictionQuery.data && fictionQuery.data.items.length === 0 && !fictionQuery.error && (
+          <p className="border-y border-ink/10 py-6 text-sm text-ink-2">{t('home.fictionEmpty')}</p>
+        )}
+      </section>
     </div>
   );
 }

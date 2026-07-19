@@ -87,6 +87,20 @@ export function WorkDetailPage() {
     );
   }
 
+  // Fiction uses its own reader/workspace routes; never treat it as image work detail.
+  if (work.gallery === 'fiction') {
+    if (work.status === 'approved') {
+      navigate({ to: '/fiction/$id', params: { id: work.id } });
+    } else {
+      navigate({ to: '/profile/fictions' });
+    }
+    return (
+      <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center">
+        <StateMessage title={t('work.loadingTitle')} tone="info" />
+      </div>
+    );
+  }
+
   const handleDownload = () => {
     if (!work.file_url) return;
     const link = document.createElement('a');

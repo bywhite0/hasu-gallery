@@ -12,9 +12,10 @@ summary files, not here.
 - Current production model is still an independently served SPA plus JSON API.
 - Architecture V2 Slice A–C foundations are in tree: `proto/hasu/gallery/v2`,
   `galleryd` with embedded SPA fallback, public Protobuf works routes, and
-  Fiction schema + safe-markup + draft/submit/publish Protobuf routes. Existing
-  JSON `/api/*` remains the SPA-facing contract. Media UUID pipeline and JSON
-  cutover are not shipped.
+  Fiction schema + safe-markup + draft/submit/publish Protobuf routes with SPA
+  browse/read/workspace/moderation consumers. Existing JSON `/api/*` remains the
+  primary Meme/Art SPA contract. Media UUID pipeline and full JSON cutover are
+  not shipped.
 - CI is intentionally lightweight: frontend typecheck/build/component tests and
   backend Postgres + `cargo test`.
 - Playwright E2E is a local pre-release acceptance script, not part of CI.
