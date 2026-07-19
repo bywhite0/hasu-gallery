@@ -345,5 +345,16 @@
   "profile.actionFictionContact": "開啟同人文工作台；如需說明請聯絡審核。",
   "profile.openFictionPublic": "開啟同人文",
   "profile.openFictionWorkspace": "開啟同人文工作台",
-  "profile.openFictionAria": "開啟同人文：{title}"
+  "profile.openFictionAria": "開啟同人文：{title}",
+  "profile.imageUploads": "圖片投稿",
+  "profile.fictionWorks": "同人文",
+  "profile.imageSectionTitle": "圖片投稿",
+  "profile.imageSectionTotal": "{count} 張圖片作品",
+  "profile.imageSectionFilters": "圖片投稿狀態",
+  "profile.noImageWorksForFilter": "沒有符合篩選的圖片投稿。",
+  "profile.fictionSectionTitle": "同人文投稿",
+  "profile.fictionSectionTotal": "{count} 篇同人文",
+  "profile.fictionSectionFilters": "同人文投稿狀態",
+  "profile.fictionPublishedCount": "{count} 篇已發佈",
+  "profile.noFictionWorksForFilter": "沒有符合篩選的同人文投稿。"
 }

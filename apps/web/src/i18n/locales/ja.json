@@ -345,5 +345,16 @@
   "profile.actionFictionContact": "ワークスペースを開き、必要ならモデレーターに連絡します。",
   "profile.openFictionPublic": "フィクションを開く",
   "profile.openFictionWorkspace": "フィクション作業台を開く",
-  "profile.openFictionAria": "フィクションを開く: {title}"
+  "profile.openFictionAria": "フィクションを開く: {title}",
+  "profile.imageUploads": "画像投稿",
+  "profile.fictionWorks": "フィクション",
+  "profile.imageSectionTitle": "画像の投稿",
+  "profile.imageSectionTotal": "画像作品 {count} 件",
+  "profile.imageSectionFilters": "画像投稿の状態",
+  "profile.noImageWorksForFilter": "この条件に一致する画像投稿はありません。",
+  "profile.fictionSectionTitle": "フィクションの投稿",
+  "profile.fictionSectionTotal": "フィクション {count} 件",
+  "profile.fictionSectionFilters": "フィクション投稿の状態",
+  "profile.fictionPublishedCount": "公開 {count} 件",
+  "profile.noFictionWorksForFilter": "この条件に一致するフィクション投稿はありません。"
 }

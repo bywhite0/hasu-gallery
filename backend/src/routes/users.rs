@@ -15,6 +15,9 @@ use crate::AppState;
 #[derive(Debug, Deserialize)]
 pub struct MyWorksQuery {
     pub status: Option<String>,
+    /// Optional content family filter: "image" (meme+art), "fiction", or a
+    /// concrete gallery value ("meme" | "art" | "fiction").
+    pub gallery: Option<String>,
     pub page: Option<u32>,
     pub limit: Option<u32>,
 }
@@ -26,6 +29,16 @@ pub struct StatsResponse {
     pub approved: i64,
     pub rejected: i64,
     pub takedown: i64,
+    pub image_total: i64,
+    pub image_pending: i64,
+    pub image_approved: i64,
+    pub image_rejected: i64,
+    pub image_takedown: i64,
+    pub fiction_total: i64,
+    pub fiction_pending: i64,
+    pub fiction_approved: i64,
+    pub fiction_rejected: i64,
+    pub fiction_takedown: i64,
 }
 
 /// Handler for GET /api/users/me/stats
@@ -46,8 +59,8 @@ pub async fn handle_my_stats(
         })?
         .ok_or_else(|| (StatusCode::UNAUTHORIZED, "Not logged in".to_string()))?;
 
-    // 使用单次聚合查询优化 N+1 问题
-    let stats = sqlx::query!(
+    // Image-focused summary keeps Fiction out of the image submission counters.
+    let image_stats = sqlx::query!(
         r#"
         SELECT
             COUNT(*) as "total!",
@@ -57,6 +70,7 @@ pub async fn handle_my_stats(
             COUNT(*) FILTER (WHERE status = 'takedown'::work_status) as "takedown!"
         FROM works
         WHERE uploader_id = $1
+          AND gallery IN ('meme'::gallery_kind, 'art'::gallery_kind)
         "#,
         user_id
     )
@@ -70,14 +84,48 @@ pub async fn handle_my_stats(
         )
     })?;
 
+    let fiction_stats = sqlx::query!(
+        r#"
+        SELECT
+            COUNT(*) as "total!",
+            COUNT(*) FILTER (WHERE status = 'pending'::work_status) as "pending!",
+            COUNT(*) FILTER (WHERE status = 'approved'::work_status) as "approved!",
+            COUNT(*) FILTER (WHERE status = 'rejected'::work_status) as "rejected!",
+            COUNT(*) FILTER (WHERE status = 'takedown'::work_status) as "takedown!"
+        FROM works
+        WHERE uploader_id = $1
+          AND gallery = 'fiction'::gallery_kind
+        "#,
+        user_id
+    )
+    .fetch_one(&state.db)
+    .await
+    .map_err(|e| {
+        tracing::error!("Database error: {}", e);
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Failed to fetch fiction stats".to_string(),
+        )
+    })?;
+
     Ok((
         StatusCode::OK,
         Json(StatsResponse {
-            total: stats.total,
-            pending: stats.pending,
-            approved: stats.approved,
-            rejected: stats.rejected,
-            takedown: stats.takedown,
+            total: image_stats.total + fiction_stats.total,
+            pending: image_stats.pending,
+            approved: image_stats.approved,
+            rejected: image_stats.rejected,
+            takedown: image_stats.takedown,
+            image_total: image_stats.total,
+            image_pending: image_stats.pending,
+            image_approved: image_stats.approved,
+            image_rejected: image_stats.rejected,
+            image_takedown: image_stats.takedown,
+            fiction_total: fiction_stats.total,
+            fiction_pending: fiction_stats.pending,
+            fiction_approved: fiction_stats.approved,
+            fiction_rejected: fiction_stats.rejected,
+            fiction_takedown: fiction_stats.takedown,
         }),
     ))
 }
@@ -106,9 +154,11 @@ pub async fn handle_my_works(
     let limit = params.limit.unwrap_or(24).clamp(1, 100);
     let offset = (page - 1) * limit;
 
-    // Build WHERE clause with optional status filter
+    // Build WHERE clause with optional status / gallery family filter.
     let mut where_conditions = vec!["uploader_id = $1".to_string()];
     let mut param_index = 2;
+    let mut bind_status: Option<String> = None;
+    let mut bind_gallery: Option<String> = None;
 
     if let Some(ref status) = params.status {
         if !["pending", "approved", "rejected", "takedown"].contains(&status.as_str()) {
@@ -118,18 +168,42 @@ pub async fn handle_my_works(
             ));
         }
         where_conditions.push(format!("status = ${}::work_status", param_index));
+        bind_status = Some(status.clone());
         param_index += 1;
     }
 
-    let where_clause = where_conditions.join(" AND ");
+    if let Some(ref gallery) = params.gallery {
+        match gallery.as_str() {
+            "image" => {
+                where_conditions.push(
+                    "gallery IN ('meme'::gallery_kind, 'art'::gallery_kind)".to_string(),
+                );
+            }
+            "fiction" | "meme" | "art" => {
+                where_conditions.push(format!("gallery = ${}::gallery_kind", param_index));
+                bind_gallery = Some(gallery.clone());
+                param_index += 1;
+            }
+            _ => {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    "Invalid gallery parameter. Use image, fiction, meme, or art".to_string(),
+                ));
+            }
+        }
+    }
 
+    let where_clause = where_conditions.join(" AND ");
     // Count total matching records
     let count_query = format!("SELECT COUNT(*) FROM works WHERE {}", where_clause);
 
     let mut count_query_builder = sqlx::query(&count_query).bind(user_id);
 
-    if let Some(ref status) = params.status {
+    if let Some(ref status) = bind_status {
         count_query_builder = count_query_builder.bind(status);
+    }
+    if let Some(ref gallery) = bind_gallery {
+        count_query_builder = count_query_builder.bind(gallery);
     }
 
     let total: i64 = count_query_builder
@@ -168,8 +242,11 @@ pub async fn handle_my_works(
 
     let mut query_builder = sqlx::query(&select_query).bind(user_id);
 
-    if let Some(ref status) = params.status {
+    if let Some(ref status) = bind_status {
         query_builder = query_builder.bind(status);
+    }
+    if let Some(ref gallery) = bind_gallery {
+        query_builder = query_builder.bind(gallery);
     }
 
     query_builder = query_builder.bind(limit as i64).bind(offset as i64);

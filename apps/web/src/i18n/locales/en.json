@@ -345,5 +345,16 @@
   "profile.actionFictionContact": "Open the Fiction workspace and contact moderators if needed.",
   "profile.openFictionPublic": "Open Fiction",
   "profile.openFictionWorkspace": "Open Fiction workspace",
-  "profile.openFictionAria": "Open Fiction: {title}"
+  "profile.openFictionAria": "Open Fiction: {title}",
+  "profile.imageUploads": "Image uploads",
+  "profile.fictionWorks": "Fiction works",
+  "profile.imageSectionTitle": "Image submissions",
+  "profile.imageSectionTotal": "{count} image works",
+  "profile.imageSectionFilters": "Image submission status",
+  "profile.noImageWorksForFilter": "No image submissions match this filter.",
+  "profile.fictionSectionTitle": "Fiction submissions",
+  "profile.fictionSectionTotal": "{count} Fiction works",
+  "profile.fictionSectionFilters": "Fiction submission status",
+  "profile.fictionPublishedCount": "{count} published",
+  "profile.noFictionWorksForFilter": "No Fiction submissions match this filter."
 }
