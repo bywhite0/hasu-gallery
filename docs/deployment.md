@@ -35,12 +35,19 @@ S3_BUCKET=hasu-gallery
 PUBLIC_MEDIA_BASE_URL=https://assets.example.com/hasu-gallery
 CORS_ALLOWED_ORIGINS=https://gallery.example.com
 TRUST_PROXY_HEADERS=false
+SESSION_COOKIE_SECURE=true
 RUST_LOG=info,sqlx=warn
 ```
 
 Set `TRUST_PROXY_HEADERS=true` only when a trusted reverse proxy overwrites
 `X-Forwarded-For` / `X-Real-IP`. When false (default), rate limiting uses the
 TCP peer address and ignores client-supplied proxy headers.
+
+Set `SESSION_COOKIE_SECURE=true` in production (same-origin HTTPS). It enables
+the `__Host-` session cookie name prefix plus the `Secure` attribute; the cookie
+always uses `SameSite=Lax` and `HttpOnly`. Leave it unset/false for local http
+development, where a `Secure` / `__Host-` cookie would be rejected by the browser
+over cross-port http.
 
 Frontend:
 
@@ -124,6 +131,8 @@ staging/review namespace, and public sanitized variants only.
 
 - Run all migrations before starting the API.
 - Set `CORS_ALLOWED_ORIGINS` to the exact frontend origin.
+- Set `SESSION_COOKIE_SECURE=true` so the session cookie uses the `__Host-`
+  prefix and `Secure` attribute over HTTPS.
 - Set `PUBLIC_MEDIA_BASE_URL` to the public CDN/proxy URL.
 - Confirm upload, moderation approval, public gallery listing, and detail page.
 - Keep `pnpm e2e` as a local release smoke test.
