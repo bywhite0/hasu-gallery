@@ -1,7 +1,7 @@
 use axum::{
     Router,
     body::Bytes,
-    extract::{Path, Query, State},
+    extract::{DefaultBodyLimit, Path, Query, State},
     http::{HeaderMap, StatusCode, header},
     response::IntoResponse,
     routing::{get, post, put},
@@ -32,6 +32,10 @@ use super::codec::{
 };
 
 const MAX_PAGE: u32 = 50;
+// Architecture V2 §7.4: Fiction revision bodies need 2 MiB markup headroom + envelope.
+const FICTION_REVISION_BODY_LIMIT: usize = 2 * 1024 * 1024 + 64 * 1024;
+// Architecture V2 §7.4: non-revision command default body limit.
+const SMALL_COMMAND_BODY_LIMIT: usize = 64 * 1024;
 
 #[derive(Debug, Deserialize)]
 pub struct PublicFictionListQuery {
@@ -45,19 +49,24 @@ pub fn fiction_routes() -> Router<AppState> {
     Router::new()
         .route("/api/v2/public/fictions", get(list_public_fictions))
         .route("/api/v2/public/fictions/:work_id", get(get_public_fiction))
-        .route("/api/v2/account/fictions", get(list_owner_fictions).post(create_fiction))
+        .route(
+            "/api/v2/account/fictions",
+            get(list_owner_fictions)
+                .post(create_fiction)
+                .layer(DefaultBodyLimit::max(FICTION_REVISION_BODY_LIMIT)),
+        )
         .route(
             "/api/v2/account/fictions/:work_id/draft",
-            put(save_fiction_draft),
+            put(save_fiction_draft).layer(DefaultBodyLimit::max(FICTION_REVISION_BODY_LIMIT)),
         )
         .route(
             "/api/v2/account/fictions/:work_id/submit",
-            post(submit_fiction),
+            post(submit_fiction).layer(DefaultBodyLimit::max(SMALL_COMMAND_BODY_LIMIT)),
         )
         .route("/api/v2/moderation/fictions", get(moderation_queue))
         .route(
             "/api/v2/moderation/fictions/:work_id/revisions/:revision_id/decision",
-            post(moderation_decision),
+            post(moderation_decision).layer(DefaultBodyLimit::max(SMALL_COMMAND_BODY_LIMIT)),
         )
 }
 
@@ -705,5 +714,63 @@ fn rating_to_str(value: i32) -> &'static str {
         x if x == ContentRating::R18 as i32 => "r18",
         x if x == ContentRating::AllAges as i32 => "all_ages",
         _ => "all_ages",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::body::Body;
+    use axum::http::Request;
+    use aws_config::BehaviorVersion;
+    use aws_sdk_s3::config::{Credentials, Region};
+    use sqlx::postgres::PgPoolOptions;
+    use tower::ServiceExt;
+
+    use crate::api_v2::codec::PROTO_MEDIA_TYPE;
+
+    fn test_state() -> AppState {
+        let db = PgPoolOptions::new()
+            .connect_lazy("postgres://hasu_user:hasu_pass@localhost:5432/hasu_gallery_test")
+            .expect("test database URL should parse");
+        let s3_config = aws_sdk_s3::Config::builder()
+            .behavior_version(BehaviorVersion::latest())
+            .region(Region::new("us-east-1"))
+            .credentials_provider(Credentials::new(
+                "test-access-key",
+                "test-secret-key",
+                None,
+                None,
+                "hasu-gallery-test",
+            ))
+            .endpoint_url("http://localhost:9000")
+            .build();
+        AppState {
+            db,
+            s3_client: aws_sdk_s3::Client::from_conf(s3_config),
+        }
+    }
+
+    #[tokio::test]
+    async fn create_fiction_rejects_oversized_body() {
+        let app = fiction_routes()
+            .with_state(test_state())
+            .layer(tower_sessions::SessionManagerLayer::new(
+                tower_sessions::MemoryStore::default(),
+            ));
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .method("POST")
+                    .uri("/api/v2/account/fictions")
+                    .header(axum::http::header::ACCEPT, PROTO_MEDIA_TYPE)
+                    .header(axum::http::header::CONTENT_TYPE, PROTO_MEDIA_TYPE)
+                    .body(Body::from(vec![0u8; FICTION_REVISION_BODY_LIMIT + 1]))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
     }
 }
