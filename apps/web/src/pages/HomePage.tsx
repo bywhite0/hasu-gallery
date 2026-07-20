@@ -1,12 +1,11 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { Button, EmptyState, ErrorState, buttonStyles } from '@hasu-gallery/ui';
+import { Button, EmptyState, ErrorState } from '@hasu-gallery/ui';
 import type { WorkListItem } from '@hasu-gallery/types';
 import { listWorks } from '../api/works';
 import { listPublicFictions } from '../api/fiction';
 import { FictionSummaryList } from '../components/FictionSummaryList';
-import { useAuthStore } from '../store/auth';
 import { useI18n } from '../i18n';
 import { reportClientError } from '../lib/errorReporting';
 
@@ -25,7 +24,6 @@ const getErrorDescription = (error: unknown, t: ReturnType<typeof useI18n>['t'])
 };
 
 export function HomePage() {
-  const user = useAuthStore((state) => state.user);
   const { t, galleryShortLabel } = useI18n();
   const [imageFailures, setImageFailures] = useState<Record<string, boolean>>({});
 
@@ -71,26 +69,6 @@ export function HomePage() {
 
   return (
     <div className="space-y-8">
-      <section className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-        <div className="max-w-3xl">
-          <h1 className="text-3xl font-semibold tracking-normal text-ink">Hasu Gallery</h1>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link to="/gallery/meme" className={buttonStyles({ variant: 'outline' })}>
-            {t('gallery.meme')}
-          </Link>
-          <Link to="/gallery/art" className={buttonStyles({ variant: 'outline' })}>
-            {t('gallery.art')}
-          </Link>
-          <Link to="/fiction" className={buttonStyles({ variant: 'outline' })}>
-            {t('nav.fiction')}
-          </Link>
-          <Link to="/upload" className={buttonStyles()}>
-            {user ? t('nav.upload') : t('home.signInToUpload')}
-          </Link>
-        </div>
-      </section>
-
       {isLoading && (
         <div className="space-y-4" aria-live="polite" aria-busy="true">
           <p className="sr-only">{t('home.loadingTitle')}</p>
@@ -133,14 +111,7 @@ export function HomePage() {
       )}
 
       {!isLoading && !hasError && feed.length === 0 && (
-        <EmptyState
-          title={t('home.emptyTitle')}
-          action={
-            <Link to="/upload" className={buttonStyles()}>
-              {user ? t('home.uploadWork') : t('home.signInToUpload')}
-            </Link>
-          }
-        />
+        <EmptyState title={t('home.emptyTitle')} />
       )}
 
       {feed.length > 0 && (

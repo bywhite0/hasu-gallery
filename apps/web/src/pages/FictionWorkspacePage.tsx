@@ -194,10 +194,7 @@ export function FictionWorkspacePage() {
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6 pb-10 pt-2 sm:pt-4">
       <header className="flex flex-col gap-4 border-b border-ink/15 pb-6 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-sm font-medium text-ink-2">{t('fiction.collectionLabel')}</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight text-ink">{t('fictionWorkspace.title')}</h1>
-        </div>
+        <h1 className="text-3xl font-semibold tracking-tight text-ink">{t('fictionWorkspace.title')}</h1>
         <div className="flex flex-wrap gap-2">
           <Link to="/fiction" className={buttonStyles({ variant: 'outline', className: 'min-h-11' })}>
             <BookOpen className="mr-2 h-4 w-4" aria-hidden="true" />
@@ -368,7 +365,7 @@ export function FictionWorkspacePage() {
                     maxLength={120}
                   />
                 </Field>
-                <Field label={t('fictionWorkspace.fieldLanguage')} htmlFor="fiction-language" hint={selected ? t('fictionWorkspace.languageLocked') : undefined}>
+                <Field label={t('fictionWorkspace.fieldLanguage')} htmlFor="fiction-language">
                   <Select
                     id="fiction-language"
                     value={form.language}
@@ -381,7 +378,7 @@ export function FictionWorkspacePage() {
                     <option value="ja">{t('language.ja')}</option>
                   </Select>
                 </Field>
-                <Field label={t('work.rating')} htmlFor="fiction-rating" hint={t('fictionWorkspace.allAgesOnly')}>
+                <Field label={t('work.rating')} htmlFor="fiction-rating">
                   <Input id="fiction-rating" value={t('rating.allAges')} disabled readOnly />
                 </Field>
               </div>
@@ -402,7 +399,6 @@ export function FictionWorkspacePage() {
                 label={t('fictionWorkspace.fieldBody')}
                 htmlFor="fiction-body"
                 required
-                hint={t('fictionWorkspace.bodyHint')}
                 error={fieldError('body')}
               >
                 <Textarea
@@ -412,7 +408,7 @@ export function FictionWorkspacePage() {
                   disabled={!isEditable}
                   invalid={Boolean(fieldErrors.body)}
                   className="min-h-[28rem] font-serif text-base leading-7"
-                  aria-describedby={fieldErrors.body ? 'fiction-body-error' : 'fiction-body-hint'}
+                  aria-describedby={fieldErrors.body ? 'fiction-body-error' : undefined}
                 />
               </Field>
 
@@ -426,8 +422,7 @@ export function FictionWorkspacePage() {
                 {statusMessage}
               </div>
 
-              <div className="flex flex-col gap-3 border-t border-ink/10 pt-5 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs leading-5 text-ink-2">{t('fictionWorkspace.keyboardHint')}</p>
+              <div className="flex flex-col gap-3 border-t border-ink/10 pt-5 sm:flex-row sm:items-center sm:justify-end">
                 <div className="flex flex-wrap justify-end gap-2">
                   {selected && selected.state === 'draft' && !dirty && !confirmSubmit && (
                     <Button type="button" variant="outline" className="min-h-11" onClick={() => setConfirmSubmit(true)}>
@@ -460,7 +455,6 @@ export function FictionWorkspacePage() {
                     <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-warning" aria-hidden="true" />
                     <div className="min-w-0 flex-1">
                       <h3 id="fiction-submit-title" className="font-semibold text-ink">{t('fictionWorkspace.submitTitle')}</h3>
-                      <p className="mt-1 text-sm leading-6 text-ink-2">{t('fictionWorkspace.submitDescription')}</p>
                       <div className="mt-4 flex flex-wrap gap-2">
                         <Button type="button" onClick={() => void handleSubmit()} disabled={submitMutation.isPending}>
                           {submitMutation.isPending ? t('fictionWorkspace.submitting') : t('fictionWorkspace.confirmSubmit')}

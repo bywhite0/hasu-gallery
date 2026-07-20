@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
-import { BookOpenText, PenLine, Search } from 'lucide-react';
+import { PenLine, Search } from 'lucide-react';
 import { Button, EmptyState, ErrorState, Field, Input, buttonStyles } from '@hasu-gallery/ui';
 import { listPublicFictions } from '../api/fiction';
 import { FictionSummaryList } from '../components/FictionSummaryList';
@@ -65,16 +65,9 @@ export function FictionBrowsePage() {
     <div className="mx-auto w-full max-w-6xl space-y-7 pb-8 pt-2 sm:pt-4">
       <section className="grid gap-4 border-b border-ink/15 pb-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
         <div className="max-w-3xl">
-          <div className="mb-2 flex items-center gap-2 text-sm font-medium text-ink-2">
-            <BookOpenText className="h-4 w-4" aria-hidden="true" />
-            {t('fiction.collectionLabel')}
-          </div>
           <h1 ref={headingRef} tabIndex={-1} className="text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
             {t('fiction.title')}
           </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-ink-2">
-            {t('fiction.description')}
-          </p>
         </div>
         <Link
           to="/profile/fictions"
