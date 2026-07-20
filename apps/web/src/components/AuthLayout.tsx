@@ -1,8 +1,7 @@
-import { ReactNode } from 'react';
-import { Link } from '@tanstack/react-router';
+import type { ReactNode } from 'react';
 import { StateMessage } from '@hasu-gallery/ui';
-import { useI18n } from '../i18n';
 import { getAuthIntentCopy, type AuthIntentReason } from './authIntent';
+import { useI18n } from '../i18n';
 
 interface AuthLayoutProps {
   title: string;
@@ -20,25 +19,13 @@ export function AuthLayout({ title, reason, children }: AuthLayoutProps) {
         {intentCopy && (
           <StateMessage
             title={intentCopy.title}
-            description={intentCopy.description}
             tone="info"
-            className="min-h-0 px-4 py-4"
+            className="min-h-0 px-4 py-3"
           />
         )}
         <div className="rounded-lg border border-border bg-surface p-5 shadow-sm sm:p-6">
           <h1 className="mb-6 text-center text-2xl font-semibold">{title}</h1>
           {children}
-        </div>
-        <div className="flex flex-wrap items-center justify-center gap-3 text-sm">
-          <Link to="/gallery/meme" className="font-medium text-ink underline underline-offset-4 hover:text-ink-2">
-            {t('auth.continueMeme')}
-          </Link>
-          <Link to="/gallery/art" className="font-medium text-ink underline underline-offset-4 hover:text-ink-2">
-            {t('auth.continueArt')}
-          </Link>
-          <Link to="/fiction" className="font-medium text-ink underline underline-offset-4 hover:text-ink-2">
-            {t('auth.continueFiction')}
-          </Link>
         </div>
       </div>
     </div>
