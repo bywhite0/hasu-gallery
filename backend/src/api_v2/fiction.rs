@@ -45,7 +45,14 @@ pub struct PublicFictionListQuery {
     pub fandom: Option<String>,
 }
 
-pub fn fiction_routes() -> Router<AppState> {
+pub fn fiction_routes(command_limiter: crate::middleware::RateLimiter) -> Router<AppState> {
+    // §11: bounded per-route token bucket on Fiction write commands. Layered on
+    // top of the §7.4 body limit; rate check runs outermost (before the body is
+    // read). The rate_limit key includes the method, so the GET list sharing the
+    // account/fictions path is bucketed independently from the POST create.
+    let rate_limit = |limiter: crate::middleware::RateLimiter| {
+        axum::middleware::from_fn_with_state(limiter, crate::middleware::rate_limit)
+    };
     Router::new()
         .route("/api/v2/public/fictions", get(list_public_fictions))
         .route("/api/v2/public/fictions/:work_id", get(get_public_fiction))
@@ -53,20 +60,27 @@ pub fn fiction_routes() -> Router<AppState> {
             "/api/v2/account/fictions",
             get(list_owner_fictions)
                 .post(create_fiction)
-                .layer(DefaultBodyLimit::max(FICTION_REVISION_BODY_LIMIT)),
+                .layer(DefaultBodyLimit::max(FICTION_REVISION_BODY_LIMIT))
+                .layer(rate_limit(command_limiter.clone())),
         )
         .route(
             "/api/v2/account/fictions/:work_id/draft",
-            put(save_fiction_draft).layer(DefaultBodyLimit::max(FICTION_REVISION_BODY_LIMIT)),
+            put(save_fiction_draft)
+                .layer(DefaultBodyLimit::max(FICTION_REVISION_BODY_LIMIT))
+                .layer(rate_limit(command_limiter.clone())),
         )
         .route(
             "/api/v2/account/fictions/:work_id/submit",
-            post(submit_fiction).layer(DefaultBodyLimit::max(SMALL_COMMAND_BODY_LIMIT)),
+            post(submit_fiction)
+                .layer(DefaultBodyLimit::max(SMALL_COMMAND_BODY_LIMIT))
+                .layer(rate_limit(command_limiter.clone())),
         )
         .route("/api/v2/moderation/fictions", get(moderation_queue))
         .route(
             "/api/v2/moderation/fictions/:work_id/revisions/:revision_id/decision",
-            post(moderation_decision).layer(DefaultBodyLimit::max(SMALL_COMMAND_BODY_LIMIT)),
+            post(moderation_decision)
+                .layer(DefaultBodyLimit::max(SMALL_COMMAND_BODY_LIMIT))
+                .layer(rate_limit(command_limiter.clone())),
         )
 }
 
@@ -753,11 +767,16 @@ mod tests {
 
     #[tokio::test]
     async fn create_fiction_rejects_oversized_body() {
-        let app = fiction_routes()
-            .with_state(test_state())
-            .layer(tower_sessions::SessionManagerLayer::new(
-                tower_sessions::MemoryStore::default(),
-            ));
+        let app = fiction_routes(crate::middleware::RateLimiter::with_options(
+            1000,
+            std::time::Duration::from_secs(60),
+            100,
+            false,
+        ))
+        .with_state(test_state())
+        .layer(tower_sessions::SessionManagerLayer::new(
+            tower_sessions::MemoryStore::default(),
+        ));
         let response = app
             .oneshot(
                 Request::builder()
@@ -772,5 +791,43 @@ mod tests {
             .unwrap();
 
         assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
+    }
+
+    #[tokio::test]
+    async fn fiction_create_rate_limited_after_threshold() {
+        // Small bucket (2) so the third write is rejected with 429.
+        let app = fiction_routes(crate::middleware::RateLimiter::with_options(
+            2,
+            std::time::Duration::from_secs(60),
+            100,
+            false,
+        ))
+        .with_state(test_state())
+        .layer(tower_sessions::SessionManagerLayer::new(
+            tower_sessions::MemoryStore::default(),
+        ));
+
+        let mut statuses = Vec::new();
+        for _ in 0..3 {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/v2/account/fictions")
+                        .header(axum::http::header::ACCEPT, PROTO_MEDIA_TYPE)
+                        .header(axum::http::header::CONTENT_TYPE, PROTO_MEDIA_TYPE)
+                        .body(Body::from(vec![0u8; 8]))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            statuses.push(response.status());
+        }
+
+        // First two pass the limiter (then fail auth with 401); the third is throttled.
+        assert_ne!(statuses[0], StatusCode::TOO_MANY_REQUESTS);
+        assert_ne!(statuses[1], StatusCode::TOO_MANY_REQUESTS);
+        assert_eq!(statuses[2], StatusCode::TOO_MANY_REQUESTS);
     }
 }

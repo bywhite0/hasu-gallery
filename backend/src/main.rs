@@ -181,6 +181,12 @@ async fn serve() {
         10_000,
         trust_proxy_headers,
     );
+    let fiction_command_rate_limiter = middleware::RateLimiter::with_options(
+        30,
+        Duration::from_secs(60),
+        10_000,
+        trust_proxy_headers,
+    );
 
     // 从环境变量读取 CORS 配置
     let allowed_origins_str = std::env::var("CORS_ALLOWED_ORIGINS")
@@ -204,6 +210,7 @@ async fn serve() {
         login_rate_limiter,
         register_rate_limiter,
         upload_rate_limiter,
+        fiction_command_rate_limiter,
         csrf_guard,
         allowed_origins,
         session_layer,
@@ -233,6 +240,7 @@ fn build_app(
     login_rate_limiter: middleware::RateLimiter,
     register_rate_limiter: middleware::RateLimiter,
     upload_rate_limiter: middleware::RateLimiter,
+    fiction_command_rate_limiter: middleware::RateLimiter,
     csrf_guard: middleware::CsrfOriginGuard,
     allowed_origins: Vec<axum::http::HeaderValue>,
     session_layer: SessionManagerLayer<PostgresStore>,
@@ -260,7 +268,7 @@ fn build_app(
 
     Router::new()
         .route("/health", get(health_check))
-        .merge(api_v2::router())
+        .merge(api_v2::router(fiction_command_rate_limiter))
         .route(
             "/api/auth/register",
             post(routes::auth::register).route_layer(from_fn_with_state(
@@ -377,7 +385,10 @@ mod tests {
 
     fn test_app_without_db_session() -> Router {
         Router::new()
-            .merge(api_v2::router())
+            .merge(api_v2::router(middleware::RateLimiter::new(
+                1000,
+                Duration::from_secs(60),
+            )))
             .fallback(api_v2::spa::serve_embedded)
             .with_state(test_state())
             .layer(SessionManagerLayer::new(MemoryStore::default()))
