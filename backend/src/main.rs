@@ -140,8 +140,26 @@ async fn serve() {
         .await
         .expect("Failed to migrate session store");
 
-    let session_layer = SessionManagerLayer::new(session_store)
-        .with_expiry(Expiry::OnInactivity(time::Duration::days(7)));
+    // §10.1: production (same-origin HTTPS) hardens the session cookie with the
+    // __Host- prefix + Secure + SameSite=Lax. Gated by SESSION_COOKIE_SECURE so
+    // local http development (cross-port, non-TLS) keeps working by default.
+    let secure_cookie = std::env::var("SESSION_COOKIE_SECURE")
+        .map(|value| {
+            matches!(
+                value.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes" | "on"
+            )
+        })
+        .unwrap_or(false);
+    let mut session_layer = SessionManagerLayer::new(session_store)
+        .with_expiry(Expiry::OnInactivity(time::Duration::days(7)))
+        .with_same_site(tower_sessions::cookie::SameSite::Lax)
+        .with_secure(secure_cookie);
+    if secure_cookie {
+        // __Host- requires Secure + Path=/ (tower-sessions default) and no Domain.
+        session_layer = session_layer.with_name("__Host-hasu_session");
+        tracing::info!("Session cookie hardening enabled (__Host- prefix, Secure, SameSite=Lax)");
+    }
 
     // Create S3 client
     tracing::info!("Initializing S3 client...");
