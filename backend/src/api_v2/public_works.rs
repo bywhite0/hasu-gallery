@@ -16,7 +16,7 @@ use crate::proto::hasu::gallery::v2::{
 use crate::routes::works::{build_file_url, build_thumbnail_url, work_order_by};
 
 use super::codec::{
-    PROTO_MEDIA_TYPE, accepts_protobuf, error_response, not_acceptable, protobuf_response,
+    PROTO_MEDIA_TYPE, accepts_protobuf, error_response, not_acceptable, public_protobuf_response,
 };
 
 const MAX_PAGE_SIZE: u32 = 50;
@@ -269,12 +269,7 @@ async fn list_public_works(
         }),
     };
 
-    let mut http = protobuf_response(StatusCode::OK, &response);
-    http.headers_mut().insert(
-        axum::http::header::CACHE_CONTROL,
-        axum::http::HeaderValue::from_static("public, max-age=60, stale-while-revalidate=120"),
-    );
-    http
+    public_protobuf_response(&response)
 }
 
 async fn public_work_detail(
@@ -385,12 +380,7 @@ async fn public_work_detail(
         }),
     };
 
-    let mut http = protobuf_response(StatusCode::OK, &work);
-    http.headers_mut().insert(
-        axum::http::header::CACHE_CONTROL,
-        axum::http::HeaderValue::from_static("public, max-age=60, stale-while-revalidate=120"),
-    );
-    http
+    public_protobuf_response(&work)
 }
 
 async fn public_work_facets(
@@ -483,14 +473,9 @@ async fn public_work_facets(
         media,
         ratings,
     };
-    let mut http = protobuf_response(StatusCode::OK, &response);
-    http.headers_mut().insert(
-        axum::http::header::CACHE_CONTROL,
-        axum::http::HeaderValue::from_static("public, max-age=60, stale-while-revalidate=120"),
-    );
-    // Silence unused constant warning in this module while documenting media type.
+    // PROTO_MEDIA_TYPE stays referenced so the shared import remains used here.
     let _ = PROTO_MEDIA_TYPE;
-    http
+    public_protobuf_response(&response)
 }
 
 async fn fetch_art_facet(

@@ -4,6 +4,7 @@ use axum::{
     response::Response,
 };
 use prost::Message;
+use sha2::{Digest, Sha256};
 
 use crate::proto::hasu::gallery::v2::{ErrorResponse, FieldViolation};
 
@@ -29,6 +30,32 @@ pub fn protobuf_response<T: Message>(status: StatusCode, message: &T) -> Respons
         header::CONTENT_TYPE,
         HeaderValue::from_static(PROTO_MEDIA_TYPE),
     );
+    response
+}
+
+/// Public micro-cache Protobuf response with a strong ETag derived from the
+/// encoded body (Architecture V2 §12.2). Encodes once and reuses the bytes so
+/// the ETag and the response body are guaranteed consistent.
+pub fn public_protobuf_response<T: Message>(message: &T) -> Response {
+    let mut body = Vec::with_capacity(message.encoded_len());
+    message
+        .encode(&mut body)
+        .expect("protobuf encode into Vec should not fail");
+    let etag = format!("\"{}\"", hex::encode(Sha256::digest(&body)));
+
+    let mut response = Response::builder()
+        .status(StatusCode::OK)
+        .header(header::CONTENT_TYPE, PROTO_MEDIA_TYPE)
+        .header(header::X_CONTENT_TYPE_OPTIONS, "nosniff")
+        .header(
+            header::CACHE_CONTROL,
+            "public, max-age=60, stale-while-revalidate=120",
+        )
+        .body(Body::from(body))
+        .expect("protobuf response should build");
+    if let Ok(value) = HeaderValue::from_str(&etag) {
+        response.headers_mut().insert(header::ETAG, value);
+    }
     response
 }
 
@@ -164,5 +191,30 @@ mod tests {
 
         headers.insert(header::ACCEPT, HeaderValue::from_static("application/json"));
         assert!(!accepts_protobuf(&headers));
+    }
+
+    #[test]
+    fn public_protobuf_response_sets_strong_etag_and_public_cache() {
+        let response = public_protobuf_response(&HealthResponse {
+            status: "ok".into(),
+            version: "0.1.0".into(),
+            api: "v2".into(),
+        });
+
+        assert_eq!(response.status(), StatusCode::OK);
+        let etag = response
+            .headers()
+            .get(header::ETAG)
+            .and_then(|v| v.to_str().ok())
+            .expect("etag header");
+        // Strong ETag: quoted 64-char hex sha256.
+        assert!(etag.starts_with('"') && etag.ends_with('"'));
+        assert_eq!(etag.len(), 66);
+        let cache = response
+            .headers()
+            .get(header::CACHE_CONTROL)
+            .and_then(|v| v.to_str().ok())
+            .expect("cache-control header");
+        assert!(cache.contains("public") && cache.contains("max-age=60"));
     }
 }
