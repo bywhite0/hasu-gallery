@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { AlertTriangle, BookOpenText, CheckCircle, Clock, PenLine, Upload, XCircle } from 'lucide-react';
+import { PenLine } from 'lucide-react';
 import type { WorkListItem, WorkStatus } from '@hasu-gallery/types';
 import { Button, cn } from '@hasu-gallery/ui';
 import { useAuthStore } from '../store/auth';
@@ -36,7 +36,7 @@ export function ProfilePage() {
     enabled: !!user,
   });
 
-  const { data: stats, isLoading: statsLoading } = useQuery({
+  const { data: stats } = useQuery({
     queryKey: ['user', user?.id, 'stats'],
     queryFn: getMyStats,
   });
@@ -73,10 +73,6 @@ export function ProfilePage() {
     navigate({ to: '/works/$id', params: { id: work.id } });
   };
 
-  const handleUploadClick = () => {
-    navigate({ to: '/upload' });
-  };
-
   const handleFictionClick = () => {
     navigate({ to: '/profile/fictions' });
   };
@@ -99,9 +95,6 @@ export function ProfilePage() {
   const fictionApproved = Number(stats?.fiction_approved ?? 0);
   const fictionRejected = Number(stats?.fiction_rejected ?? 0);
   const fictionTakedown = Number(stats?.fiction_takedown ?? 0);
-  const imageNeedsAttention = imageRejected + imageTakedown;
-  const fictionNeedsAttention = fictionRejected + fictionTakedown;
-
   const identity: PublicUserIdentity = {
     displayName: userInfo.display_name,
     handle: userInfo.handle,
@@ -128,36 +121,6 @@ export function ProfilePage() {
     takedown: fictionTakedown,
   };
 
-  const workspaceMetrics = [
-    {
-      key: 'image-total',
-      label: t('profile.imageUploads'),
-      value: imageTotal,
-      icon: Upload,
-      className: 'text-ink',
-    },
-    {
-      key: 'image-pending',
-      label: t('profile.summaryWaiting'),
-      value: imagePending,
-      icon: Clock,
-      className: 'text-warning',
-    },
-    {
-      key: 'fiction-total',
-      label: t('profile.fictionWorks'),
-      value: fictionTotal,
-      icon: BookOpenText,
-      className: 'text-ink',
-    },
-    {
-      key: 'attention',
-      label: t('profile.summaryNeedsAttention'),
-      value: imageNeedsAttention + fictionNeedsAttention,
-      icon: AlertTriangle,
-      className: 'text-danger',
-    },
-  ];
 
   const renderStatusFilters = (
     ariaLabel: string,
@@ -202,74 +165,32 @@ export function ProfilePage() {
         </div>
 
         <div className="px-4 pb-4 sm:px-6 sm:pb-5">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start">
-              <UserAvatar
-                identity={identity}
-                size="xl"
-                className="relative z-10 -mt-8 border-4 border-surface shadow-sm sm:-mt-10"
-              />
-              <div className="min-w-0 pt-1 sm:pt-4">
-                <p className="text-xs font-medium uppercase tracking-normal text-ink-2">
-                  {t('profile.meTitle')}
-                </p>
-                <h1 className="truncate text-3xl font-semibold leading-tight text-ink sm:text-4xl">
-                  {displayName}
-                </h1>
-                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-2">
-                  <span className="font-medium text-ink">@{identity.handle}</span>
-                  <span>{joined}</span>
-                </div>
+          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start">
+            <UserAvatar
+              identity={identity}
+              size="xl"
+              className="relative z-10 -mt-8 border-4 border-surface shadow-sm sm:-mt-10"
+            />
+            <div className="min-w-0 pt-1 sm:pt-4">
+              <p className="text-xs font-medium uppercase tracking-normal text-ink-2">
+                {t('profile.meTitle')}
+              </p>
+              <h1 className="truncate text-3xl font-semibold leading-tight text-ink sm:text-4xl">
+                {displayName}
+              </h1>
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-2">
+                <span className="font-medium text-ink">@{identity.handle}</span>
+                <span>{joined}</span>
               </div>
             </div>
-
-            <div className="flex w-full flex-col gap-2 sm:mt-4 sm:w-auto sm:flex-row">
-              <Button type="button" variant="outline" onClick={handleFictionClick} className="w-full sm:w-auto">
-                <PenLine className="mr-2 h-4 w-4" aria-hidden="true" />
-                {t('fictionWorkspace.open')}
-              </Button>
-              <Button type="button" onClick={handleUploadClick} className="w-full sm:w-auto">
-                <Upload className="mr-2 h-4 w-4" aria-hidden="true" />
-                {t('profile.uploadImage')}
-              </Button>
-            </div>
           </div>
-
-          <dl className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-md border border-ink/10 bg-ink/10 md:grid-cols-4">
-            {workspaceMetrics.map((metric) => {
-              const Icon = metric.icon;
-
-              return (
-                <div key={metric.key} className="bg-paper px-3 py-3 sm:px-4">
-                  <dt className="flex min-w-0 items-start gap-2 text-xs font-medium leading-tight text-ink-2">
-                    <Icon className={cn('h-4 w-4 shrink-0', metric.className)} aria-hidden="true" />
-                    <span>{metric.label}</span>
-                  </dt>
-                  <dd className={cn('mt-2 text-2xl font-semibold leading-none', metric.className)}>
-                    {statsLoading ? '0' : formatNumber(metric.value)}
-                  </dd>
-                </div>
-              );
-            })}
-          </dl>
         </div>
       </section>
 
       <section className="mt-8 space-y-4" aria-labelledby="profile-image-submissions">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h2 id="profile-image-submissions" className="text-2xl font-semibold text-ink">
-              {t('profile.imageSectionTitle')}
-            </h2>
-            <span className="text-sm text-ink-2">
-              {t('profile.imageSectionTotal', { count: formatNumber(imageTotal) })}
-            </span>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-ink-2">
-            <XCircle className="h-4 w-4" aria-hidden="true" />
-            {t('profile.summaryRemoved', { count: formatNumber(imageTakedown) })}
-          </div>
-        </div>
+        <h2 id="profile-image-submissions" className="text-2xl font-semibold text-ink">
+          {t('profile.imageSectionTitle')}
+        </h2>
 
         {renderStatusFilters(
           t('profile.imageSectionFilters'),
@@ -302,25 +223,14 @@ export function ProfilePage() {
       </section>
 
       <section className="mt-10 space-y-4" aria-labelledby="profile-fiction-submissions">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h2 id="profile-fiction-submissions" className="text-2xl font-semibold text-ink">
-              {t('profile.fictionSectionTitle')}
-            </h2>
-            <span className="text-sm text-ink-2">
-              {t('profile.fictionSectionTotal', { count: formatNumber(fictionTotal) })}
-            </span>
-          </div>
-          <div className="flex flex-wrap items-center gap-3 text-sm text-ink-2">
-            <span className="inline-flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-success" aria-hidden="true" />
-              {t('profile.fictionPublishedCount', { count: formatNumber(fictionApproved) })}
-            </span>
-            <Button type="button" variant="outline" size="sm" onClick={handleFictionClick}>
-              <PenLine className="mr-2 h-4 w-4" aria-hidden="true" />
-              {t('fictionWorkspace.open')}
-            </Button>
-          </div>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 id="profile-fiction-submissions" className="text-2xl font-semibold text-ink">
+            {t('profile.fictionSectionTitle')}
+          </h2>
+          <Button type="button" variant="outline" size="sm" onClick={handleFictionClick}>
+            <PenLine className="mr-2 h-4 w-4" aria-hidden="true" />
+            {t('fictionWorkspace.open')}
+          </Button>
         </div>
 
         {renderStatusFilters(
@@ -347,15 +257,9 @@ export function ProfilePage() {
             />
           </>
         ) : (
-          <div className="rounded-md border border-dashed border-ink/20 bg-surface px-4 py-8 text-center">
-            <p className="text-sm text-ink-2">{t('profile.noFictionWorksForFilter')}</p>
-            <div className="mt-4 flex justify-center">
-              <Button type="button" variant="outline" onClick={handleFictionClick}>
-                <PenLine className="mr-2 h-4 w-4" aria-hidden="true" />
-                {t('fictionWorkspace.open')}
-              </Button>
-            </div>
-          </div>
+          <p className="rounded-md border border-dashed border-ink/20 bg-surface py-8 text-center text-sm text-ink-2">
+            {t('profile.noFictionWorksForFilter')}
+          </p>
         )}
       </section>
     </div>
