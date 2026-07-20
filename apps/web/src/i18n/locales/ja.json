@@ -94,7 +94,7 @@
   "auth.continueArt": "アートを続けて見る",
   "auth.intentUploadTitle": "ログインして投稿",
   "auth.intentUploadDescription": "ログインすると、投稿があなたのアカウントに保存されて審査に送られます。",
-  "auth.intentProfileTitle": "ログインして投稿を確認",
+  "auth.intentProfileTitle": "ログインして投稿を見る",
   "auth.intentProfileDescription": "ログインすると、投稿状況、審査メモ、公開済み作品を確認できます。",
   "auth.intentModerationTitle": "レビュアーのログインが必要です",
   "auth.intentModerationDescription": "審査ページを開くにはレビュアーアカウントを使ってください。",
@@ -356,5 +356,9 @@
   "profile.fictionSectionTotal": "フィクション {count} 件",
   "profile.fictionSectionFilters": "フィクション投稿の状態",
   "profile.fictionPublishedCount": "公開 {count} 件",
-  "profile.noFictionWorksForFilter": "この条件に一致するフィクション投稿はありません。"
+  "profile.noFictionWorksForFilter": "この条件に一致するフィクション投稿はありません。",
+  "nav.new": "新規",
+  "nav.newMenu": "作成",
+  "nav.newImage": "画像を投稿",
+  "nav.newFiction": "小説を書く"
 }

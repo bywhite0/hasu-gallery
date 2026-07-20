@@ -13,10 +13,10 @@ import {
   BookOpenText,
   Palette,
   ShieldCheck,
-  Upload,
   User,
   type LucideIcon,
 } from "lucide-react";
+import { CreateMenu } from "./components/CreateMenu";
 import { HomePage } from "./pages/HomePage";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
@@ -33,7 +33,7 @@ import { LanguageSelect } from "./components/LanguageSelect";
 import { useAuthStore } from "./store/auth";
 import { useI18n } from "./i18n";
 
-type NavPath = "/" | "/gallery/meme" | "/gallery/art" | "/fiction" | "/upload" | "/profile" | "/moderation";
+type NavPath = "/" | "/gallery/meme" | "/gallery/art" | "/fiction" | "/profile" | "/moderation";
 
 interface NavItem {
   to: NavPath;
@@ -56,7 +56,6 @@ const publicNavItems: NavItem[] = [
 ];
 
 const signedInTaskNavItems: NavItem[] = [
-  { to: "/upload", desktopLabelKey: "nav.upload", mobileLabelKey: "nav.upload", Icon: Upload },
   { to: "/profile", desktopLabelKey: "nav.profile", mobileLabelKey: "nav.me", Icon: User },
 ];
 
@@ -79,7 +78,7 @@ const rootRoute = createRootRoute({
       ? [...publicNavItems, ...signedInTaskNavItems, ...(isModerator ? [moderationNavItem] : [])]
       : publicNavItems;
     const mobileNavItems = user
-      ? [...publicNavItems, signedInTaskNavItems[1]]
+      ? [...publicNavItems, ...signedInTaskNavItems]
       : publicNavItems;
 
     const navLinkClass = (path: NavPath) =>
@@ -94,7 +93,7 @@ const rootRoute = createRootRoute({
             <Link to="/" className="shrink-0 text-xl font-bold md:text-2xl">
               {t('app.brand')}
             </Link>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <nav className="hidden max-w-full flex-wrap justify-end gap-2 md:flex" aria-label="Primary navigation">
                 {desktopNavItems.map((item) => (
                   <Link
@@ -108,6 +107,9 @@ const rootRoute = createRootRoute({
                 ))}
               </nav>
               <LanguageSelect />
+              <div className="hidden md:block">
+                <CreateMenu placement="header" />
+              </div>
               {!user && (
                 <Link to="/login" className={buttonStyles({ size: "sm", className: "shrink-0" })}>
                   {t('nav.signIn')}
@@ -144,6 +146,9 @@ const rootRoute = createRootRoute({
             );
           })}
         </nav>
+        <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.25rem)] right-4 z-[60] md:hidden">
+          <CreateMenu placement="fab" />
+        </div>
       </div>
     );
   },

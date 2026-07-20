@@ -96,7 +96,7 @@
   "auth.intentUploadDescription": "登录后，投稿会保存到你的账号并进入审核。",
   "auth.intentProfileTitle": "登录后查看投稿",
   "auth.intentProfileDescription": "登录后查看投稿状态、审核备注和已发布作品。",
-  "auth.intentModerationTitle": "需要审核员账号登录",
+  "auth.intentModerationTitle": "需要审核员登录",
   "auth.intentModerationDescription": "使用审核员账号打开审核页面。",
   "auth.validationRequired": "用户名、邮箱和密码均为必填。",
   "auth.validationEmail": "请输入有效的邮箱地址。",
@@ -233,7 +233,7 @@
   "moderation.pageSummary": "第 {current} / {total} 页（{count} 个投稿）",
   "nav.fiction": "小说",
   "auth.continueFiction": "继续阅读小说",
-  "auth.intentFictionTitle": "登录后创作小说",
+  "auth.intentFictionTitle": "登录后写小说",
   "auth.intentFictionDescription": "登录后即可保存草稿，并将修订版提交审核。",
   "home.fictionTitle": "最近发布的小说",
   "home.viewFiction": "浏览小说",
@@ -356,5 +356,9 @@
   "profile.fictionSectionTotal": "{count} 篇同人文",
   "profile.fictionSectionFilters": "同人文投稿状态",
   "profile.fictionPublishedCount": "{count} 篇已发布",
-  "profile.noFictionWorksForFilter": "没有符合筛选的同人文投稿。"
+  "profile.noFictionWorksForFilter": "没有符合筛选的同人文投稿。",
+  "nav.new": "新建",
+  "nav.newMenu": "创建内容",
+  "nav.newImage": "上传图片",
+  "nav.newFiction": "编写小说"
 }

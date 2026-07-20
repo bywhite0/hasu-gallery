@@ -94,7 +94,7 @@
   "auth.continueArt": "Continue browsing Art",
   "auth.intentUploadTitle": "Sign in to upload",
   "auth.intentUploadDescription": "Sign in so the submission is saved to your account for review.",
-  "auth.intentProfileTitle": "Sign in to view your submissions",
+  "auth.intentProfileTitle": "Sign in to view submissions",
   "auth.intentProfileDescription": "Sign in to see submission status, reviewer notes, and published works.",
   "auth.intentModerationTitle": "Reviewer sign-in required",
   "auth.intentModerationDescription": "Use a reviewer account to open moderation.",
@@ -356,5 +356,9 @@
   "profile.fictionSectionTotal": "{count} Fiction works",
   "profile.fictionSectionFilters": "Fiction submission status",
   "profile.fictionPublishedCount": "{count} published",
-  "profile.noFictionWorksForFilter": "No Fiction submissions match this filter."
+  "profile.noFictionWorksForFilter": "No Fiction submissions match this filter.",
+  "nav.new": "New",
+  "nav.newMenu": "Create",
+  "nav.newImage": "Upload image",
+  "nav.newFiction": "Write Fiction"
 }
