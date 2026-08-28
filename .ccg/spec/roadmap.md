@@ -5,7 +5,7 @@
 **Created**: 2026-06-09
 **Last Synced**: 2026-07-18
 
-**Status**: ✅ Phase 1-5 已完成；Architecture V2 已批准；Slice A–C foundation 已落地
+**Status**: ✅ Phase 1-5 已完成；Architecture V2 已被 V3 取代（2026-08-28）；V3 S1 已落地
 
 > **架构更新 (2026-06-14)**: 基于 linkura-apps 分析，采用 Rspack + TanStack Router/Query + zustand + Tailwind v4 技术栈
 >
@@ -13,7 +13,12 @@
 > 单个 Rust 可执行文件内嵌 SPA、同源 HTTP + Protobuf API、托管 PostgreSQL、
 > 外部 S3/R2、UUIDv4 媒体 URL、私有审核媒体与 CDN 公开净化变体；同时新增
 > Fiction 一等内容域，以 PostgreSQL 保存安全文本、草稿/审核修订与系列关系。
-> 权威设计与最新架构图见 `.ccg/spec/architecture-v2.md`。
+>
+> **Architecture V3 决策 (2026-08-28)**: 基于第一性原理复审，V2 的 Protobuf
+> 传输层与企业级边缘/媒体范围被判定为非承载复杂度。V3 收敛为单一 JSON 契约 +
+> 单二进制 galleryd + 私有媒体/UUIDv4 公开 URL + 集中策略层，迁移压缩为
+> S1–S3 三个 slice。权威设计见 `.ccg/spec/architecture-v3.md`；
+> `architecture-v2.md` 已标记 superseded 并保留作历史。
 
 ---
 
@@ -39,7 +44,7 @@
 | **3.2 审核仪表板** | ✅ COMPLETE | ✅ ModerationPage + ModerationActions + ModerationLog（524 行）| — |
 | **4: Art Gallery** | ✅ BASELINE COMPLETE | ✅ Baseline launch 已验证：Meme/Art 导航、Art upload metadata、rating 筛选、`work_art_meta` 写入、MinIO 上传成功路径与审核发布均通过真实浏览器验收 | 自动化 E2E 与 production hardening 已转入 Phase 5 |
 | **5: Polish & Hardening** | ✅ COMPLETE | ✅ Art polish、轻量 CI、后端测试、安全加固、性能索引/媒体优化、部署/审核/监控文档与监控摘要 API 均已落地；Playwright E2E 作为本地脚本保留 | 后续仅剩外部 APM/Sentry、发布自动化与前端组件测试等增强项 |
-| **Architecture V2 migration track** | APPROVED / Slice A–C | ✅ packaging + public works Protobuf + Fiction schema/markup/routes foundation | Slice D+ media UUID/direct upload/security/cutover；前端仍以 JSON 为主 |
+| **Architecture V2→V3 migration track** | V3 APPROVED / S1 ✅ | ✅ 单一 JSON 契约（Protobuf 管线已删除）+ galleryd 单二进制 + Fiction 域 | S2 私有媒体/UUIDv4 公开 URL；S3 策略层收敛/安全头/生产切换 |
 
 **Phase 2 总计**: +2,562 行前端代码，11 个 API 端点，完整的画廊浏览和上传功能。
 
@@ -116,6 +121,24 @@ JSON 路由与 Meme/Art 行为保持不变；Fiction DB/业务与媒体 UUID 不
 **2026-07-18 Architecture V2 Slice C Fiction SPA consumer**: 前端接入
 `/api/v2` Fiction 公共列表/详情、作者草稿工作台、修订元数据隔离（004 迁移）与
 审核队列；公开仅 all-ages 已发布 revision。Meme/Art JSON 路径保持不变。
+
+**2026-08-28 Architecture V3 决策切片**: 对 V2 做整体可行性/复杂度复审后批准
+`.ccg/spec/architecture-v3.md`：移除 Protobuf 传输（收敛为单一 JSON 契约）、
+上传保持服务端流式代理、私有审核媒体改用 presigned GET、媒体变体收敛为
+净化原图 + 缩略图、企业级边缘/MFA/SBOM 等降级为 hardening backlog；迁移
+计划压缩为 S1（单一 JSON 契约）、S2（私有媒体 + UUIDv4 公开 URL）、
+S3（策略层收敛 + 安全头 + 单二进制切换）。
+
+**2026-08-28 Architecture V3 S1 单一 JSON 契约切片**: Fiction
+public/account/moderation 路由移植为 JSON（`backend/src/routes/fiction.rs`，
+路径 `/api/fictions*`、`/api/users/me/fictions*`、`/api/moderation/fictions*`，
+领域层 `fiction::service` 不变，发布详情保留 content_sha256 强 ETag）；前端
+`api/fiction.ts` 切换 JSON、共享类型移至 `packages/types/src/fiction.ts`；
+删除 `proto/`、`packages/proto`、prost/build.rs、`api_v2` Protobuf 管线与
+`protobuf.ts`；嵌入 SPA 回退移至 `backend/src/spa.rs`；移除重复的
+`hasu-gallery-api` bin。验证：`cargo test` 51 通过、`pnpm typecheck`、
+`pnpm test` 9 通过、`pnpm build` 全绿。works 读路径的 ETag/micro-cache
+移植为后续跟进项。
 
 **方向已确定**：方案 C（双轨拆仓）。hasu-memes 保持只读画廊终态，hasu-gallery 为新建 UGC 平台。
 
@@ -473,21 +496,18 @@ backend/src/
 
 ## Next Actions
 
-> **Current Status (2026-07-18)**: Phase 1-5 baseline 已完成且必须保持回归
-> 绿色。Architecture V2 已批准但尚未实现；迁移顺序以
-> `.ccg/spec/architecture-v2.md` 的 bounded slices 为准。
+> **Current Status (2026-08-28)**: Phase 1-5 baseline 已完成且必须保持回归
+> 绿色。Architecture V3 已批准并完成 S1；迁移顺序以
+> `.ccg/spec/architecture-v3.md` 的 S1–S3 slices 为准。
 
 **Immediate Next Steps**:
 1. 维持当前发布前验收：`pnpm test`、`pnpm typecheck`、`pnpm build`、
    `cargo test --manifest-path backend/Cargo.toml` 与 `pnpm e2e`。
-2. 实施 V2 Slice A：建立 `proto/hasu/gallery/v2/`、content kind/Fiction
-   契约、确定性代码生成、`/api/v2` 错误/健康基线，并让同一个 Rust
-   可执行文件内嵌和服务现有 SPA。
-3. 按 B-G 顺序推进现有画廊 Protobuf 读路径、Fiction 基础、私有媒体模型、
-   预签名直传/有界处理、集中安全边界和生产切换；每个 slice 独立测试并保留
-   回滚边界。
-4. 在 V2 切换前，`docs/api.md` 与 `docs/deployment.md` 继续描述当前实际
-   JSON API 和独立部署拓扑。
+2. 实施 V3 S2：`media_assets` 表、`private/`/`public/` 前缀分离、UUIDv4
+   公开 URL、pending 媒体 presigned GET 审核视图、既有对象回填与兼容窗口。
+3. 实施 V3 S3：集中 `policy` 模块 + 角色×动作×状态测试表、安全响应头、
+   生产切换到单二进制同源部署并移除 `CORS_ALLOWED_ORIGINS`。
+4. 顺手项：把 works 公共读路径补上 ETag/micro-cache 头（S1 遗留跟进）。
 
 **Long-term Priorities**:
 - Architecture V2: 完成 1C512M、权限矩阵、恶意媒体、CDN、备份恢复验收

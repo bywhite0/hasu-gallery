@@ -12,7 +12,6 @@ use tower_http::cors::CorsLayer;
 use tower_sessions::{Expiry, SessionManagerLayer};
 use tower_sessions_sqlx_store::PostgresStore;
 
-mod api_v2;
 mod auth;
 mod cli;
 mod db;
@@ -20,8 +19,8 @@ mod fiction;
 mod image_processor;
 mod middleware;
 mod models;
-mod proto;
 mod routes;
+mod spa;
 mod storage;
 
 use cli::{Cli, Commands};
@@ -95,7 +94,7 @@ fn doctor() {
         public_media.as_deref().unwrap_or("(unset)")
     );
     println!("  embedded SPA: backend/embedded-web (sync via pnpm run sync:web-embed)");
-    println!("  api surfaces: /api/* JSON (current) + /api/v2/* Protobuf (Slice A smoke)");
+    println!("  api surfaces: /api/* JSON (works, auth, account, fiction, moderation)");
 }
 
 fn redact_database_url(url: Option<&str>) -> String {
@@ -286,7 +285,9 @@ fn build_app(
 
     Router::new()
         .route("/health", get(health_check))
-        .merge(api_v2::router(fiction_command_rate_limiter))
+        .merge(routes::fiction::fiction_routes(
+            fiction_command_rate_limiter,
+        ))
         .route(
             "/api/auth/register",
             post(routes::auth::register).route_layer(from_fn_with_state(
@@ -316,7 +317,7 @@ fn build_app(
         .route("/api/users/me/works", get(routes::users::handle_my_works))
         .route("/api/users/me/stats", get(routes::users::handle_my_stats))
         .merge(moderation_routes)
-        .fallback(api_v2::spa::serve_embedded)
+        .fallback(spa::serve_embedded)
         .with_state(state)
         .layer(session_layer)
         .layer(from_fn(middleware::request_observability))
@@ -365,13 +366,9 @@ mod tests {
         http::Request,
         routing::get,
     };
-    use prost::Message;
     use sqlx::postgres::PgPoolOptions;
     use tower::ServiceExt;
     use tower_sessions::{MemoryStore, SessionManagerLayer};
-
-    use crate::api_v2::codec::PROTO_MEDIA_TYPE;
-    use crate::proto::hasu::gallery::v2::HealthResponse;
 
     fn test_s3_client() -> aws_sdk_s3::Client {
         let s3_config = aws_sdk_s3::Config::builder()
@@ -403,11 +400,10 @@ mod tests {
 
     fn test_app_without_db_session() -> Router {
         Router::new()
-            .merge(api_v2::router(middleware::RateLimiter::new(
-                1000,
-                Duration::from_secs(60),
-            )))
-            .fallback(api_v2::spa::serve_embedded)
+            .merge(routes::fiction::fiction_routes(
+                middleware::RateLimiter::new(1000, Duration::from_secs(60)),
+            ))
+            .fallback(spa::serve_embedded)
             .with_state(test_state())
             .layer(SessionManagerLayer::new(MemoryStore::default()))
     }
@@ -482,62 +478,6 @@ mod tests {
 
         assert_eq!(status, StatusCode::UNAUTHORIZED);
         assert!(body.contains("Authentication required to view non-approved facets"));
-    }
-
-    #[tokio::test]
-    async fn v2_public_health_returns_protobuf() {
-        let app = test_app_without_db_session();
-        let response = app
-            .oneshot(
-                Request::builder()
-                    .uri("/api/v2/public/health")
-                    .header(axum::http::header::ACCEPT, PROTO_MEDIA_TYPE)
-                    .body(Body::empty())
-                    .expect("request should build"),
-            )
-            .await
-            .expect("request should complete");
-
-        assert_eq!(response.status(), StatusCode::OK);
-        assert_eq!(
-            response
-                .headers()
-                .get(axum::http::header::CONTENT_TYPE)
-                .and_then(|v| v.to_str().ok()),
-            Some(PROTO_MEDIA_TYPE)
-        );
-
-        let body = to_bytes(response.into_body(), usize::MAX)
-            .await
-            .expect("body should read");
-        let health = HealthResponse::decode(body.as_ref()).expect("health protobuf");
-        assert_eq!(health.status, "ok");
-        assert_eq!(health.api, "v2");
-        assert!(!health.version.is_empty());
-    }
-
-    #[tokio::test]
-    async fn v2_public_health_rejects_json_only_accept() {
-        let app = test_app_without_db_session();
-        let response = app
-            .oneshot(
-                Request::builder()
-                    .uri("/api/v2/public/health")
-                    .header(axum::http::header::ACCEPT, "application/json")
-                    .body(Body::empty())
-                    .expect("request should build"),
-            )
-            .await
-            .expect("request should complete");
-
-        assert_eq!(response.status(), StatusCode::NOT_ACCEPTABLE);
-        assert_eq!(
-            response
-                .headers()
-                .get(axum::http::header::CONTENT_TYPE)
-                .and_then(|v| v.to_str().ok()),
-            Some(PROTO_MEDIA_TYPE)
-        );
     }
 
     #[tokio::test]

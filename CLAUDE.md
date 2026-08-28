@@ -10,22 +10,23 @@ summary files, not here.
 - Frontend: React 19 + Rspack + TanStack Router/Query + zustand + Tailwind v4.
 - Backend: Rust Axum + PostgreSQL + MinIO/S3 + tower-sessions.
 - Current production model is still an independently served SPA plus JSON API.
-- Architecture V2 Slice A–C foundations are in tree: `proto/hasu/gallery/v2`,
-  `galleryd` with embedded SPA fallback, public Protobuf works routes, and
-  Fiction schema + safe-markup + draft/submit/publish Protobuf routes with SPA
-  browse/read/workspace/moderation consumers. Existing JSON `/api/*` remains the
-  primary Meme/Art SPA contract. Media UUID pipeline and full JSON cutover are
-  not shipped.
+- Architecture V3 (2026-08-28) supersedes V2: one JSON API contract, no
+  Protobuf/codegen toolchain. V3 S1 is shipped: Fiction public/account/
+  moderation routes are JSON under `/api/fictions*`, `/api/users/me/fictions*`,
+  and `/api/moderation/fictions*`; `galleryd` embeds the SPA as fallback.
+  Media UUID pipeline (S2) and policy/headers/cutover (S3) are not shipped.
 - CI is intentionally lightweight: frontend typecheck/build/component tests and
   backend Postgres + `cargo test`.
 - Playwright E2E is a local pre-release acceptance script, not part of CI.
-- Current engineering track: continue Architecture V2 slices D+ while keeping
-  the completed guest/account/moderation baseline green.
+- Current engineering track: implement V3 S2 (private media + UUIDv4 public
+  URLs) then S3 (policy layer, security headers, single-binary cutover) while
+  keeping the completed guest/account/moderation baseline green.
 
 ## Source Of Truth
 
 - Product and implementation roadmap: `.ccg/spec/roadmap.md`
-- Approved target architecture: `.ccg/spec/architecture-v2.md`
+- Approved target architecture: `.ccg/spec/architecture-v3.md`
+  (`architecture-v2.md` is superseded, kept for history)
 - Data model: `.ccg/spec/phase0-content-core-model.md`
 - Current API contract: `docs/api.md`
 - Current deployment: `docs/deployment.md`
@@ -36,30 +37,28 @@ summary files, not here.
 
 ## Architecture Rules
 
-- Treat `.ccg/spec/architecture-v2.md` as the target architecture source of
-  truth. Do not describe an unimplemented V2 capability as already shipped.
+- Treat `.ccg/spec/architecture-v3.md` as the target architecture source of
+  truth. Do not describe an unimplemented V3 capability as already shipped.
+- The business API is one JSON contract under `/api`. Do not reintroduce a
+  second transport (Protobuf/gRPC) or a schema codegen toolchain.
 - Preserve the current JSON API and independently served SPA until the
-  corresponding V2 migration slice passes regression and rollback checks.
-- V2 keeps the existing React/Rspack/TanStack/zustand/Tailwind architecture but
+  corresponding V3 migration slice passes regression and rollback checks.
+- V3 keeps the existing React/Rspack/TanStack/zustand/Tailwind architecture but
   embeds its production build in one Rust executable; independent static
   frontend deployment is not a requirement.
-- V2 business APIs use plain HTTP + Protobuf under `/api/v2`; large media bytes
-  never travel inside Protobuf messages.
-- V2 uses PostgreSQL as the system of record and external S3-compatible storage
-  such as AWS S3 or Cloudflare R2.
-- V2 replaces the dual-gallery-only classification with a shared content kind:
-  Meme, Art, or Fiction. Fiction uses versioned PostgreSQL text revisions,
-  series ordering, shared moderation, and safe constrained markup rather than
-  raw HTML.
-- Public media URLs use a distinct UUIDv4 media ID. Originals, pending objects,
-  and review variants remain private; only approved sanitized variants are
-  public.
+- V3 uses PostgreSQL as the system of record and external S3-compatible storage
+  such as AWS S3 or Cloudflare R2, with `private/` and `public/` key prefixes.
+- Content kinds are Meme, Art, and Fiction. Fiction uses versioned PostgreSQL
+  text revisions, series ordering, shared moderation, and safe constrained
+  markup rather than raw HTML.
+- Public media URLs use a distinct UUIDv4 media ID (V3 S2). Originals and
+  pending objects remain private; only approved sanitized objects are public.
 - Production frontend and API are same-origin, production CORS is disabled, and
-  protected operations pass through a centralized deny-by-default policy layer.
+  protected operations pass through a centralized deny-by-default policy layer
+  (V3 S3).
 - Do not place user-uploaded works in frontend `public/` or expose raw upload
   bytes from the public media origin.
-- Large gallery filtering must stay server-side: current
-  `GET /api/works`, target `GET /api/v2/public/works`.
+- Large gallery filtering must stay server-side (`GET /api/works`).
 - Upload requires login. `gallery=meme` requires `origin`; `gallery=art`
   requires artist, rating, and source URL.
 
@@ -72,13 +71,13 @@ summary files, not here.
 - Frontend i18n: `apps/web/src/i18n/`
 - UI tokens/primitives: `packages/ui/src/styles/tokens.css`,
   `packages/ui/src/primitives/`
-- Shared types: `packages/types/src/models.ts`, `packages/types/src/api.ts`
-- Target architecture: `.ccg/spec/architecture-v2.md`
-- Target Protobuf schemas: `proto/hasu/gallery/v2/`
-- V2 TS mirrors: `packages/proto`
+- Shared types: `packages/types/src/models.ts`, `packages/types/src/api.ts`,
+  `packages/types/src/fiction.ts`
+- Target architecture: `.ccg/spec/architecture-v3.md`
 - Backend entry / galleryd: `backend/src/main.rs`
-- V2 HTTP plumbing: `backend/src/api_v2/`
-- Backend routes: `backend/src/routes/`
+- Embedded SPA fallback: `backend/src/spa.rs`
+- Backend routes: `backend/src/routes/` (Fiction: `backend/src/routes/fiction.rs`)
+- Fiction domain layer: `backend/src/fiction/`
 - Backend middleware: `backend/src/middleware.rs`
 - DB migrations: `backend/migrations/`
 
@@ -93,7 +92,7 @@ pnpm run dev:api
 pnpm run storybook
 ```
 
-Architecture V2 packaging helpers:
+Single-binary galleryd packaging helpers:
 
 ```powershell
 pnpm run sync:web-embed
@@ -156,9 +155,9 @@ resolves another pnpm version.
 
 ## Next Product Direction
 
-The next architecture/product track is the bounded Architecture V2 migration.
-It must preserve the completed Meme/Art baseline while adding the Fiction
-foundation:
+The next architecture/product track is the bounded Architecture V3 migration
+(S2 private media + UUIDv4 URLs, then S3 policy/headers/cutover). It must
+preserve the completed Meme/Art baseline and the shipped Fiction foundation:
 
 - Fiction is a first-class content kind, not an Art attachment.
 - Support single works and ordered series.
@@ -171,7 +170,7 @@ foundation:
   illustrations.
 - Keep reviewer notes private and separate from future public comments.
 
-After the V2 foundation is stable, continue the existing product sequencing:
+After the V3 foundation is stable, continue the existing product sequencing:
 account settings, then favorites/likes/reporting, then carefully moderated
 comments. Direct messages remain out of the near-term plan.
 

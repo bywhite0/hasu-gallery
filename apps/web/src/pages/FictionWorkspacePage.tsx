@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { BookOpen, CheckCircle2, Clock3, FilePenLine, Plus, Save, Send } from 'lucide-react';
-import { ContentRating, type OwnerFictionDraft } from '@hasu-gallery/proto';
+import type { OwnerFictionDraft } from '@hasu-gallery/types';
 import {
   Button,
   EmptyState,
@@ -69,7 +69,7 @@ export function FictionWorkspacePage() {
   });
 
   const selected = useMemo(
-    () => ownerQuery.data?.find((fiction) => fiction.fictionId === selectedId),
+    () => ownerQuery.data?.find((fiction) => fiction.fiction_id === selectedId),
     [ownerQuery.data, selectedId],
   );
 
@@ -91,7 +91,7 @@ export function FictionWorkspacePage() {
       saveFictionDraft(workId, input),
   });
   const submitMutation = useMutation({
-    mutationFn: ({ workId, version }: { workId: string; version: bigint }) => submitFiction(workId, version),
+    mutationFn: ({ workId, version }: { workId: string; version: number }) => submitFiction(workId, version),
   });
 
   const state = selected?.state ?? 'new';
@@ -119,13 +119,13 @@ export function FictionWorkspacePage() {
       title: form.title.trim(),
       synopsis: form.synopsis.trim(),
       fandom: form.fandom.trim(),
-      contentRating: ContentRating.ALL_AGES,
+      content_rating: 'all_ages',
       body: form.body,
     };
 
     if (selectedId === 'new') {
       const created = await createMutation.mutateAsync({ ...input, language: form.language });
-      setSelectedId(created.workId);
+      setSelectedId(created.work_id);
     } else {
       await saveMutation.mutateAsync({ workId: selectedId, input });
     }
@@ -147,7 +147,7 @@ export function FictionWorkspacePage() {
   const handleSubmit = async () => {
     if (!selected || dirty || selected.state !== 'draft') return;
     try {
-      await submitMutation.mutateAsync({ workId: selected.fictionId, version: selected.workVersion });
+      await submitMutation.mutateAsync({ workId: selected.fiction_id, version: selected.work_version });
       setConfirmSubmit(false);
       setStatusMessage(t('fictionWorkspace.submitSuccess'));
       await queryClient.invalidateQueries({ queryKey: ['fiction', 'owner'] });
@@ -163,12 +163,12 @@ export function FictionWorkspacePage() {
     submitMutation.reset();
     try {
       await saveMutation.mutateAsync({
-        workId: selected.fictionId,
+        workId: selected.fiction_id,
         input: {
           title: selected.title,
           synopsis: selected.synopsis,
           fandom: selected.fandom,
-          contentRating: ContentRating.ALL_AGES,
+          content_rating: 'all_ages',
           body: selected.body,
         },
       });
@@ -247,14 +247,14 @@ export function FictionWorkspacePage() {
                 {t('fictionWorkspace.new')}
               </button>
               {ownerQuery.data?.map((fiction) => {
-                const current = selectedId === fiction.fictionId;
+                const current = selectedId === fiction.fiction_id;
                 const stateKey = isFictionState(fiction.state) ? fictionStateKeys[fiction.state] : undefined;
 
                 return (
                   <button
-                    key={fiction.fictionId}
+                    key={fiction.fiction_id}
                     type="button"
-                    onClick={() => setSelectedId(fiction.fictionId)}
+                    onClick={() => setSelectedId(fiction.fiction_id)}
                     className={cn(
                       'min-h-14 w-full rounded-md px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink',
                       current ? 'bg-ink text-paper' : 'hover:bg-accent',
@@ -263,7 +263,7 @@ export function FictionWorkspacePage() {
                     <span className="block truncate text-sm font-medium">{fiction.title}</span>
                     <span className={cn('mt-1 flex items-center justify-between gap-2 text-xs', current ? 'text-paper/75' : 'text-ink-2')}>
                       <span>{stateKey ? t(stateKey) : fiction.state}</span>
-                      <span>#{fiction.revisionNumber}</span>
+                      <span>#{fiction.revision_number}</span>
                     </span>
                   </button>
                 );
@@ -298,16 +298,16 @@ export function FictionWorkspacePage() {
                     )}
                     {dirty && <span className="text-xs font-medium text-warning">{t('fictionWorkspace.unsaved')}</span>}
                   </div>
-                  {selected?.updatedAt && (
+                  {selected?.updated_at && (
                     <p className="mt-2 text-sm text-ink-2">
-                      {t('fictionWorkspace.updated', { date: formatDateTime(selected.updatedAt) })}
+                      {t('fictionWorkspace.updated', { date: formatDateTime(selected.updated_at) })}
                     </p>
                   )}
                 </div>
                 {selected?.state === 'published' && (
                   <Link
                     to="/fiction/$id"
-                    params={{ id: selected.fictionId }}
+                    params={{ id: selected.fiction_id }}
                     className={buttonStyles({ variant: 'outline', className: 'min-h-11' })}
                   >
                     {t('fictionWorkspace.openPublic')}

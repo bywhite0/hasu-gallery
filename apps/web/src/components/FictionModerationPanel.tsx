@@ -1,5 +1,5 @@
 /**
- * FictionModerationPanel - Review pending Fiction revisions via /api/v2.
+ * FictionModerationPanel - Review pending Fiction revisions via the JSON API.
  */
 
 import { useMemo, useState } from 'react';
@@ -13,8 +13,7 @@ import {
 } from '../api/fiction';
 import { FictionBody } from './FictionBody';
 import { useI18n } from '../i18n';
-import { contentRatingValue, fictionErrorKey } from '../lib/fiction';
-
+import { fictionErrorKey } from '../lib/fiction';
 type Decision = 'approve' | 'reject';
 
 export function FictionModerationPanel() {
@@ -52,7 +51,7 @@ export function FictionModerationPanel() {
   const confirm = () => {
     if (!current || !pendingDecision) return;
     decisionMutation.mutate({
-      workId: current.fictionId,
+      workId: current.fiction_id,
       revisionId: current.id,
       approve: pendingDecision === 'approve',
       note: note.trim(),
@@ -110,33 +109,33 @@ export function FictionModerationPanel() {
               <h2 className="text-xl font-semibold text-ink">{current.title}</h2>
               <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-2">
                 <div>
-                  <dt className="sr-only">{t('moderation.fictionRevision', { number: current.revisionNumber })}</dt>
-                  <dd>{t('moderation.fictionRevision', { number: current.revisionNumber })}</dd>
+                  <dt className="sr-only">{t('moderation.fictionRevision', { number: current.revision_number })}</dt>
+                  <dd>{t('moderation.fictionRevision', { number: current.revision_number })}</dd>
                 </div>
                 <div>
                   <dt className="sr-only">{t('fiction.length')}</dt>
-                  <dd>{t('moderation.fictionWordCount', { count: formatNumber(current.wordCount) })}</dd>
+                  <dd>{t('moderation.fictionWordCount', { count: formatNumber(current.word_count) })}</dd>
                 </div>
                 <div>
                   <dt className="sr-only">{t('work.rating')}</dt>
-                  <dd>{ratingLabel(contentRatingValue(current.contentRating))}</dd>
+                  <dd>{ratingLabel(current.content_rating)}</dd>
                 </div>
-                {current.createdAt && (
+                {current.created_at && (
                   <div>
                     <dt className="sr-only">{t('moderation.created')}</dt>
-                    <dd>{formatDateTime(current.createdAt)}</dd>
+                    <dd>{formatDateTime(current.created_at)}</dd>
                   </div>
                 )}
               </dl>
             </div>
           </div>
 
-          {current.plainTextExcerpt && (
+          {current.plain_text_excerpt && (
             <div>
               <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-3">
                 {t('moderation.fictionExcerpt')}
               </h3>
-              <p className="mt-2 text-sm leading-6 text-ink-2">{current.plainTextExcerpt}</p>
+              <p className="mt-2 text-sm leading-6 text-ink-2">{current.plain_text_excerpt}</p>
             </div>
           )}
         </div>

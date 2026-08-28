@@ -1,8 +1,9 @@
 # Hasu Gallery Architecture V2
 
-- **Status**: Approved target architecture; Slice A–C foundations landed in-repo (packaging, public works Protobuf, Fiction domain)
-  (proto, galleryd packaging, `/api/v2` health/error smoke). Runtime product
-  behavior remains the pre-V2 JSON API + independent SPA until later slices ship.
+- **Status**: SUPERSEDED (2026-08-28) by `.ccg/spec/architecture-v3.md`, which
+  replaces the Protobuf transport with a single JSON contract and trims the
+  media/edge scope. This document is retained for history; Slice A–C
+  foundations it describes were landed and then partially replaced by V3 S1.
 - **Decision date**: 2026-07-18
 - **Scope**: Content domains, application packaging, API transport, persistence,
   media delivery, security, resource limits, and migration sequencing

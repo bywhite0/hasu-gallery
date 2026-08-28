@@ -34,7 +34,7 @@ export async function fetchJson<T>(
 
   const response = await fetch(url, {
     ...options,
-    credentials: 'include', // Include session cookies
+    credentials: options.credentials ?? 'include', // Session cookies unless a public read opts out
     headers: {
       'Content-Type': 'application/json',
       ...options.headers,

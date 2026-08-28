@@ -39,7 +39,7 @@ export function FictionSummaryList({ items, compact = false }: FictionSummaryLis
             <dl className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-8 text-xs leading-5 text-ink-2 sm:max-w-72 sm:justify-end sm:pl-0 sm:text-right">
               <div className="contents">
                 <dt className="sr-only">{t('fiction.author')}</dt>
-                <dd className="font-medium text-ink">@{item.authorHandle || t('common.unknown')}</dd>
+                <dd className="font-medium text-ink">@{item.author_handle || t('common.unknown')}</dd>
               </div>
               {item.fandom && (
                 <div className="contents">
@@ -55,7 +55,7 @@ export function FictionSummaryList({ items, compact = false }: FictionSummaryLis
               )}
               <div className="contents">
                 <dt className="sr-only">{t('fiction.length')}</dt>
-                <dd>{t('fiction.wordCount', { count: formatNumber(item.wordCount) })}</dd>
+                <dd>{t('fiction.wordCount', { count: formatNumber(item.word_count) })}</dd>
               </div>
             </dl>
           </Link>

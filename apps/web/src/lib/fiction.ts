@@ -1,6 +1,5 @@
-import { ContentRating } from '@hasu-gallery/proto';
 import type { TranslationKey } from '../i18n';
-import { ProtobufApiError } from '../api/protobuf';
+import { ApiError } from '../api/client';
 
 export type FictionState = 'draft' | 'pending' | 'published' | 'rejected' | 'withdrawn';
 
@@ -16,32 +15,20 @@ export function isFictionState(value: string): value is FictionState {
   return value in fictionStateKeys;
 }
 
-export function contentRatingValue(rating: ContentRating) {
-  switch (rating) {
-    case ContentRating.ALL_AGES:
-      return 'all_ages';
-    case ContentRating.R15:
-      return 'r15';
-    case ContentRating.R18:
-      return 'r18';
-    default:
-      return 'all_ages';
+function apiErrorCode(error: ApiError): string | undefined {
+  if (error.data && typeof error.data === 'object' && 'code' in error.data) {
+    const code = (error.data as { code?: unknown }).code;
+    return typeof code === 'string' ? code : undefined;
   }
-}
-
-export function toSafeNumber(value: bigint) {
-  const maximum = BigInt(Number.MAX_SAFE_INTEGER);
-  return Number(value > maximum ? maximum : value);
+  return undefined;
 }
 
 export function fictionErrorKey(error: unknown, fallback: TranslationKey): TranslationKey {
-  if (error instanceof ProtobufApiError) {
-    if (error.code === 'not_found') return 'fiction.errorNotFound';
-    if (error.code === 'version_conflict') return 'fictionWorkspace.errorVersionConflict';
-    if (error.code === 'pending_exists') return 'fictionWorkspace.errorPendingExists';
-    if (error.code === 'invalid_response_media_type' || error.code === 'invalid_protobuf_response') {
-      return 'fiction.errorProtocol';
-    }
+  if (error instanceof ApiError) {
+    const code = apiErrorCode(error);
+    if (code === 'not_found') return 'fiction.errorNotFound';
+    if (code === 'version_conflict') return 'fictionWorkspace.errorVersionConflict';
+    if (code === 'pending_exists') return 'fictionWorkspace.errorPendingExists';
   }
 
   if (error instanceof TypeError || (error instanceof Error && error.message === 'Failed to fetch')) {

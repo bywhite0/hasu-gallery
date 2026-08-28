@@ -1,27 +1,15 @@
 # API Reference
 
-> **Current-runtime document.** This page documents the existing JSON API used by
-> the product UI. Architecture V2 also exposes a growing plain HTTP + Protobuf
-> surface under `/api/v2`. Slice A/B currently ship:
->
-> - `GET /api/v2/public/health`
-> - `GET /api/v2/public/works`
-> - `GET /api/v2/public/works/{id}`
-> - `GET /api/v2/public/works/facets`
-> - `GET /api/v2/public/fictions`
-> - `GET /api/v2/public/fictions/{work_id}`
-> - account/moderation Fiction draft/submit/decision routes under `/api/v2/account/fictions*`
->   and `/api/v2/moderation/fictions*`
->
-> with media type `application/vnd.hasu-gallery.v2+protobuf`. Public V2 routes do
-> not inspect cookies and only return approved all-ages content. Fiction drafts
-> and review copies use `Cache-Control: no-store`. The SPA still uses the JSON
-> API for Meme/Art product flows. See
-> [Architecture V2](../.ccg/spec/architecture-v2.md).
+> **Current-runtime document.** This page documents the JSON API used by the
+> product UI. Architecture V3 (2026-08-28) made the JSON contract the single
+> business API: the former `/api/v2` Protobuf surface has been removed and the
+> Fiction routes below replaced it. See
+> [Architecture V3](../.ccg/spec/architecture-v3.md).
 
 Hasu Gallery API uses cookie-backed sessions. Browser clients should send
 credentials with every request. JSON endpoints return non-2xx responses with a
-plain error string or JSON error payload depending on the handler.
+plain error string or JSON error payload depending on the handler. Fiction
+endpoints always return structured errors: `{ "code": "...", "message": "..." }`.
 
 ## Auth
 
@@ -177,6 +165,91 @@ Upload validation:
 - Allowed detected formats: PNG, JPEG, GIF, WebP.
 - When a filename is present, its extension must match the detected format.
 - Image dimensions are capped at 8192 px per side and 64 MP total.
+
+## Fiction
+
+Fiction endpoints return structured JSON errors (`code`, `message`) and use
+snake_case fields. Public routes do not inspect cookies and only return
+approved, all-ages published revisions; private routes use
+`Cache-Control: no-store`.
+
+### `GET /api/fictions`
+
+Public list of published fictions (metadata + excerpt only, no bodies).
+
+Query parameters:
+- `page`: optional, defaults to `1`
+- `limit`: optional, defaults to `24`, maximum `50`
+- `q`: optional title/synopsis contains filter
+- `fandom`: optional fandom contains filter
+
+Response: `{ items, page, limit, total, total_pages }`; each item carries
+`id`, `title`, `summary`, `content_rating`, `cover_media_id`,
+`author_handle`, `fandom`, `language`, `word_count`,
+`published_revision_id`. Cached with
+`public, max-age=60, stale-while-revalidate=120`.
+
+### `GET /api/fictions/:work_id`
+
+Public detail of the currently published revision, including `body`
+(safe Hasu Fiction Markup source), `published_at`, and `content_sha256`.
+The response carries a strong ETag derived from `content_sha256`.
+Returns `404` when the work has no approved published revision.
+
+### `GET /api/users/me/fictions`
+
+Authenticated. Lists the caller's fiction works with the latest revision per
+work (`fiction_id`, `state`, `revision_number`, `work_version`, draft fields).
+
+### `POST /api/users/me/fictions`
+
+Authenticated; rate limited. Creates a fiction work with a first draft
+revision.
+
+Request:
+
+```json
+{
+  "title": "Title",
+  "synopsis": "",
+  "fandom": "",
+  "language": "en",
+  "content_rating": "all_ages",
+  "body": "Markup body"
+}
+```
+
+Body limit is 2 MiB plus envelope. Returns `201` with
+`{ work_id, revision_id, revision_number, word_count }`.
+
+### `PUT /api/users/me/fictions/:work_id/draft`
+
+Authenticated; rate limited. Saves a draft revision (same fields as create,
+without `language`). Editing a published work creates a new private revision.
+
+### `POST /api/users/me/fictions/:work_id/submit`
+
+Authenticated; rate limited. Submits the current draft for review.
+
+Request: `{ "expected_work_version": 1 }` (optimistic concurrency; a stale
+version returns `409` with code `version_conflict`).
+
+### `GET /api/moderation/fictions`
+
+Moderator/admin only. Returns pending fiction revisions oldest-first
+(`items` of `id`, `fiction_id`, `title`, `body`, `revision_number`,
+`content_rating`, `status`, `created_at`, `plain_text_excerpt`,
+`word_count`).
+
+### `POST /api/moderation/fictions/:work_id/revisions/:revision_id/decision`
+
+Moderator/admin only; rate limited.
+
+Request: `{ "decision": "approve" | "reject", "note": "optional" }`.
+
+Approval atomically switches the work's published revision pointer; the
+previous published revision remains readable until then. Returns
+`{ work_id, revision_id, state }`.
 
 ## Moderation
 

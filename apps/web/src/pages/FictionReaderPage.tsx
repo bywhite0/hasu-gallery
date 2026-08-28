@@ -6,7 +6,7 @@ import { Button, ErrorState, buttonStyles } from '@hasu-gallery/ui';
 import { getPublicFiction } from '../api/fiction';
 import { FictionBody } from '../components/FictionBody';
 import { useI18n } from '../i18n';
-import { contentRatingValue, fictionErrorKey } from '../lib/fiction';
+import { fictionErrorKey } from '../lib/fiction';
 
 const readerSkeletonWidths = ['w-[86%]', 'w-[77%]', 'w-[68%]'] as const;
 
@@ -94,7 +94,7 @@ export function FictionReaderPage() {
           <div className="flex items-center gap-1.5">
             <AtSign className="h-4 w-4" aria-hidden="true" />
             <dt className="sr-only">{t('fiction.author')}</dt>
-            <dd>{fiction.authorHandle || t('common.unknown')}</dd>
+            <dd>{fiction.author_handle || t('common.unknown')}</dd>
           </div>
           {fiction.language && (
             <div className="flex items-center gap-1.5">
@@ -105,16 +105,16 @@ export function FictionReaderPage() {
           )}
           <div>
             <dt className="sr-only">{t('fiction.length')}</dt>
-            <dd>{t('fiction.wordCount', { count: formatNumber(fiction.wordCount) })}</dd>
+            <dd>{t('fiction.wordCount', { count: formatNumber(fiction.word_count) })}</dd>
           </div>
           <div>
             <dt className="sr-only">{t('work.rating')}</dt>
-            <dd>{ratingLabel(contentRatingValue(fiction.contentRating))}</dd>
+            <dd>{ratingLabel(fiction.content_rating)}</dd>
           </div>
-          {fiction.publishedAt && (
+          {fiction.published_at && (
             <div>
               <dt className="sr-only">{t('fiction.published')}</dt>
-              <dd>{t('fiction.publishedOn', { date: formatDate(fiction.publishedAt) })}</dd>
+              <dd>{t('fiction.publishedOn', { date: formatDate(fiction.published_at) })}</dd>
             </div>
           )}
         </dl>

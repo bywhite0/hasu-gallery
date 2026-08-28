@@ -29,18 +29,9 @@ bytes = "1"
 clap = { version = "4.5", features = ["derive"] }
 hex = "0.4"
 mime_guess = "2.0"
-prost = "0.13"
 rust-embed = { version = "8.5", features = ["interpolate-folder-path"] }
 sha2 = "0.10"
 
-[build-dependencies]
-prost-build = "0.13"
-protoc-bin-vendored = "3"
-
 [[bin]]
 name = "galleryd"
-path = "src/main.rs"
-
-[[bin]]
-name = "hasu-gallery-api"
 path = "src/main.rs"

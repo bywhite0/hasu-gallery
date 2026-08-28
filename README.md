@@ -49,15 +49,13 @@ hasu-gallery/
 │   └── web/              # @hasu-gallery/web - React 前端应用
 ├── packages/
 │   ├── ui/               # @hasu-gallery/ui - 组件库 + Storybook
-│   ├── types/            # @hasu-gallery/types - 共享类型定义
-│   └── proto/            # @hasu-gallery/proto - V2 Protobuf TS 镜像
-├── proto/                # hasu.gallery.v2 schema source
-└── backend/              # galleryd / hasu-gallery-api (Rust)
+│   └── types/            # @hasu-gallery/types - 共享类型定义
+└── backend/              # galleryd (Rust)
 ```
 
 ## 文档
 
-- [Architecture V2](.ccg/spec/architecture-v2.md)
+- [Architecture V3](.ccg/spec/architecture-v3.md)
 - [API Reference](docs/api.md)
 - [Deployment Guide](docs/deployment.md)
 - [Moderation Guidelines](docs/moderation-guidelines.md)

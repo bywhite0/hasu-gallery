@@ -12,7 +12,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@hasu-gallery/proto": "workspace:*",
     "@hasu-gallery/types": "workspace:*",
     "@hasu-gallery/ui": "workspace:*",
     "@tanstack/react-query": "^5.62.0",

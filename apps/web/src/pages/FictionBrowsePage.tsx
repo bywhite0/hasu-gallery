@@ -7,7 +7,7 @@ import { listPublicFictions } from '../api/fiction';
 import { FictionSummaryList } from '../components/FictionSummaryList';
 import { Pagination } from '../components/Pagination';
 import { useI18n } from '../i18n';
-import { fictionErrorKey, toSafeNumber } from '../lib/fiction';
+import { fictionErrorKey } from '../lib/fiction';
 import { useAuthStore } from '../store/auth';
 
 export function FictionBrowsePage() {
@@ -59,7 +59,7 @@ export function FictionBrowsePage() {
 
   const hasFilters = Boolean(search.q || search.fandom);
   const data = fictionQuery.data;
-  const total = data ? toSafeNumber(data.total) : 0;
+  const total = data?.total ?? 0;
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-7 pb-8 pt-2 sm:pt-4">
@@ -147,10 +147,10 @@ export function FictionBrowsePage() {
           {data.items.length > 0 ? (
             <>
               <FictionSummaryList items={data.items} />
-              {data.totalPages > 1 && (
+              {data.total_pages > 1 && (
                 <Pagination
                   currentPage={data.page}
-                  totalPages={data.totalPages}
+                  totalPages={data.total_pages}
                   onPageChange={(page) => {
                     void navigate({
                       to: '/fiction',

@@ -1,6 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
-import { create, ContentRating, PublicFictionListResponseSchema } from '@hasu-gallery/proto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FictionBrowsePage } from './FictionBrowsePage';
 import { listPublicFictions } from '../api/fiction';
@@ -17,26 +16,26 @@ vi.mock('../api/fiction', () => ({
 
 describe('FictionBrowsePage', () => {
   beforeEach(() => {
-    vi.mocked(listPublicFictions).mockResolvedValue(
-      create(PublicFictionListResponseSchema, {
-        items: [
-          {
-            id: 'fiction-1',
-            title: 'A quiet orbit',
-            summary: 'Two friends find a signal after midnight.',
-            authorHandle: 'reader',
-            fandom: 'Hasu no Sora',
-            language: 'en',
-            wordCount: 420,
-            contentRating: ContentRating.ALL_AGES,
-          },
-        ],
-        page: 1,
-        limit: 20,
-        total: 1n,
-        totalPages: 1,
-      }),
-    );
+    vi.mocked(listPublicFictions).mockResolvedValue({
+      items: [
+        {
+          id: 'fiction-1',
+          title: 'A quiet orbit',
+          summary: 'Two friends find a signal after midnight.',
+          content_rating: 'all_ages',
+          cover_media_id: null,
+          author_handle: 'reader',
+          fandom: 'Hasu no Sora',
+          language: 'en',
+          word_count: 420,
+          published_revision_id: 'revision-1',
+        },
+      ],
+      page: 1,
+      limit: 20,
+      total: 1,
+      total_pages: 1,
+    });
   });
 
   it('shows a text-first public fiction entry', async () => {

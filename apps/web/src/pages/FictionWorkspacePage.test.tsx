@@ -1,6 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
-import { create, ContentRating, OwnerFictionDraftSchema } from '@hasu-gallery/proto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FictionWorkspacePage } from './FictionWorkspacePage';
 import { listOwnerFictions } from '../api/fiction';
@@ -19,20 +18,20 @@ vi.mock('../api/fiction', () => ({
 describe('FictionWorkspacePage', () => {
   beforeEach(() => {
     vi.mocked(listOwnerFictions).mockResolvedValue([
-      create(OwnerFictionDraftSchema, {
+      {
         id: 'revision-1',
-        fictionId: 'fiction-1',
+        fiction_id: 'fiction-1',
         title: 'Published story',
         body: 'Published body',
-        contentRating: ContentRating.ALL_AGES,
-        updatedAt: '2026-07-18T00:00:00.000Z',
+        content_rating: 'all_ages',
+        updated_at: '2026-07-18T00:00:00.000Z',
         state: 'published',
-        revisionNumber: 1,
-        workVersion: 1n,
+        revision_number: 1,
+        work_version: 1,
         synopsis: 'Synopsis',
         fandom: 'Hasu no Sora',
         language: 'en',
-      }),
+      },
     ]);
   });
 
