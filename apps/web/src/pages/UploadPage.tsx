@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { CheckCircle2, Upload, X } from 'lucide-react';
 import { FileDropZone } from '../components/FileDropZone';
 import { ImagePreview } from '../components/ImagePreview';
@@ -10,11 +10,12 @@ import { uploadWork } from '../api/upload';
 import type { Work } from '@hasu-gallery/types';
 import { useI18n } from '../i18n';
 import { reportClientError } from '../lib/errorReporting';
+import { isNetworkError } from '../lib/network';
 
 const getUploadErrorMessage = (error: Error | null, t: ReturnType<typeof useI18n>['t']) => {
   if (!error) return null;
 
-  if (/failed to fetch|networkerror|load failed/i.test(error.message)) {
+  if (isNetworkError(error)) {
     return t('upload.errorNetwork');
   }
 
@@ -24,6 +25,7 @@ const getUploadErrorMessage = (error: Error | null, t: ReturnType<typeof useI18n
 export function UploadPage() {
   const { t } = useI18n();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadedWork, setUploadedWork] = useState<Work | null>(null);
 
@@ -32,6 +34,9 @@ export function UploadPage() {
     onSuccess: (data) => {
       setUploadedWork(data);
       setSelectedFile(null);
+      // The profile works list and stats are stale the moment a new work
+      // exists; without this the 5-minute staleTime hides the upload.
+      void queryClient.invalidateQueries({ queryKey: ['user'] });
     },
   });
   const uploadErrorReport = useMemo(

@@ -1,9 +1,8 @@
 import type { TranslationKey } from '../i18n';
+import { isNetworkError } from '../lib/network';
 
 type AuthIntent = "login" | "register";
 type Translate = (key: TranslationKey) => string;
-
-const NETWORK_ERROR_PATTERN = /failed to fetch|networkerror|load failed/i;
 
 export function getAuthErrorMessage(
   error: string | null,
@@ -12,7 +11,7 @@ export function getAuthErrorMessage(
 ): string | null {
   if (!error) return null;
 
-  if (NETWORK_ERROR_PATTERN.test(error)) {
+  if (isNetworkError(error)) {
     return t('auth.errorNetwork');
   }
 
@@ -32,5 +31,5 @@ export function getAuthErrorMessage(
 }
 
 export function isRecoverableAuthError(error: string | null): boolean {
-  return Boolean(error && NETWORK_ERROR_PATTERN.test(error));
+  return isNetworkError(error);
 }

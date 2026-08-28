@@ -9,6 +9,7 @@ import { Pagination } from '../components/Pagination';
 import { useAppStore, useAuthStore, type ArtRatingPreference } from '../store';
 import { useI18n } from '../i18n';
 import { reportClientError } from '../lib/errorReporting';
+import { isNetworkError } from '../lib/network';
 
 interface GalleryPageProps {
   gallery: 'meme' | 'art';
@@ -32,9 +33,7 @@ const getResetFilters = (gallery: GalleryPageProps['gallery']): Filters =>
   gallery === 'art' ? { rating: 'all_ages' } : {};
 
 const getErrorDescription = (error: unknown, t: ReturnType<typeof useI18n>['t']) => {
-  const message = error instanceof Error ? error.message : '';
-
-  if (message === 'Failed to fetch') {
+  if (isNetworkError(error)) {
     return t('gallery.errorNetwork');
   }
 

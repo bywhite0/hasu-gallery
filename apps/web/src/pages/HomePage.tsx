@@ -5,6 +5,7 @@ import { Button, EmptyState, ErrorState } from '@hasu-gallery/ui';
 import type { WorkListItem } from '@hasu-gallery/types';
 import { listWorks } from '../api/works';
 import { listPublicFictions } from '../api/fiction';
+import { isNetworkError } from '../lib/network';
 import { FictionSummaryList } from '../components/FictionSummaryList';
 import { useI18n } from '../i18n';
 import { reportClientError } from '../lib/errorReporting';
@@ -14,9 +15,7 @@ type HomeFeedItem = WorkListItem & {
 };
 
 const getErrorDescription = (error: unknown, t: ReturnType<typeof useI18n>['t']) => {
-  const message = error instanceof Error ? error.message : '';
-
-  if (message === 'Failed to fetch') {
+  if (isNetworkError(error)) {
     return t('home.errorNetwork');
   }
 

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useParams, useNavigate, Link } from '@tanstack/react-router';
 import { useQuery } from '@tanstack/react-query';
 import { Button, ErrorState, StateMessage } from '@hasu-gallery/ui';
@@ -6,12 +6,11 @@ import { getWork } from '../api/works';
 import { ArrowLeft, Download, ExternalLink } from 'lucide-react';
 import { useI18n } from '../i18n';
 import { reportClientError } from '../lib/errorReporting';
+import { isNetworkError } from '../lib/network';
 import { UserBadge, type PublicUserIdentity } from '../components/UserIdentity';
 
 const getErrorDescription = (error: unknown, t: ReturnType<typeof useI18n>['t']) => {
-  const message = error instanceof Error ? error.message : '';
-
-  if (message === 'Failed to fetch') {
+  if (isNetworkError(error)) {
     return t('work.errorNetwork');
   }
 
@@ -47,6 +46,17 @@ export function WorkDetailPage() {
   const errorReport = error
     ? reportClientError(error, { area: 'work-detail', details: { id } })
     : null;
+
+  // Fiction uses its own reader/workspace routes; never treat it as image
+  // work detail. Navigation is a side effect, so it must not run in render.
+  useEffect(() => {
+    if (!work || work.gallery !== 'fiction') return;
+    if (work.status === 'approved') {
+      void navigate({ to: '/fiction/$id', params: { id: work.id } });
+    } else {
+      void navigate({ to: '/profile/fictions' });
+    }
+  }, [work, navigate]);
 
   if (isLoading) {
     return (
@@ -87,13 +97,8 @@ export function WorkDetailPage() {
     );
   }
 
-  // Fiction uses its own reader/workspace routes; never treat it as image work detail.
+  // Fiction 重定向由上面的 effect 处理；渲染期间只显示占位状态。
   if (work.gallery === 'fiction') {
-    if (work.status === 'approved') {
-      navigate({ to: '/fiction/$id', params: { id: work.id } });
-    } else {
-      navigate({ to: '/profile/fictions' });
-    }
     return (
       <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center">
         <StateMessage title={t('work.loadingTitle')} tone="info" />

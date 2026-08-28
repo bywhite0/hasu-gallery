@@ -3,7 +3,7 @@
  */
 
 import { useMemo, useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@hasu-gallery/ui';
 import { Ban, CheckCircle2, XCircle } from 'lucide-react';
 import { updateWorkStatus } from '../api/moderation';
@@ -51,6 +51,7 @@ const actions: PendingAction[] = [
 
 export function ModerationActions({ workId, onSuccess }: ModerationActionsProps) {
   const { t } = useI18n();
+  const queryClient = useQueryClient();
   const [note, setNote] = useState('');
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
 
@@ -60,6 +61,8 @@ export function ModerationActions({ workId, onSuccess }: ModerationActionsProps)
     onSuccess: () => {
       setNote('');
       setPendingAction(null);
+      // The decision just changed this work's log and its public visibility.
+      void queryClient.invalidateQueries({ queryKey: ['moderation-log', workId] });
       onSuccess();
     },
   });
@@ -122,7 +125,12 @@ export function ModerationActions({ workId, onSuccess }: ModerationActionsProps)
       </div>
 
       {pendingAction && (
-        <div className="rounded-lg border border-ink/20 bg-accent/40 p-4 space-y-3" role="group" aria-labelledby="moderation-confirm-title">
+        <div
+          className="rounded-lg border border-ink/20 bg-accent/40 p-4 space-y-3"
+          role="group"
+          aria-labelledby="moderation-confirm-title"
+          aria-live="polite"
+        >
           <div>
             <h3 id="moderation-confirm-title" className="text-sm font-semibold text-foreground">
               {t(pendingAction.title)}
