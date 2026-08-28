@@ -23,4 +23,6 @@ if (Test-Path $Dest) {
 }
 New-Item -ItemType Directory -Path $Dest | Out-Null
 Copy-Item -Path (Join-Path $Src "*") -Destination $Dest -Recurse -Force
-Write-Host "synced $Src -> $Dest"
+# Source maps are private build artifacts; never embed them in the public binary.
+Get-ChildItem -Path $Dest -Recurse -Filter "*.map" | Remove-Item -Force
+Write-Host "synced $Src -> $Dest (source maps excluded)"

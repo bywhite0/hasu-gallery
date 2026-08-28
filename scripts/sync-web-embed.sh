@@ -22,9 +22,11 @@ rm -rf "$DEST"
 mkdir -p "$DEST"
 # Prefer rsync when available; fall back to cp -a.
 if command -v rsync >/dev/null 2>&1; then
-  rsync -a --delete "$SRC"/ "$DEST"/
+  rsync -a --delete --exclude='*.map' "$SRC"/ "$DEST"/
 else
   cp -a "$SRC"/. "$DEST"/
 fi
+# Source maps are private build artifacts; never embed them in the public binary.
+find "$DEST" -name '*.map' -type f -delete
 
-echo "synced $SRC -> $DEST"
+echo "synced $SRC -> $DEST (source maps excluded)"
