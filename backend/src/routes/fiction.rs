@@ -231,7 +231,7 @@ async fn list_public_fictions(
         .filter(|s| !s.is_empty());
 
     // Public: approved works with published revision pointer; all_ages only (no cookies).
-    let total: i64 = sqlx::query_scalar(
+    let total: i64 = match sqlx::query_scalar(
         "SELECT COUNT(*)
          FROM works w
          JOIN work_fiction_meta m ON m.work_id = w.id
@@ -246,9 +246,21 @@ async fn list_public_fictions(
     .bind(q)
     .fetch_one(&state.db)
     .await
-    .unwrap_or(0);
+    {
+        Ok(total) => total,
+        Err(err) => {
+            // A DB failure must surface as 500 (no-store), never as an empty
+            // list under the public cache headers below.
+            tracing::error!("public fiction list count: {}", err);
+            return fiction_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "internal_error",
+                "Failed to load fiction list",
+            );
+        }
+    };
 
-    let rows = sqlx::query(
+    let rows = match sqlx::query(
         "SELECT w.id, w.title, m.synopsis, m.content_rating::text AS rating, m.fandom, m.language,
                 m.word_count, m.cover_media_id, m.current_published_revision_id,
                 u.handle AS author_handle
@@ -270,7 +282,17 @@ async fn list_public_fictions(
     .bind(offset as i64)
     .fetch_all(&state.db)
     .await
-    .unwrap_or_default();
+    {
+        Ok(rows) => rows,
+        Err(err) => {
+            tracing::error!("public fiction list rows: {}", err);
+            return fiction_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "internal_error",
+                "Failed to load fiction list",
+            );
+        }
+    };
 
     let items = rows
         .iter()
@@ -532,7 +554,7 @@ async fn list_owner_fictions(
         Err(resp) => return resp,
     };
 
-    let rows = sqlx::query(
+    let rows = match sqlx::query(
         "SELECT w.id AS work_id, m.version, w.updated_at,
                 r.id AS revision_id, r.state::text AS state, r.revision_number,
                 r.title, r.synopsis, r.fandom, r.language,
@@ -552,7 +574,17 @@ async fn list_owner_fictions(
     .bind(user_id)
     .fetch_all(&state.db)
     .await
-    .unwrap_or_default();
+    {
+        Ok(rows) => rows,
+        Err(err) => {
+            tracing::error!("owner fiction list: {}", err);
+            return fiction_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "internal_error",
+                "Failed to load fiction list",
+            );
+        }
+    };
 
     let items = rows
         .iter()
@@ -598,7 +630,7 @@ async fn moderation_queue(
         return resp;
     }
 
-    let rows = sqlx::query(
+    let rows = match sqlx::query(
         "SELECT r.id, r.work_id, r.title, r.markup_source, r.revision_number, r.state::text AS state,
                 r.created_at, r.word_count, r.plain_text_projection,
                 r.content_rating::text AS rating
@@ -609,7 +641,17 @@ async fn moderation_queue(
     )
     .fetch_all(&state.db)
     .await
-    .unwrap_or_default();
+    {
+        Ok(rows) => rows,
+        Err(err) => {
+            tracing::error!("fiction moderation queue: {}", err);
+            return fiction_error(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "internal_error",
+                "Failed to load moderation queue",
+            );
+        }
+    };
 
     let items = rows
         .iter()
