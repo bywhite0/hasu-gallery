@@ -44,7 +44,7 @@
 | **3.2 审核仪表板** | ✅ COMPLETE | ✅ ModerationPage + ModerationActions + ModerationLog（524 行）| — |
 | **4: Art Gallery** | ✅ BASELINE COMPLETE | ✅ Baseline launch 已验证：Meme/Art 导航、Art upload metadata、rating 筛选、`work_art_meta` 写入、MinIO 上传成功路径与审核发布均通过真实浏览器验收 | 自动化 E2E 与 production hardening 已转入 Phase 5 |
 | **5: Polish & Hardening** | ✅ COMPLETE | ✅ Art polish、轻量 CI、后端测试、安全加固、性能索引/媒体优化、部署/审核/监控文档与监控摘要 API 均已落地；Playwright E2E 作为本地脚本保留 | 后续仅剩外部 APM/Sentry、发布自动化与前端组件测试等增强项 |
-| **Architecture V2→V3 migration track** | V3 APPROVED / S1–S3 ✅ | ✅ 单一 JSON 契约 + galleryd 单二进制 + Fiction 域 + 私有媒体/UUIDv4 + 策略层/安全头/ETag | 生产切换（ops runbook 已备）+ 双读窗口清理 |
+| **Architecture V2→V3 migration track** | ✅ 完成（含生产切换） | ✅ 单一 JSON 契约 + galleryd 单二进制公开上线 + 私有媒体/UUIDv4 + 策略层/安全头/ETag + 桶策略收窄 | 恢复产品路线（账号设置等） |
 
 **Phase 2 总计**: +2,562 行前端代码，11 个 API 端点，完整的画廊浏览和上传功能。
 
@@ -184,6 +184,18 @@ nginx 代理）全部验证正常。主机细节与暴露评估记录于
 `.codex-local/ops/media-host-hardening-20260828.md`（gitignored）。遗留：
 双读窗口结束后收窄桶匿名策略至 `public/*` 并关闭匿名列举；takedown 需
 Cloudflare purge；非 tailnet 审核需公开 presign 域名。
+
+**2026-08-28 Architecture V3 生产切换（首次公开部署）**: `backfill-media`
+迁移全部 7 个 legacy 作品（approved → `public/{uuid}/v1/` 并经 CDN 验证；
+pending → 私有前缀且旧公开对象已删除，逐一实测确认）。在媒体主机上以
+systemd 服务部署 galleryd 单二进制（WSL Ubuntu 构建，glibc 2.39 ≤ 主机
+2.41；1GB 主机无法编译 aws-sdk-s3，已在 Cargo.toml 记录 opt-level 覆盖），
+nginx + Cloudflare 反代 `https://gallery.kaho.top` 公开上线。公网端到端
+验证：SPA/HTML CSP + HSTS、works/fiction JSON、公开 UUID 媒体、SPA 回退、
+guest r18 401、登录与审核 presigned 均通过。桶匿名策略已收窄到
+`public/*`（匿名列举/私有前缀/旧根级 key 全部 403，memes 桶不受影响），
+S2 的双读窗口就此关闭。生产拓扑与升级/回滚流程见 `docs/deployment.md`，
+主机细节见 `.codex-local/ops/media-host-hardening-20260828.md`。
 
 **方向已确定**：方案 C（双轨拆仓）。hasu-memes 保持只读画廊终态，hasu-gallery 为新建 UGC 平台。
 
@@ -542,16 +554,17 @@ backend/src/
 ## Next Actions
 
 > **Current Status (2026-08-28)**: Phase 1-5 baseline 已完成且必须保持回归
-> 绿色。Architecture V3 已批准且 S1–S3 代码全部落地；生产切换按
-> `docs/deployment.md` 的单二进制 runbook 执行。
+> 绿色。Architecture V3 全部落地并已生产切换：
+> `https://gallery.kaho.top` 以 galleryd 单二进制公开运行。
 
 **Immediate Next Steps**:
-1. 维持当前发布前验收：`pnpm test`、`pnpm typecheck`、`pnpm build`、
-   `cargo test --manifest-path backend/Cargo.toml` 与 `pnpm e2e`。
-2. 生产部署 S2/S3：应用 006 迁移、确认 CDN/代理拒绝 `private/*`、运行一次
-   `galleryd backfill-media`、切换到 galleryd 单二进制同源部署（保留旧拓扑
-   到回滚窗口结束），窗口后清理 approved 旧公开对象。
-3. 恢复产品路线：账号设置 → 收藏/点赞/举报 → 审核制评论（V3 §9 非目标与
+1. 维持发布前验收：`pnpm test`、`pnpm typecheck`、`pnpm build`、
+   `cargo test --manifest-path backend/Cargo.toml` 与 `pnpm e2e`；升级生产
+   按 `docs/deployment.md` 的构建/替换/回滚流程执行。
+2. 观察期事项：takedown 后手动 purge Cloudflare 缓存；如出现非 tailnet
+   审核员，为 presigned URL 建公开域名；可择机轮换 MinIO root 密码并清理
+   已不可达的旧根级对象。
+3. 恢复产品路线：账号设置 → 收藏/点赞/举报 → 审核制评论（非目标与
    hardening backlog 见 `.ccg/spec/architecture-v3.md`）。
 
 **Long-term Priorities**:

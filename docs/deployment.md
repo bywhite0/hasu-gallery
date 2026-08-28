@@ -1,13 +1,33 @@
 # Deployment Guide
 
-> **Current-runtime document.** This guide describes the deployed Phase 1-5
-> baseline (independent SPA + JSON API). Architecture V3 S1–S3 code has
-> shipped, so the single-binary same-origin topology below is ready to cut
-> over to; the split topology remains supported until the cutover passes its
-> rollback window. See [Architecture V3](../.ccg/spec/architecture-v3.md).
+> **Current-runtime document.** Since 2026-08-28 production runs the
+> Architecture V3 single-binary topology: one `galleryd` executable serves the
+> embedded SPA and the JSON API same-origin at `https://gallery.kaho.top`,
+> behind Cloudflare and the media host's nginx. The split static-frontend +
+> independent-API topology below remains documented for local development.
+> See [Architecture V3](../.ccg/spec/architecture-v3.md).
 
-Hasu Gallery is currently deployed as a static frontend plus an independent
-Rust API.
+## Production Topology (live)
+
+- `galleryd` runs as the `hasu-galleryd` systemd service on the media host,
+  listening on localhost behind nginx (TLS via the wildcard origin
+  certificate, proxied by Cloudflare).
+- Environment: `/etc/hasu-gallery/env` with `SESSION_COOKIE_SECURE=true`
+  (HSTS + `__Host-` cookie), `TRUST_PROXY_HEADERS=true` (nginx forwards
+  `CF-Connecting-IP` as `X-Forwarded-For`), and `CORS_ALLOWED_ORIGINS` set to
+  the site origin (used by the CSRF Origin guard; same-origin browsers send no
+  CORS traffic).
+- PostgreSQL and MinIO are reached over the private tailnet; MinIO ports are
+  firewalled from the public internet and the bucket's anonymous policy is
+  scoped to `public/*` only (no anonymous listing, no `private/*`, no legacy
+  root keys).
+- Deploy/upgrade: build `galleryd` for Linux (WSL/CI; the deploy host is too
+  small to compile the AWS SDK), replace
+  `/opt/hasu-gallery/bin/galleryd`, `systemctl restart hasu-galleryd`.
+  Rollback = reinstall the previous binary.
+
+Hasu Gallery can also run as a static frontend plus an independent
+Rust API (the local development shape).
 The API owns Postgres, sessions, S3-compatible object storage, thumbnail
 generation, upload validation, moderation, and public media URL construction.
 
@@ -152,14 +172,12 @@ Required CDN/proxy behavior:
 - **Deny `private/*` paths.** The proxy must only serve `public/*` (plus
   legacy root-level keys during the migration window). Presigned URLs go
   directly to the S3/MinIO endpoint and bypass the CDN.
-  - **Configured 2026-08-28**: the media host's nginx now returns 404 for
-    `private/*` paths, and a persistent host firewall rule blocks public
-    internet access to the MinIO S3/console ports (which had been reachable
-    with bucket-wide anonymous read and listing). Tailnet and localhost
-    paths — backend access, presigned URLs, the nginx proxy — are unaffected.
-  - Remaining: scope the bucket's anonymous policy down to `public/*` and
-    disable anonymous listing once legacy root keys are retired after the
-    dual-read window.
+  - **Configured 2026-08-28**: the media host's nginx returns 404 for
+    `private/*` paths, a persistent host firewall rule blocks public internet
+    access to the MinIO S3/console ports, and the bucket's anonymous policy is
+    scoped to `public/*` (anonymous listing and legacy root-key reads are
+    denied). Tailnet and localhost paths — backend access, presigned URLs, the
+    nginx proxy — are unaffected.
 - Presigned review URLs target `S3_ENDPOINT`, which is currently a private
   tailnet address. Owners/moderators must be able to reach it (fine for
   tailnet-based moderation; expose a dedicated public presign hostname before

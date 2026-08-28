@@ -9,7 +9,10 @@ summary files, not here.
 - Phase 1-5 baseline is complete.
 - Frontend: React 19 + Rspack + TanStack Router/Query + zustand + Tailwind v4.
 - Backend: Rust Axum + PostgreSQL + MinIO/S3 + tower-sessions.
-- Current production model is still an independently served SPA plus JSON API.
+- Production runs the Architecture V3 single-binary topology since
+  2026-08-28: `galleryd` serves the embedded SPA + JSON API same-origin at
+  `https://gallery.kaho.top` (systemd service on the media host behind
+  Cloudflare + nginx). Local development still uses the split SPA + API shape.
 - Architecture V3 (2026-08-28) supersedes V2: one JSON API contract, no
   Protobuf/codegen toolchain. All three V3 slices are code-complete:
   S1 Fiction JSON routes (`/api/fictions*`, `/api/users/me/fictions*`,
@@ -23,11 +26,11 @@ summary files, not here.
 - CI is intentionally lightweight: frontend typecheck/build/component tests and
   backend Postgres + `cargo test`.
 - Playwright E2E is a local pre-release acceptance script, not part of CI.
-- Current engineering track: V3 S1–S3 are code-complete. Next is the ops
-  rollout (apply migration 006, run `backfill-media`, CDN denies `private/*`,
-  single-binary cutover with rollback window), then resume product sequencing
-  (account settings → favorites/likes/reporting → moderated comments) while
-  keeping the completed guest/account/moderation baseline green.
+- Current engineering track: V3 S1–S3 shipped and the production cutover is
+  complete (media backfilled, bucket policy scoped to `public/*`, host
+  hardened). Next is product sequencing — account settings →
+  favorites/likes/reporting → moderated comments — while keeping the
+  guest/account/moderation baseline green.
 
 ## Source Of Truth
 
@@ -166,9 +169,11 @@ resolves another pnpm version.
 
 ## Next Product Direction
 
-The next architecture/product track is the V3 production rollout (ops runbook
-in `docs/deployment.md`; S1–S3 code is complete). Product work must preserve
-the completed Meme/Art baseline and the shipped Fiction foundation:
+The next product track resumes the existing sequencing (the V3 migration and
+its production cutover completed 2026-08-28): account settings, then
+favorites/likes/reporting, then carefully moderated comments. Product work
+must preserve the completed Meme/Art baseline and the shipped Fiction
+foundation:
 
 - Fiction is a first-class content kind, not an Art attachment.
 - Support single works and ordered series.

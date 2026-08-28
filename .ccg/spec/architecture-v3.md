@@ -3,9 +3,9 @@
 - **Status**: Approved target architecture (2026-08-28). Supersedes
   `.ccg/spec/architecture-v2.md`, which is retained for history. S1 (single
   JSON contract), S2 (private media + UUIDv4 public URLs), and S3 (policy
-  layer, security headers, works ETag) shipped 2026-08-28. The production
-  cutover to the single-binary same-origin deploy is an ops step documented in
-  `docs/deployment.md`.
+  layer, security headers, works ETag) shipped 2026-08-28, and the production
+  cutover completed the same day: `galleryd` serves the site same-origin at
+  the public gallery domain (see `docs/deployment.md`).
 - **Decision date**: 2026-08-28
 - **Goal**: Deliver the same product outcomes (Meme + Art + Fiction, moderated
   UGC, private pending media, single-binary deploy) at the lowest sustainable
