@@ -1,5 +1,5 @@
 import { useState, FormEvent } from 'react';
-import { Button } from '@hasu-gallery/ui';
+import { Button, Field, FormMessage, Input, Select, Textarea } from '@hasu-gallery/ui';
 import { useI18n } from '../i18n';
 
 interface UploadFormProps {
@@ -100,182 +100,130 @@ export function UploadForm({ file, onSubmit, isUploading }: UploadFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4" noValidate>
       {errorMessages.length > 0 && (
-        <div
-          role="alert"
-          aria-live="assertive"
-          className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive"
-        >
+        <FormMessage aria-live="assertive">
           {t('upload.fixDetails', {
             count: errorMessages.length,
             plural: errorMessages.length === 1 ? '' : 's',
           })}
-        </div>
+        </FormMessage>
       )}
 
-      <div>
-        <label htmlFor="title" className="block text-sm font-medium mb-1">
-          {t('upload.fieldTitle')} *
-        </label>
-        <input
+      <Field label={t('upload.fieldTitle')} htmlFor="title" required error={errors.title}>
+        <Input
           type="text"
           id="title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           disabled={isUploading}
-          className="w-full px-3 py-2 border rounded-md disabled:opacity-50"
           maxLength={200}
-          aria-invalid={Boolean(errors.title)}
+          invalid={Boolean(errors.title)}
           aria-describedby={errors.title ? 'title-error' : undefined}
         />
-        {errors.title && (
-          <p id="title-error" className="text-sm text-red-600 mt-1">{errors.title}</p>
-        )}
-      </div>
+      </Field>
 
-      <div>
-        <label htmlFor="gallery" className="block text-sm font-medium mb-1">
-          {t('upload.fieldGallery')} *
-        </label>
-        <select
+      <Field label={t('upload.fieldGallery')} htmlFor="gallery" required error={errors.gallery}>
+        <Select
           id="gallery"
           value={gallery}
           onChange={(e) => setGallery(e.target.value)}
           disabled={isUploading}
-          className="w-full px-3 py-2 border rounded-md disabled:opacity-50"
-          aria-invalid={Boolean(errors.gallery)}
+          invalid={Boolean(errors.gallery)}
           aria-describedby={errors.gallery ? 'gallery-error' : undefined}
         >
           <option value="">{t('upload.selectGallery')}</option>
           <option value="meme">{t('gallery.memeShort')}</option>
           <option value="art">{t('gallery.artShort')}</option>
-        </select>
-        {errors.gallery && (
-          <p id="gallery-error" className="text-sm text-red-600 mt-1">{errors.gallery}</p>
-        )}
-      </div>
+        </Select>
+      </Field>
 
       {gallery === 'meme' && (
-        <div>
-          <label htmlFor="origin" className="block text-sm font-medium mb-1">
-            {t('upload.fieldOrigin')} *
-          </label>
-          <select
+        <Field label={t('upload.fieldOrigin')} htmlFor="origin" required error={errors.origin}>
+          <Select
             id="origin"
             value={origin}
             onChange={(e) => setOrigin(e.target.value)}
             disabled={isUploading}
-            className="w-full px-3 py-2 border rounded-md disabled:opacity-50"
-            aria-invalid={Boolean(errors.origin)}
+            invalid={Boolean(errors.origin)}
             aria-describedby={errors.origin ? 'origin-error' : undefined}
           >
             <option value="">{t('upload.selectOrigin')}</option>
             <option value="official">{originLabel('official')}</option>
             <option value="derived">{originLabel('derived')}</option>
             <option value="fan_made">{originLabel('fan_made')}</option>
-          </select>
-          {errors.origin && (
-            <p id="origin-error" className="text-sm text-red-600 mt-1">{errors.origin}</p>
-          )}
-        </div>
+          </Select>
+        </Field>
       )}
 
       {gallery === 'art' && (
         <>
-          <div>
-            <label htmlFor="artist" className="block text-sm font-medium mb-1">
-              {t('upload.fieldArtist')} *
-            </label>
-            <input
+          <Field label={t('upload.fieldArtist')} htmlFor="artist" required error={errors.artist}>
+            <Input
               type="text"
               id="artist"
               value={artist}
               onChange={(e) => setArtist(e.target.value)}
               disabled={isUploading}
-              className="w-full px-3 py-2 border rounded-md disabled:opacity-50"
               maxLength={200}
               placeholder={t('upload.artistPlaceholder')}
-              aria-invalid={Boolean(errors.artist)}
+              invalid={Boolean(errors.artist)}
               aria-describedby={errors.artist ? 'artist-error' : undefined}
             />
-            {errors.artist && (
-              <p id="artist-error" className="text-sm text-red-600 mt-1">{errors.artist}</p>
-            )}
-          </div>
+          </Field>
 
-          <div>
-            <label htmlFor="medium" className="block text-sm font-medium mb-1">
-              {t('upload.fieldMedium')}
-            </label>
-            <input
+          <Field label={t('upload.fieldMedium')} htmlFor="medium">
+            <Input
               type="text"
               id="medium"
               value={medium}
               onChange={(e) => setMedium(e.target.value)}
               disabled={isUploading}
-              className="w-full px-3 py-2 border rounded-md disabled:opacity-50"
               maxLength={100}
               placeholder={t('upload.mediumPlaceholder')}
             />
-          </div>
+          </Field>
 
-          <div>
-            <label htmlFor="rating" className="block text-sm font-medium mb-1">
-              {t('upload.fieldRating')} *
-            </label>
-            <select
+          <Field label={t('upload.fieldRating')} htmlFor="rating" required error={errors.rating}>
+            <Select
               id="rating"
               value={rating}
               onChange={(e) => setRating(e.target.value)}
               disabled={isUploading}
-              className="w-full px-3 py-2 border rounded-md disabled:opacity-50"
-              aria-invalid={Boolean(errors.rating)}
+              invalid={Boolean(errors.rating)}
               aria-describedby={errors.rating ? 'rating-error' : undefined}
             >
               <option value="all_ages">{ratingLabel('all_ages')}</option>
               <option value="r15">{ratingLabel('r15')}</option>
               <option value="r18">{ratingLabel('r18')}</option>
-            </select>
-            {errors.rating && (
-              <p id="rating-error" className="text-sm text-red-600 mt-1">{errors.rating}</p>
-            )}
-          </div>
+            </Select>
+          </Field>
         </>
       )}
 
-      <div>
-        <label htmlFor="source" className="block text-sm font-medium mb-1">
-          {t('upload.fieldSource')}
-        </label>
-        <textarea
+      <Field label={t('upload.fieldSource')} htmlFor="source" error={errors.source}>
+        <Textarea
           id="source"
           value={source}
           onChange={(e) => setSource(e.target.value)}
           disabled={isUploading}
-          className="w-full px-3 py-2 border rounded-md disabled:opacity-50"
           rows={3}
           placeholder={t('upload.sourcePlaceholder')}
+          invalid={Boolean(errors.source)}
+          aria-describedby={errors.source ? 'source-error' : undefined}
         />
-      </div>
+      </Field>
 
-      <div>
-        <label htmlFor="sourceUrl" className="block text-sm font-medium mb-1">
-          {t('upload.fieldSourceUrl')}
-        </label>
-        <input
+      <Field label={t('upload.fieldSourceUrl')} htmlFor="sourceUrl" error={errors.sourceUrl}>
+        <Input
           type="url"
           id="sourceUrl"
           value={sourceUrl}
           onChange={(e) => setSourceUrl(e.target.value)}
           disabled={isUploading}
-          className="w-full px-3 py-2 border rounded-md disabled:opacity-50"
           placeholder="https://example.com"
-          aria-invalid={Boolean(errors.sourceUrl)}
-          aria-describedby={errors.sourceUrl ? 'source-url-error' : undefined}
+          invalid={Boolean(errors.sourceUrl)}
+          aria-describedby={errors.sourceUrl ? 'sourceUrl-error' : undefined}
         />
-        {errors.sourceUrl && (
-          <p id="source-url-error" className="text-sm text-red-600 mt-1">{errors.sourceUrl}</p>
-        )}
-      </div>
+      </Field>
 
       <Button type="submit" disabled={isUploading} className="w-full">
         {isUploading ? t('upload.submitting') : t('upload.submit')}

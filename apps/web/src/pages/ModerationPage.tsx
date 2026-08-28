@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { Select } from '@hasu-gallery/ui';
 import { ModeratorGuard } from '../components/ModeratorGuard';
 import { ModerationActions } from '../components/ModerationActions';
 import { ModerationLog } from '../components/ModerationLog';
@@ -66,18 +67,18 @@ export function ModerationPage() {
               <label htmlFor="moderation-queue-kind" className="block text-sm font-medium mb-2">
                 {t('moderation.queueKind')}
               </label>
-              <select
+              <Select
                 id="moderation-queue-kind"
+                className="w-auto"
                 value={queueKind}
                 onChange={(e) => {
                   setQueueKind(e.target.value as 'media' | 'fiction');
                   setPage(1);
                 }}
-                className="px-3 py-2 border border-ink/20 rounded-md focus:outline-none focus:ring-2 focus:ring-ink"
               >
                 <option value="media">{t('moderation.queueMedia')}</option>
                 <option value="fiction">{t('moderation.queueFiction')}</option>
-              </select>
+              </Select>
             </div>
 
             {queueKind === 'media' && (
@@ -86,38 +87,38 @@ export function ModerationPage() {
                   <label htmlFor="moderation-gallery-filter" className="block text-sm font-medium mb-2">
                     {t('work.gallery')}
                   </label>
-                  <select
+                  <Select
                     id="moderation-gallery-filter"
+                    className="w-auto"
                     value={gallery}
                     onChange={(e) => {
                       setGallery(e.target.value as 'meme' | 'art');
                       setPage(1);
                     }}
-                    className="px-3 py-2 border border-ink/20 rounded-md focus:outline-none focus:ring-2 focus:ring-ink"
                   >
                     <option value="meme">{galleryLabel('meme')}</option>
                     <option value="art">{galleryLabel('art')}</option>
-                  </select>
+                  </Select>
                 </div>
 
                 <div>
                   <label htmlFor="moderation-status-filter" className="block text-sm font-medium mb-2">
                     {t('filter.status')}
                   </label>
-                  <select
+                  <Select
                     id="moderation-status-filter"
+                    className="w-auto"
                     value={status}
                     onChange={(e) => {
                       setStatus(e.target.value);
                       setPage(1);
                     }}
-                    className="px-3 py-2 border border-ink/20 rounded-md focus:outline-none focus:ring-2 focus:ring-ink"
                   >
                     <option value="pending">{t('status.pending')}</option>
                     <option value="approved">{t('status.approved')}</option>
                     <option value="rejected">{t('status.rejected')}</option>
                     <option value="takedown">{t('status.takedown')}</option>
-                  </select>
+                  </Select>
                 </div>
               </>
             )}
@@ -135,7 +136,7 @@ export function ModerationPage() {
 
               {error && (
                 <div className="text-center py-12">
-                  <div className="text-red-600">{t('moderation.queueError')}</div>
+                  <div className="text-danger">{t('moderation.queueError')}</div>
                 </div>
               )}
 
@@ -224,7 +225,7 @@ export function ModerationPage() {
                           href={currentWork.source_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="ml-2 text-blue-600 hover:underline"
+                          className="ml-2 text-info underline underline-offset-4 hover:text-ink"
                         >
                           {currentWork.source_url}
                         </a>

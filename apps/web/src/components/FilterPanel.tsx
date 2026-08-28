@@ -1,4 +1,4 @@
-import { Button } from '@hasu-gallery/ui';
+import { Button, Input, Select } from '@hasu-gallery/ui';
 import type { WorkFacet, WorksFacetsResponse } from '@hasu-gallery/types';
 import { useI18n } from '../i18n';
 
@@ -76,18 +76,19 @@ export function FilterPanel({
           <label htmlFor="status-filter" className="text-sm font-medium">
             {t('filter.status')}
           </label>
-          <select
+          <Select
             id="status-filter"
+            size="sm"
+            className="w-auto"
             value={filters.status || 'all'}
             onChange={(e) => handleChange('status', e.target.value)}
-            className="rounded border border-ink/30 bg-paper px-3 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink focus:ring-offset-2 focus:ring-offset-surface"
           >
             <option value="all">{t('common.all')}</option>
             <option value="pending">{t('status.pending')}</option>
             <option value="approved">{t('status.approved')}</option>
             <option value="rejected">{t('status.rejected')}</option>
             <option value="takedown">{t('status.takedown')}</option>
-          </select>
+          </Select>
         </div>
       )}
 
@@ -96,17 +97,18 @@ export function FilterPanel({
           <label htmlFor="origin-filter" className="text-sm font-medium">
             {t('filter.origin')}
           </label>
-          <select
+          <Select
             id="origin-filter"
+            size="sm"
+            className="w-auto"
             value={filters.origin || 'all'}
             onChange={(e) => handleChange('origin', e.target.value)}
-            className="rounded border border-ink/30 bg-paper px-3 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink focus:ring-offset-2 focus:ring-offset-surface"
           >
             <option value="all">{t('common.all')}</option>
             <option value="official">{originLabel('official')}</option>
             <option value="derived">{originLabel('derived')}</option>
             <option value="fan_made">{originLabel('fan_made')}</option>
-          </select>
+          </Select>
         </div>
       )}
 
@@ -114,16 +116,17 @@ export function FilterPanel({
         <label htmlFor="sort-filter" className="text-sm font-medium">
           {t('filter.sort')}
         </label>
-        <select
+        <Select
           id="sort-filter"
+          size="sm"
+          className="w-auto"
           value={currentSortDisplay}
           onChange={(e) => handleChange('sort', sortValueMap[e.target.value])}
-          className="rounded border border-ink/30 bg-paper px-3 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink focus:ring-offset-2 focus:ring-offset-surface"
         >
           <option value="newest">{t('filter.sortNewest')}</option>
           <option value="oldest">{t('filter.sortOldest')}</option>
           <option value="title-az">{t('filter.sortTitleAz')}</option>
-        </select>
+        </Select>
       </div>
 
       {gallery === 'art' && (
@@ -132,11 +135,12 @@ export function FilterPanel({
             <label htmlFor="rating-filter" className="text-sm font-medium">
               {t('filter.rating')}
             </label>
-            <select
+            <Select
               id="rating-filter"
+              size="sm"
+              className="w-auto"
               value={isGuest ? 'all_ages' : filters.rating || 'all_ages'}
               onChange={(e) => handleChange('rating', e.target.value)}
-              className="rounded border border-ink/30 bg-paper px-3 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink focus:ring-offset-2 focus:ring-offset-surface"
             >
               <option value="all_ages">
                 {formatRatingLabel(ratingLabel('all_ages'), artFacets?.ratings, 'all_ages')}
@@ -151,7 +155,7 @@ export function FilterPanel({
                   </option>
                 </>
               )}
-            </select>
+            </Select>
           </div>
 
           {isGuest && (
@@ -164,14 +168,15 @@ export function FilterPanel({
             <label htmlFor="artist-filter" className="text-sm font-medium">
               {t('filter.artist')}
             </label>
-            <input
+            <Input
               id="artist-filter"
               type="search"
+              size="sm"
+              className="w-40"
               list="artist-filter-options"
               value={filters.artist || ''}
               onChange={(e) => handleTextChange('artist', e.target.value)}
               placeholder={t('filter.artistPlaceholder')}
-              className="w-40 rounded border border-ink/30 bg-paper px-3 py-1.5 text-sm text-ink placeholder:text-ink-3 focus:outline-none focus:ring-2 focus:ring-ink focus:ring-offset-2 focus:ring-offset-surface"
             />
             {artFacets?.artists.length ? (
               <datalist id="artist-filter-options">
@@ -190,14 +195,15 @@ export function FilterPanel({
             <label htmlFor="medium-filter" className="text-sm font-medium">
               {t('filter.medium')}
             </label>
-            <input
+            <Input
               id="medium-filter"
               type="search"
+              size="sm"
+              className="w-40"
               list="medium-filter-options"
               value={filters.medium || ''}
               onChange={(e) => handleTextChange('medium', e.target.value)}
               placeholder={t('filter.mediumPlaceholder')}
-              className="w-40 rounded border border-ink/30 bg-paper px-3 py-1.5 text-sm text-ink placeholder:text-ink-3 focus:outline-none focus:ring-2 focus:ring-ink focus:ring-offset-2 focus:ring-offset-surface"
             />
             {artFacets?.media.length ? (
               <datalist id="medium-filter-options">
