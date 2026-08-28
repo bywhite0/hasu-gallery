@@ -175,6 +175,16 @@ HSTS 随 `SESSION_COOKIE_SECURE` 开启）；补齐 S1 遗留项：公共 works
 tailnet 内网端点，非 tailnet 审核需公开 presign 域名；另确认 takedown 后
 Cloudflare 缓存需手动 purge（cf-cache-status: HIT）。
 
+**2026-08-28 媒体主机加固（运维实施）**: 经 SSH 在媒体主机完成两项配置——
+① nginx `assets.conf` 增加 `location ^~ /hasu-gallery/private/ { return 404; }`
+（已备份原配置，legacy 公开媒体不受影响）；② 实测发现 MinIO 9000/9001 曾直接
+暴露公网且允许匿名列举/读取整桶，已加 iptables DROP（限 eth0）并以幂等
+systemd oneshot 单元持久化；tailnet/localhost 路径（后端直连、presigned、
+nginx 代理）全部验证正常。主机细节与暴露评估记录于
+`.codex-local/ops/media-host-hardening-20260828.md`（gitignored）。遗留：
+双读窗口结束后收窄桶匿名策略至 `public/*` 并关闭匿名列举；takedown 需
+Cloudflare purge；非 tailnet 审核需公开 presign 域名。
+
 **方向已确定**：方案 C（双轨拆仓）。hasu-memes 保持只读画廊终态，hasu-gallery 为新建 UGC 平台。
 
 ---

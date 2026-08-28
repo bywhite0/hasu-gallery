@@ -152,12 +152,13 @@ Required CDN/proxy behavior:
 - **Deny `private/*` paths.** The proxy must only serve `public/*` (plus
   legacy root-level keys during the migration window). Presigned URLs go
   directly to the S3/MinIO endpoint and bypass the CDN.
-  - **Verified open gap (2026-08-28)**: the current MinIO bucket carries a
-    bucket-wide anonymous download policy from the legacy layout, so
-    `private/*` objects are anonymously readable via the CDN today. Add an
-    edge rule (Cloudflare rule or nginx `location ^~ /hasu-gallery/private/`
-    → 404) immediately — it breaks nothing — and scope the bucket's anonymous
-    policy down to `public/*` once legacy root keys are retired after the
+  - **Configured 2026-08-28**: the media host's nginx now returns 404 for
+    `private/*` paths, and a persistent host firewall rule blocks public
+    internet access to the MinIO S3/console ports (which had been reachable
+    with bucket-wide anonymous read and listing). Tailnet and localhost
+    paths — backend access, presigned URLs, the nginx proxy — are unaffected.
+  - Remaining: scope the bucket's anonymous policy down to `public/*` and
+    disable anonymous listing once legacy root keys are retired after the
     dual-read window.
 - Presigned review URLs target `S3_ENDPOINT`, which is currently a private
   tailnet address. Owners/moderators must be able to reach it (fine for
