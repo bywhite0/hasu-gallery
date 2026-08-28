@@ -224,13 +224,23 @@ fn request_rate_limit_key(request: &Request<Body>, trust_proxy_headers: bool) ->
 
 fn client_fingerprint(request: &Request<Body>, trust_proxy_headers: bool) -> String {
     if trust_proxy_headers {
+        // Cloudflare writes CF-Connecting-IP itself and nginx passes it
+        // through untouched, so it stays correct even if the proxy's
+        // X-Forwarded-For rewrite ever drifts to append semantics.
+        if let Some(cf_ip) = header_value(request.headers(), "cf-connecting-ip") {
+            return cf_ip;
+        }
+
+        // Fall back to the RIGHTMOST X-Forwarded-For entry: it is written by
+        // the nearest proxy. Leftmost entries are client-controlled under
+        // append semantics and would let an attacker rotate rate-limit
+        // buckets (and evict honest ones) with a forged header.
         if let Some(forwarded) = header_value(request.headers(), "x-forwarded-for")
             .and_then(|value| {
                 value
-                    .split(',')
-                    .next()
+                    .rsplit(',')
                     .map(str::trim)
-                    .filter(|value| !value.is_empty())
+                    .find(|value| !value.is_empty())
                     .map(ToString::to_string)
             })
         {
@@ -396,7 +406,27 @@ mod tests {
             .insert("x-real-ip", "198.51.100.2".parse().unwrap());
 
         assert_eq!(client_fingerprint(&request, false), "unknown");
-        assert_eq!(client_fingerprint(&request, true), "203.0.113.7");
+        // Rightmost X-Forwarded-For entry: written by the nearest proxy,
+        // not spoofable by prepending values client-side.
+        assert_eq!(client_fingerprint(&request, true), "198.51.100.2");
+    }
+
+    #[test]
+    fn client_fingerprint_prefers_cf_connecting_ip_over_forwarded_chain() {
+        let mut request = HttpRequest::builder()
+            .method("POST")
+            .uri("/api/auth/login")
+            .body(Body::empty())
+            .unwrap();
+        request
+            .headers_mut()
+            .insert("cf-connecting-ip", "192.0.2.9".parse().unwrap());
+        request
+            .headers_mut()
+            .insert("x-forwarded-for", "203.0.113.7, 198.51.100.2".parse().unwrap());
+
+        assert_eq!(client_fingerprint(&request, true), "192.0.2.9");
+        assert_eq!(client_fingerprint(&request, false), "unknown");
     }
 
     #[test]
