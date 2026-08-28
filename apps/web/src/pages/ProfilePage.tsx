@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { PenLine } from 'lucide-react';
 import type { WorkListItem, WorkStatus } from '@hasu-gallery/types';
-import { Button, cn } from '@hasu-gallery/ui';
+import { Button, ErrorState, cn } from '@hasu-gallery/ui';
 import { useAuthStore } from '../store/auth';
 import { getMyWorks, getMyStats } from '../api/profile';
 import { MyWorksList } from '../components/MyWorksList';
@@ -30,18 +30,17 @@ export function ProfilePage() {
   const [imagePage, setImagePage] = useState(1);
   const [fictionPage, setFictionPage] = useState(1);
 
-  const { data: userInfo } = useQuery({
-    queryKey: ['auth', 'me', user?.id],
-    queryFn: () => Promise.resolve(user),
-    enabled: !!user,
-  });
-
   const { data: stats } = useQuery({
     queryKey: ['user', user?.id, 'stats'],
     queryFn: getMyStats,
   });
 
-  const { data: imageWorksData, isLoading: imageWorksLoading } = useQuery({
+  const {
+    data: imageWorksData,
+    isLoading: imageWorksLoading,
+    error: imageWorksError,
+    refetch: refetchImageWorks,
+  } = useQuery({
     queryKey: ['user', user?.id, 'works', 'image', imageStatusFilter, imagePage],
     queryFn: () =>
       getMyWorks({
@@ -51,7 +50,12 @@ export function ProfilePage() {
       }),
   });
 
-  const { data: fictionWorksData, isLoading: fictionWorksLoading } = useQuery({
+  const {
+    data: fictionWorksData,
+    isLoading: fictionWorksLoading,
+    error: fictionWorksError,
+    refetch: refetchFictionWorks,
+  } = useQuery({
     queryKey: ['user', user?.id, 'works', 'fiction', fictionStatusFilter, fictionPage],
     queryFn: () =>
       getMyWorks({
@@ -77,7 +81,7 @@ export function ProfilePage() {
     navigate({ to: '/profile/fictions' });
   };
 
-  if (!userInfo) {
+  if (!user) {
     return (
       <div className="container mx-auto px-4 py-8">
         <p className="text-center text-ink-2">{t('profile.loadingUser')}</p>
@@ -96,9 +100,9 @@ export function ProfilePage() {
   const fictionRejected = Number(stats?.fiction_rejected ?? 0);
   const fictionTakedown = Number(stats?.fiction_takedown ?? 0);
   const identity: PublicUserIdentity = {
-    displayName: userInfo.display_name,
-    handle: userInfo.handle,
-    joinedAt: userInfo.created_at,
+    displayName: user.display_name,
+    handle: user.handle,
+    joinedAt: user.created_at,
     publicWorkCount: imageApproved + fictionApproved,
   };
   const displayName = identity.displayName?.trim() || identity.handle;
@@ -130,6 +134,7 @@ export function ProfilePage() {
   ) => (
     <div
       className="flex gap-1 overflow-x-auto rounded-md border border-ink/10 bg-surface p-1"
+      role="group"
       aria-label={ariaLabel}
     >
       {(Object.keys(filterKeys) as StatusFilter[]).map((status) => (
@@ -206,6 +211,15 @@ export function ProfilePage() {
           <p className="rounded-md border border-ink/10 bg-surface py-8 text-center text-sm text-ink-2">
             {t('profile.loadingWorks')}
           </p>
+        ) : imageWorksError ? (
+          <ErrorState
+            title={t('profile.worksErrorTitle')}
+            action={
+              <Button type="button" onClick={() => void refetchImageWorks()}>
+                {t('common.retry')}
+              </Button>
+            }
+          />
         ) : imageWorksData?.works && imageWorksData.works.length > 0 ? (
           <>
             <MyWorksList works={imageWorksData.works} onWorkClick={handleWorkClick} />
@@ -247,6 +261,15 @@ export function ProfilePage() {
           <p className="rounded-md border border-ink/10 bg-surface py-8 text-center text-sm text-ink-2">
             {t('profile.loadingWorks')}
           </p>
+        ) : fictionWorksError ? (
+          <ErrorState
+            title={t('profile.worksErrorTitle')}
+            action={
+              <Button type="button" onClick={() => void refetchFictionWorks()}>
+                {t('common.retry')}
+              </Button>
+            }
+          />
         ) : fictionWorksData?.works && fictionWorksData.works.length > 0 ? (
           <>
             <MyWorksList works={fictionWorksData.works} onWorkClick={handleWorkClick} />

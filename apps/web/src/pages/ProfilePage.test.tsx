@@ -131,8 +131,8 @@ describe('ProfilePage', () => {
     expect(await screen.findByRole('heading', { name: 'Contributor' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Image submissions' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Fiction submissions' })).toBeInTheDocument();
-    expect(screen.getByText('Needs a clearer source')).toBeInTheDocument();
-    expect(screen.getByText('Quiet Orbit Acceptance')).toBeInTheDocument();
+    expect(await screen.findByText('Needs a clearer source')).toBeInTheDocument();
+    expect(await screen.findByText('Quiet Orbit Acceptance')).toBeInTheDocument();
     expect(screen.getByText('Please add the original source URL.')).toBeInTheDocument();
 
     await waitFor(() => {
