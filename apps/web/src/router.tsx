@@ -94,7 +94,7 @@ const rootRoute = createRootRoute({
               {t('app.brand')}
             </Link>
             <div className="flex items-center gap-2 sm:gap-3">
-              <nav className="hidden max-w-full flex-wrap justify-end gap-2 md:flex" aria-label="Primary navigation">
+              <nav className="hidden max-w-full flex-wrap justify-end gap-2 md:flex" aria-label={t('nav.primary')}>
                 {desktopNavItems.map((item) => (
                   <Link
                     key={item.to}
@@ -123,7 +123,7 @@ const rootRoute = createRootRoute({
         </main>
         <nav
           className="fixed inset-x-0 bottom-0 z-50 flex gap-1 border-t border-ink bg-paper px-2 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] md:hidden"
-          aria-label="Primary navigation"
+          aria-label={t('nav.bottom')}
         >
           {mobileNavItems.map((item) => {
             const Icon = item.Icon;
@@ -288,7 +288,21 @@ const routeTree = rootRoute.addChildren([
 ]);
 
 // Create router
-export const router = createRouter({ routeTree });
+function NotFoundPage() {
+  const { t } = useI18n();
+
+  return (
+    <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 px-4 text-center">
+      <h1 className="text-3xl font-semibold tracking-tight text-ink">{t('notFound.title')}</h1>
+      <p className="max-w-md text-sm leading-6 text-ink-2">{t('notFound.description')}</p>
+      <Link to="/" className={buttonStyles()}>
+        {t('notFound.backHome')}
+      </Link>
+    </div>
+  );
+}
+
+export const router = createRouter({ routeTree, defaultNotFoundComponent: NotFoundPage });
 
 // Register router for type safety
 declare module "@tanstack/react-router" {

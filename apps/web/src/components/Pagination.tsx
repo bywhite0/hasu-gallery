@@ -11,7 +11,7 @@ export function Pagination({ currentPage, totalPages, onPageChange }: Pagination
   const { t } = useI18n();
 
   return (
-    <div className="flex justify-center items-center gap-4">
+    <nav aria-label={t('common.pagination')} className="flex justify-center items-center gap-4">
       <Button
         variant="outline"
         size="sm"
@@ -33,6 +33,6 @@ export function Pagination({ currentPage, totalPages, onPageChange }: Pagination
       >
         {t('common.next')}
       </Button>
-    </div>
+    </nav>
   );
 }

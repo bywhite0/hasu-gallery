@@ -264,6 +264,7 @@ export function FictionWorkspacePage() {
               <button
                 type="button"
                 onClick={handleSelectNew}
+                aria-current={selectedId === 'new' ? 'true' : undefined}
                 className={cn(
                   'flex min-h-12 w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink',
                   selectedId === 'new' ? 'bg-ink text-paper' : 'hover:bg-accent',
@@ -281,6 +282,7 @@ export function FictionWorkspacePage() {
                     key={fiction.fiction_id}
                     type="button"
                     onClick={() => handleSelectFiction(fiction)}
+                    aria-current={current ? 'true' : undefined}
                     className={cn(
                       'min-h-14 w-full rounded-md px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink',
                       current ? 'bg-ink text-paper' : 'hover:bg-accent',
