@@ -153,7 +153,7 @@ export function ModerationActions({ workId, onSuccess }: ModerationActionsProps)
       )}
 
       {mutation.isError && (
-        <div role="alert" className="text-red-600 text-sm">
+        <div role="alert" className="text-danger text-sm">
           <p>{t('moderation.updateFailed')}</p>
           {mutationErrorReport && (
             <p className="text-xs">

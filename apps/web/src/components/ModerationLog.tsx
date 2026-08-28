@@ -22,7 +22,7 @@ export function ModerationLog({ workId }: ModerationLogProps) {
   }
 
   if (error) {
-    return <div className="text-sm text-red-600">{t('moderation.historyError')}</div>;
+    return <div className="text-sm text-danger">{t('moderation.historyError')}</div>;
   }
 
   if (!data || data.logs.length === 0) {
@@ -41,8 +41,8 @@ export function ModerationLog({ workId }: ModerationLogProps) {
           >
             <div className="flex items-center gap-2">
               <span className={`font-medium ${
-                log.action === 'approved' ? 'text-green-600' :
-                log.action === 'rejected' ? 'text-red-600' :
+                log.action === 'approved' ? 'text-success' :
+                log.action === 'rejected' ? 'text-danger' :
                 'text-orange-600'
               }`}>
                 {statusLabel(log.action)}

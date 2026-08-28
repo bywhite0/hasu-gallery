@@ -76,7 +76,7 @@ export function UploadPage() {
 
         {uploadedWork ? (
           <div className="bg-card border border-border rounded-lg p-8 text-center space-y-4">
-            <CheckCircle2 className="w-16 h-16 mx-auto text-green-500" />
+            <CheckCircle2 className="w-16 h-16 mx-auto text-success" />
             <div className="space-y-2">
               <h2 className="text-xl font-semibold text-foreground">
                 {t('upload.successTitle')}
