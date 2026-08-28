@@ -7,9 +7,7 @@ use tower_sessions::Session;
 use uuid::Uuid;
 
 use crate::{
-    image_processor::{
-        detect_image_format, generate_thumbnail, get_image_dimensions, prepare_public_original,
-    },
+    image_processor::{detect_image_format, process_upload_image, read_image_dimensions},
     media, storage, AppState,
 };
 
@@ -239,11 +237,10 @@ pub async fn upload_work(
     let content_type = detect_image_format(&file_data).map_err(|e| (StatusCode::BAD_REQUEST, e))?;
     validate_file_extension(file_name.as_deref(), &content_type)?;
 
-    // 获取图片尺寸
+    // 防止解压缩炸弹攻击：只读头部声明的尺寸，在任何完整解码之前拒绝超限图片
     let (width, height) =
-        get_image_dimensions(&file_data).map_err(|e| (StatusCode::BAD_REQUEST, e))?;
+        read_image_dimensions(&file_data).map_err(|e| (StatusCode::BAD_REQUEST, e))?;
 
-    // 防止解压缩炸弹攻击：限制图片尺寸
     const MAX_DIMENSION: u32 = 8192; // 8K 分辨率
     const MAX_PIXELS: u64 = 67_108_864; // 64MP (8192 * 8192)
 
@@ -270,10 +267,13 @@ pub async fn upload_work(
 
     tracing::info!("Image dimensions: {}x{}", width, height);
 
-    // Strip camera/metadata-bearing payloads for public originals (JPEG/PNG).
-    let (public_file_data, public_content_type) = prepare_public_original(&file_data, &content_type)
+    // 单次受限解码：同时产出清理后的公开原图（JPEG/PNG 去 EXIF）与缩略图。
+    // 解码器自带 MAX_DIMENSION 上限，防御头部声明与实际数据不一致的图片。
+    let processed = process_upload_image(&file_data, &content_type, MAX_DIMENSION, THUMBNAIL_SIZE)
         .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
-    let content_type = public_content_type.to_string();
+    let public_file_data = processed.public_bytes;
+    let thumbnail_data = processed.thumbnail_jpeg;
+    let content_type = processed.content_type.to_string();
 
     // 生成作品 ID 与独立的媒体 UUID（V3 S2：公开 URL 不暴露作品 ID）
     let work_id = Uuid::new_v4().to_string();
@@ -298,16 +298,7 @@ pub async fn upload_work(
     }
     uploaded_keys.push(original_key.clone());
 
-    // 生成缩略图（从已清理字节解码，避免写入 EXIF）
-    let thumbnail_data = match generate_thumbnail(&public_file_data, THUMBNAIL_SIZE) {
-        Ok(data) => data,
-        Err(e) => {
-            storage::delete_files_best_effort(&state.s3_client, &bucket, &uploaded_keys).await;
-            return Err((StatusCode::INTERNAL_SERVER_ERROR, e));
-        }
-    };
-
-    // 上传缩略图到私有前缀
+    // 上传缩略图到私有前缀（缩略图在任何 S3 写入之前已生成）
     if let Err(e) = storage::upload_object(
         &state.s3_client,
         &bucket,
