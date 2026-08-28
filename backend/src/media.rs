@@ -138,6 +138,13 @@ pub async fn resolve_work_media_urls(
             file_url: public_original_url(&media_id, version, ext),
             thumbnail_url: public_thumb_url(&media_id, version),
         },
+        // Takedown retains originals for the legal window, but the platform
+        // must stop distributing them: no presigned URLs, not even for the
+        // uploader.
+        Some("removed") => WorkMediaUrls {
+            file_url: String::new(),
+            thumbnail_url: String::new(),
+        },
         _ if allow_private => {
             let bucket = s3_bucket();
             WorkMediaUrls {
