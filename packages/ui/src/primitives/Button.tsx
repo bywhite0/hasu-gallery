@@ -18,7 +18,7 @@ export function buttonStyles({
 }: ButtonStyleOptions = {}) {
   return cn(
     "inline-flex items-center justify-center rounded-md font-medium transition-colors",
-    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2 focus-visible:ring-offset-paper",
     "disabled:pointer-events-none disabled:opacity-50",
     {
       "bg-ink text-paper hover:bg-ink-2": variant === "default",
