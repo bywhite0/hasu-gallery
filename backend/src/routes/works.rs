@@ -166,8 +166,9 @@ pub async fn handle_works_list(
         }
     }
 
-    // Parse pagination parameters
-    let page = params.page.unwrap_or(1).max(1);
+    // Parse pagination parameters. The page cap keeps (page-1)*limit far from
+    // integer overflow while allowing any realistic listing depth.
+    let page = params.page.unwrap_or(1).clamp(1, 100_000);
     let limit = params.limit.unwrap_or(24).clamp(1, 100);
     let offset = (page - 1) * limit;
 
@@ -219,10 +220,7 @@ pub async fn handle_works_list(
                 "Invalid rating parameter. Must be one of: all_ages, r15, r18".to_string(),
             ));
         }
-        ensure_mature_rating_access(
-            session.get::<i64>(SESSION_USER_ID_KEY).await.ok().flatten(),
-            rating_val,
-        )?;
+        ensure_mature_rating_access(&state.db, &session, rating_val).await?;
         where_conditions.push(format!("am.rating = ${}::art_rating", param_index));
         param_index += 1;
     }
@@ -651,10 +649,7 @@ pub async fn handle_work_detail(
 
     // Mature ratings require authentication even when approved.
     if let Some(ref rating) = art_rating {
-        ensure_mature_rating_access(
-            session.get::<i64>(SESSION_USER_ID_KEY).await.ok().flatten(),
-            rating,
-        )?;
+        ensure_mature_rating_access(&state.db, &session, rating).await?;
     }
 
     // 访问控制：非 approved 状态需要 owner 本人或 staff（集中策略层）
@@ -730,8 +725,11 @@ pub async fn handle_work_detail(
     Ok(public_json_response(&work_item, cacheable, &headers))
 }
 
-fn ensure_mature_rating_access(
-    user_id: Option<i64>,
+/// Gate R-15/R-18 access on the resolved principal, not the raw session id:
+/// a session left over from a deleted account must not keep mature access.
+async fn ensure_mature_rating_access(
+    db: &crate::db::DbPool,
+    session: &Session,
     rating: &str,
 ) -> Result<(), (StatusCode, String)> {
     if !matches!(rating, "all_ages" | "r15" | "r18") {
@@ -740,11 +738,31 @@ fn ensure_mature_rating_access(
             "Invalid rating parameter. Must be one of: all_ages, r15, r18".to_string(),
         ));
     }
-    let principal = policy::Principal {
-        user_id,
-        role: None,
+    if rating == "all_ages" {
+        return Ok(());
+    }
+    let principal = match policy::load_principal(db, session).await {
+        Ok(principal) => principal,
+        // Deleted-account session: treat as guest so the gate denies below.
+        Err(policy::PrincipalError::UnknownUser) => policy::Principal {
+            user_id: None,
+            role: None,
+        },
+        Err(policy::PrincipalError::Session) => {
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Authorization check failed".to_string(),
+            ));
+        }
     };
-    match policy::decide(&principal, policy::Action::ViewRated { rating }) {
+    decide_mature_rating_access(&principal, rating)
+}
+
+fn decide_mature_rating_access(
+    principal: &policy::Principal,
+    rating: &str,
+) -> Result<(), (StatusCode, String)> {
+    match policy::decide(principal, policy::Action::ViewRated { rating }) {
         policy::Decision::Allow => Ok(()),
         _ => Err((
             StatusCode::UNAUTHORIZED,
@@ -836,9 +854,17 @@ mod tests {
 
     #[test]
     fn ensure_mature_rating_access_requires_auth_for_r18() {
-        assert!(ensure_mature_rating_access(None, "all_ages").is_ok());
-        assert!(ensure_mature_rating_access(Some(1), "r18").is_ok());
-        let err = ensure_mature_rating_access(None, "r18").unwrap_err();
+        let guest = policy::Principal {
+            user_id: None,
+            role: None,
+        };
+        let member = policy::Principal {
+            user_id: Some(1),
+            role: None,
+        };
+        assert!(decide_mature_rating_access(&guest, "all_ages").is_ok());
+        assert!(decide_mature_rating_access(&member, "r18").is_ok());
+        let err = decide_mature_rating_access(&guest, "r18").unwrap_err();
         assert_eq!(err.0, StatusCode::UNAUTHORIZED);
     }
 

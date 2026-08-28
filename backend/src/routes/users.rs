@@ -149,8 +149,9 @@ pub async fn handle_my_works(
         })?
         .ok_or_else(|| (StatusCode::UNAUTHORIZED, "Not logged in".to_string()))?;
 
-    // Parse pagination parameters
-    let page = params.page.unwrap_or(1).max(1);
+    // Parse pagination parameters. The page cap keeps (page-1)*limit far from
+    // integer overflow while allowing any realistic listing depth.
+    let page = params.page.unwrap_or(1).clamp(1, 100_000);
     let limit = params.limit.unwrap_or(24).clamp(1, 100);
     let offset = (page - 1) * limit;
 

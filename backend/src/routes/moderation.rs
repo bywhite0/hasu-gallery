@@ -427,7 +427,7 @@ fn validate_queue_params(params: &QueueParams) -> Result<(), StatusCode> {
         return Err(StatusCode::BAD_REQUEST);
     }
 
-    if params.page < 1 || params.limit < 1 || params.limit > 100 {
+    if params.page < 1 || params.page > 100_000 || params.limit < 1 || params.limit > 100 {
         return Err(StatusCode::BAD_REQUEST);
     }
 
