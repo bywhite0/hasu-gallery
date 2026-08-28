@@ -5,18 +5,19 @@
   --color-surface: #ffffff;
   --color-ink: #383834;
   --color-ink-2: #6b6b62;
-  --color-ink-3: #95948a;
+  --color-ink-3: #71706a;
   --color-ink-secondary: var(--color-ink-2);
 
   /* Accent */
   --color-accent: #fce8e6;
   --color-accent-dark: #f8d7d3;
 
-  /* Semantic */
-  --color-success: #4f9e6e;
-  --color-warning: #c98a0c;
+  /* Semantic. Values are tuned to keep >=4.5:1 contrast as text on both
+     paper and surface backgrounds (WCAG AA for normal text). */
+  --color-success: #3d7d56;
+  --color-warning: #8a5f00;
   --color-danger: #ba2636;
-  --color-info: #5383c3;
+  --color-info: #3b6aa8;
 
   /* Legacy semantic aliases used by the current app surface */
   --color-foreground: var(--color-ink);
