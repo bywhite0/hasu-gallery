@@ -1,9 +1,11 @@
+use aws_config::timeout::TimeoutConfig;
 use aws_config::BehaviorVersion;
 use aws_sdk_s3::{
     config::{Credentials, Region},
     Client,
 };
 use std::env;
+use std::time::Duration;
 
 const DEFAULT_PUBLIC_MEDIA_BASE_URL: &str = "http://127.0.0.1:8787/media";
 
@@ -16,10 +18,20 @@ pub async fn create_s3_client() -> Client {
 
     let credentials = Credentials::new(access_key, secret_key, None, None, "hasu-gallery");
 
+    // Explicit timeouts: approval copies run inside a DB transaction holding
+    // row locks and a pool connection, so a hung S3 endpoint must fail fast
+    // instead of pinning those resources indefinitely.
+    let timeouts = TimeoutConfig::builder()
+        .connect_timeout(Duration::from_secs(5))
+        .operation_attempt_timeout(Duration::from_secs(15))
+        .operation_timeout(Duration::from_secs(30))
+        .build();
+
     let config = aws_config::defaults(BehaviorVersion::latest())
         .region(Region::new(region))
         .credentials_provider(credentials)
         .endpoint_url(endpoint)
+        .timeout_config(timeouts)
         .load()
         .await;
 
