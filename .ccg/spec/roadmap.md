@@ -163,6 +163,18 @@ HSTS 随 `SESSION_COOKIE_SECURE` 开启）；补齐 S1 遗留项：公共 works
 分级/审核变体与 facets 保持不可共享缓存。单二进制同源切换 runbook 见
 `docs/deployment.md`。验证：`cargo test` 64 通过、0 编译警告。
 
+**2026-08-28 本地服务端验证**: `galleryd serve` 对 dev 库自动应用 006 迁移并
+完成全链路实测——公共 works 列表强 ETag + micro-cache + If-None-Match 304、
+安全响应头全量（HTML 专属 CSP）、guest r18/pending 401、Fiction JSON
+列表/404/未登录 401/415、旧 `/api/v2` 路径回落 SPA；S2 生命周期端到端通过：
+上传 → `private/{uuid}` + 300s presigned 预览（实取 PNG 成功）→ pending 对
+游客 401 → 批准 → 游客获得 `public/{uuid}/v1/` URL 且 CDN 可取 → takedown →
+源站公开对象已删（404）、私有原件保留（审核队列 presign 可取）。实测发现两
+项运维事项已记入 `docs/deployment.md`：① MinIO 桶仍是全桶匿名可读，
+`private/*` 当前经 CDN 匿名可达，需立即加边缘拒绝规则；② presigned URL 指向
+tailnet 内网端点，非 tailnet 审核需公开 presign 域名；另确认 takedown 后
+Cloudflare 缓存需手动 purge（cf-cache-status: HIT）。
+
 **方向已确定**：方案 C（双轨拆仓）。hasu-memes 保持只读画廊终态，hasu-gallery 为新建 UGC 平台。
 
 ---

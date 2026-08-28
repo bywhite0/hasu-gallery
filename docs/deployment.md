@@ -152,11 +152,24 @@ Required CDN/proxy behavior:
 - **Deny `private/*` paths.** The proxy must only serve `public/*` (plus
   legacy root-level keys during the migration window). Presigned URLs go
   directly to the S3/MinIO endpoint and bypass the CDN.
+  - **Verified open gap (2026-08-28)**: the current MinIO bucket carries a
+    bucket-wide anonymous download policy from the legacy layout, so
+    `private/*` objects are anonymously readable via the CDN today. Add an
+    edge rule (Cloudflare rule or nginx `location ^~ /hasu-gallery/private/`
+    → 404) immediately — it breaks nothing — and scope the bucket's anonymous
+    policy down to `public/*` once legacy root keys are retired after the
+    dual-read window.
+- Presigned review URLs target `S3_ENDPOINT`, which is currently a private
+  tailnet address. Owners/moderators must be able to reach it (fine for
+  tailnet-based moderation; expose a dedicated public presign hostname before
+  opening moderation to non-tailnet staff).
 - Allow the production frontend origin for hotlinked `<img>` requests; a WAF
   rule that blocks site Referer will break every gallery page.
 - Do not use Referer alone as the media authorization mechanism.
 - Cache `public/{media_id}/v{n}/...` as immutable; on takedown the API deletes
-  the public objects and operators must purge CDN URLs.
+  the public objects and operators must purge CDN URLs (verified live:
+  Cloudflare keeps serving cached copies with `cf-cache-status: HIT` for up to
+  a day after origin deletion).
 - Keep API JSON responses separate from media CDN caching.
 
 ### Legacy media backfill
