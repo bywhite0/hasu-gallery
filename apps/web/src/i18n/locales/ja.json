@@ -302,6 +302,7 @@
   "fictionWorkspace.saving": "保存中...",
   "fictionWorkspace.saved": "下書きを保存しました。",
   "fictionWorkspace.unsaved": "未保存の変更",
+  "fictionWorkspace.discardUnsaved": "保存されていない変更があります。破棄して切り替えますか？",
   "fictionWorkspace.updated": "{date}に更新",
   "fictionWorkspace.keyboardHint": "Ctrl+S または Command+S で保存できます。下書きは自動保存されません。",
   "fictionWorkspace.submit": "審査に提出",

@@ -302,6 +302,7 @@
   "fictionWorkspace.saving": "儲存中...",
   "fictionWorkspace.saved": "草稿已儲存。",
   "fictionWorkspace.unsaved": "有未儲存的變更",
+  "fictionWorkspace.discardUnsaved": "有未儲存的變更，確定要放棄並切換嗎？",
   "fictionWorkspace.updated": "更新於 {date}",
   "fictionWorkspace.keyboardHint": "按 Ctrl+S 或 Command+S 儲存。草稿不會自動儲存。",
   "fictionWorkspace.submit": "提交審核",

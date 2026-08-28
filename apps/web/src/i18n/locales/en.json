@@ -302,6 +302,7 @@
   "fictionWorkspace.saving": "Saving...",
   "fictionWorkspace.saved": "Draft saved.",
   "fictionWorkspace.unsaved": "Unsaved changes",
+  "fictionWorkspace.discardUnsaved": "You have unsaved changes. Discard them and switch?",
   "fictionWorkspace.updated": "Updated {date}",
   "fictionWorkspace.keyboardHint": "Press Ctrl+S or Command+S to save. Drafts are not auto-saved.",
   "fictionWorkspace.submit": "Submit for review",

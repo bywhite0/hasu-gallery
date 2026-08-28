@@ -73,17 +73,43 @@ export function FictionWorkspacePage() {
     [ownerQuery.data, selectedId],
   );
 
+  // The body is long-form writing: never reset it implicitly. The form is
+  // hydrated only from the explicit selection handlers below, and unsaved
+  // changes are guarded both in-app and on page unload.
   useEffect(() => {
-    if (selectedId === 'new') {
-      setForm(emptyForm(locale));
-    } else if (selected) {
-      setForm(toForm(selected));
-    }
+    if (!dirty) return;
+    const handler = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [dirty]);
+
+  const resetFormState = (nextForm: FictionFormState) => {
+    setForm(nextForm);
     setDirty(false);
     setFieldErrors({});
     setConfirmSubmit(false);
     setStatusMessage('');
-  }, [locale, selected, selectedId]);
+  };
+
+  const confirmDiscardIfDirty = () =>
+    !dirty || window.confirm(t('fictionWorkspace.discardUnsaved'));
+
+  const handleSelectNew = () => {
+    if (selectedId === 'new') return;
+    if (!confirmDiscardIfDirty()) return;
+    setSelectedId('new');
+    resetFormState(emptyForm(locale));
+  };
+
+  const handleSelectFiction = (fiction: OwnerFictionDraft) => {
+    if (fiction.fiction_id === selectedId) return;
+    if (!confirmDiscardIfDirty()) return;
+    setSelectedId(fiction.fiction_id);
+    resetFormState(toForm(fiction));
+  };
 
   const createMutation = useMutation({ mutationFn: createFiction });
   const saveMutation = useMutation({
@@ -203,7 +229,7 @@ export function FictionWorkspacePage() {
           <Button
             type="button"
             className="min-h-11"
-            onClick={() => setSelectedId('new')}
+            onClick={handleSelectNew}
             disabled={selectedId === 'new'}
           >
             <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
@@ -237,7 +263,7 @@ export function FictionWorkspacePage() {
             <div className="max-h-[65vh] space-y-1 overflow-y-auto border-y border-ink/10 py-2">
               <button
                 type="button"
-                onClick={() => setSelectedId('new')}
+                onClick={handleSelectNew}
                 className={cn(
                   'flex min-h-12 w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink',
                   selectedId === 'new' ? 'bg-ink text-paper' : 'hover:bg-accent',
@@ -254,7 +280,7 @@ export function FictionWorkspacePage() {
                   <button
                     key={fiction.fiction_id}
                     type="button"
-                    onClick={() => setSelectedId(fiction.fiction_id)}
+                    onClick={() => handleSelectFiction(fiction)}
                     className={cn(
                       'min-h-14 w-full rounded-md px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink',
                       current ? 'bg-ink text-paper' : 'hover:bg-accent',
