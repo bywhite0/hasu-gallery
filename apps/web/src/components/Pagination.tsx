@@ -16,7 +16,7 @@ export function Pagination({ currentPage, totalPages, onPageChange }: Pagination
         variant="outline"
         size="sm"
         onClick={() => onPageChange(currentPage - 1)}
-        disabled={currentPage === 1}
+        disabled={currentPage <= 1}
       >
         {t('common.prev')}
       </Button>
@@ -29,7 +29,7 @@ export function Pagination({ currentPage, totalPages, onPageChange }: Pagination
         variant="outline"
         size="sm"
         onClick={() => onPageChange(currentPage + 1)}
-        disabled={currentPage === totalPages}
+        disabled={currentPage >= totalPages}
       >
         {t('common.next')}
       </Button>

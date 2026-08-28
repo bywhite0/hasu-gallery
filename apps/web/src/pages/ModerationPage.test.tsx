@@ -45,7 +45,7 @@ describe('ModerationPage', () => {
       works: [],
       pagination: {
         page: 1,
-        limit: 20,
+        limit: 1,
         total: 0,
         total_pages: 0,
       },
@@ -76,7 +76,7 @@ describe('ModerationPage', () => {
         gallery: 'meme',
         status: 'pending',
         page: 1,
-        limit: 20,
+        limit: 1,
       });
     });
 
@@ -87,8 +87,39 @@ describe('ModerationPage', () => {
         gallery: 'art',
         status: 'pending',
         page: 1,
-        limit: 20,
+        limit: 1,
       });
+    });
+  });
+
+  it('moves through the queue one submission at a time', async () => {
+    const user = userEvent.setup();
+    vi.mocked(getModerationQueue).mockImplementation(async (params) => ({
+      works: [
+        {
+          id: `work-${params.page ?? 1}`,
+          title: `Pending work ${params.page ?? 1}`,
+          gallery: 'meme',
+          status: 'pending',
+          uploader_handle: 'uploader',
+          created_at: '2026-08-01T00:00:00.000Z',
+        },
+      ],
+      pagination: { page: params.page ?? 1, limit: 1, total: 3, total_pages: 3 },
+    }));
+
+    renderModerationPage();
+
+    expect(await screen.findByRole('heading', { name: 'Pending work 1' })).toBeInTheDocument();
+    expect(screen.getByText('Page 1 of 3')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+
+    expect(await screen.findByRole('heading', { name: 'Pending work 2' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(getModerationQueue).toHaveBeenCalledWith(
+        expect.objectContaining({ page: 2, limit: 1 }),
+      );
     });
   });
 });

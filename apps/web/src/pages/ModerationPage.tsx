@@ -2,12 +2,13 @@
  * ModerationPage - Moderation dashboard for reviewing pending works
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ModeratorGuard } from '../components/ModeratorGuard';
 import { ModerationActions } from '../components/ModerationActions';
 import { ModerationLog } from '../components/ModerationLog';
 import { FictionModerationPanel } from '../components/FictionModerationPanel';
+import { Pagination } from '../components/Pagination';
 import { getModerationQueue } from '../api/moderation';
 import { useAuthStore } from '../store/auth';
 import { useI18n } from '../i18n';
@@ -29,13 +30,24 @@ export function ModerationPage() {
   const user = useAuthStore((state) => state.user);
   const canModerate = user?.role === 'moderator' || user?.role === 'admin';
 
+  // The queue is reviewed one submission at a time: each server-side "page"
+  // holds exactly one work, so page navigation moves through the queue and a
+  // decision on a pending item pulls the next one into the same position.
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['moderation-queue', gallery, status, page],
-    queryFn: () => getModerationQueue({ gallery, status, page, limit: 20 }),
+    queryFn: () => getModerationQueue({ gallery, status, page, limit: 1 }),
     enabled: canModerate && queueKind === 'media',
   });
 
   const currentWork = data?.works[0];
+
+  // Deciding the last item of the queue shrinks total_pages below the
+  // current page; clamp so the moderator lands on the new last item.
+  useEffect(() => {
+    if (!data) return;
+    const maxPage = Math.max(1, data.pagination.total_pages);
+    if (page > maxPage) setPage(maxPage);
+  }, [data, page]);
 
   const handleSuccess = () => {
     refetch();
@@ -238,13 +250,22 @@ export function ModerationPage() {
               )}
 
               {data && data.works.length > 0 && (
-                <div className="text-center text-sm text-ink/60">
-                  {t('moderation.pageSummary', {
-                    current: data.pagination.page,
-                    total: data.pagination.total_pages,
-                    count: data.pagination.total,
-                  })}
-                </div>
+                <>
+                  {data.pagination.total_pages > 1 && (
+                    <Pagination
+                      currentPage={page}
+                      totalPages={data.pagination.total_pages}
+                      onPageChange={setPage}
+                    />
+                  )}
+                  <div className="text-center text-sm text-ink/60">
+                    {t('moderation.pageSummary', {
+                      current: data.pagination.page,
+                      total: data.pagination.total_pages,
+                      count: data.pagination.total,
+                    })}
+                  </div>
+                </>
               )}
             </>
           )}

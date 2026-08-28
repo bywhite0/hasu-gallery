@@ -2,7 +2,7 @@
  * FictionModerationPanel - Review pending Fiction revisions via the JSON API.
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BookOpenText, CheckCircle2, XCircle } from 'lucide-react';
 import { Button, EmptyState, ErrorState, Field, FormMessage, Textarea } from '@hasu-gallery/ui';
@@ -12,6 +12,7 @@ import {
   type FictionRevision,
 } from '../api/fiction';
 import { FictionBody } from './FictionBody';
+import { Pagination } from './Pagination';
 import { useI18n } from '../i18n';
 import { fictionErrorKey } from '../lib/fiction';
 type Decision = 'approve' | 'reject';
@@ -21,13 +22,31 @@ export function FictionModerationPanel() {
   const queryClient = useQueryClient();
   const [note, setNote] = useState('');
   const [pendingDecision, setPendingDecision] = useState<Decision | null>(null);
+  const [index, setIndex] = useState(0);
 
   const queueQuery = useQuery({
     queryKey: ['moderation-queue', 'fiction'],
     queryFn: listFictionModerationQueue,
   });
 
-  const current = queueQuery.data?.[0] as FictionRevision | undefined;
+  const queue = queueQuery.data;
+
+  // A decision removes the current revision from the queue; clamp so the
+  // moderator lands on the new last item instead of an empty slot.
+  useEffect(() => {
+    if (!queue) return;
+    if (index > 0 && index >= queue.length) {
+      setIndex(Math.max(0, queue.length - 1));
+    }
+  }, [queue, index]);
+
+  const current = queue?.[index] as FictionRevision | undefined;
+
+  const goToItem = (position: number) => {
+    setIndex(position - 1);
+    setNote('');
+    setPendingDecision(null);
+  };
 
   const decisionMutation = useMutation({
     mutationFn: ({
@@ -207,14 +226,10 @@ export function FictionModerationPanel() {
           </section>
         )}
 
-        {queueQuery.data && queueQuery.data.length > 1 && (
-          <p className="text-xs text-ink-3">
-            {t('moderation.pageSummary', {
-              current: 1,
-              total: 1,
-              count: formatNumber(queueQuery.data.length),
-            })}
-          </p>
+        {queue && queue.length > 1 && (
+          <div className="border-t border-ink/10 pt-4">
+            <Pagination currentPage={index + 1} totalPages={queue.length} onPageChange={goToItem} />
+          </div>
         )}
       </div>
     </div>
