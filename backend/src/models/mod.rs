@@ -1,3 +1,3 @@
 pub mod user;
 
-pub use user::{User, RegisterRequest, LoginRequest};
+pub use user::{LoginRequest, RegisterRequest};

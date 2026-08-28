@@ -11,20 +11,23 @@ summary files, not here.
 - Backend: Rust Axum + PostgreSQL + MinIO/S3 + tower-sessions.
 - Current production model is still an independently served SPA plus JSON API.
 - Architecture V3 (2026-08-28) supersedes V2: one JSON API contract, no
-  Protobuf/codegen toolchain. V3 S1 is shipped: Fiction public/account/
-  moderation routes are JSON under `/api/fictions*`, `/api/users/me/fictions*`,
-  and `/api/moderation/fictions*`; `galleryd` embeds the SPA as fallback.
-  V3 S2 is shipped: `media_assets` + UUIDv4 media IDs, private
-  `private/{uuid}/...` staging, approval-time copy to immutable
-  `public/{uuid}/v1/...`, presigned review URLs, and `galleryd backfill-media`.
-  S3 (policy layer, security headers, single-binary cutover) is not shipped.
+  Protobuf/codegen toolchain. All three V3 slices are code-complete:
+  S1 Fiction JSON routes (`/api/fictions*`, `/api/users/me/fictions*`,
+  `/api/moderation/fictions*`) with the SPA embedded in `galleryd`;
+  S2 `media_assets` + UUIDv4 media IDs, `private/{uuid}/...` staging,
+  approval-time copy to immutable `public/{uuid}/v1/...`, presigned review
+  URLs, and `galleryd backfill-media`; S3 central `policy` module, global
+  security headers (HTML CSP, HSTS gate), and public works ETag micro-cache.
+  The production cutover to the single-binary same-origin deploy is an ops
+  step (`docs/deployment.md`).
 - CI is intentionally lightweight: frontend typecheck/build/component tests and
   backend Postgres + `cargo test`.
 - Playwright E2E is a local pre-release acceptance script, not part of CI.
-- Current engineering track: deploy S2 (migration 006 + `backfill-media` +
-  CDN denies `private/*`), then implement V3 S3 (policy layer, security
-  headers, single-binary cutover) while keeping the completed
-  guest/account/moderation baseline green.
+- Current engineering track: V3 S1–S3 are code-complete. Next is the ops
+  rollout (apply migration 006, run `backfill-media`, CDN denies `private/*`,
+  single-binary cutover with rollback window), then resume product sequencing
+  (account settings → favorites/likes/reporting → moderated comments) while
+  keeping the completed guest/account/moderation baseline green.
 
 ## Source Of Truth
 
@@ -59,9 +62,9 @@ summary files, not here.
   Originals and pending objects live under the private `private/{uuid}/...`
   namespace and are reachable only via short-lived presigned URLs; only
   approved sanitized objects are copied to public `public/{uuid}/v{n}/...`.
-- Production frontend and API are same-origin, production CORS is disabled, and
-  protected operations pass through a centralized deny-by-default policy layer
-  (V3 S3).
+- Production frontend and API are same-origin, production CORS is disabled,
+  and protected operations pass through the centralized deny-by-default
+  policy layer (`backend/src/policy.rs`).
 - Do not place user-uploaded works in frontend `public/` or expose raw upload
   bytes from the public media origin.
 - Large gallery filtering must stay server-side (`GET /api/works`).
@@ -83,6 +86,7 @@ summary files, not here.
 - Backend entry / galleryd: `backend/src/main.rs`
 - Embedded SPA fallback: `backend/src/spa.rs`
 - Media identity/URLs: `backend/src/media.rs` (backfill: `backend/src/backfill.rs`)
+- Authorization policy: `backend/src/policy.rs`
 - Backend routes: `backend/src/routes/` (Fiction: `backend/src/routes/fiction.rs`)
 - Fiction domain layer: `backend/src/fiction/`
 - Backend middleware: `backend/src/middleware.rs`
@@ -162,9 +166,9 @@ resolves another pnpm version.
 
 ## Next Product Direction
 
-The next architecture/product track is the bounded Architecture V3 migration
-(S3 policy/headers/single-binary cutover; S1–S2 are shipped). It must
-preserve the completed Meme/Art baseline and the shipped Fiction foundation:
+The next architecture/product track is the V3 production rollout (ops runbook
+in `docs/deployment.md`; S1–S3 code is complete). Product work must preserve
+the completed Meme/Art baseline and the shipped Fiction foundation:
 
 - Fiction is a first-class content kind, not an Art attachment.
 - Support single works and ordered series.

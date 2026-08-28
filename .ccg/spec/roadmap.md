@@ -44,7 +44,7 @@
 | **3.2 审核仪表板** | ✅ COMPLETE | ✅ ModerationPage + ModerationActions + ModerationLog（524 行）| — |
 | **4: Art Gallery** | ✅ BASELINE COMPLETE | ✅ Baseline launch 已验证：Meme/Art 导航、Art upload metadata、rating 筛选、`work_art_meta` 写入、MinIO 上传成功路径与审核发布均通过真实浏览器验收 | 自动化 E2E 与 production hardening 已转入 Phase 5 |
 | **5: Polish & Hardening** | ✅ COMPLETE | ✅ Art polish、轻量 CI、后端测试、安全加固、性能索引/媒体优化、部署/审核/监控文档与监控摘要 API 均已落地；Playwright E2E 作为本地脚本保留 | 后续仅剩外部 APM/Sentry、发布自动化与前端组件测试等增强项 |
-| **Architecture V2→V3 migration track** | V3 APPROVED / S1–S2 ✅ | ✅ 单一 JSON 契约 + galleryd 单二进制 + Fiction 域 + 私有媒体/UUIDv4 公开 URL/backfill | S3 策略层收敛/安全头/生产切换 |
+| **Architecture V2→V3 migration track** | V3 APPROVED / S1–S3 ✅ | ✅ 单一 JSON 契约 + galleryd 单二进制 + Fiction 域 + 私有媒体/UUIDv4 + 策略层/安全头/ETag | 生产切换（ops runbook 已备）+ 双读窗口清理 |
 
 **Phase 2 总计**: +2,562 行前端代码，11 个 API 端点，完整的画廊浏览和上传功能。
 
@@ -151,6 +151,17 @@ public/account/moderation 路由移植为 JSON（`backend/src/routes/fiction.rs`
 窗口保留），pending/rejected 迁入私有前缀并删除旧公开对象，关闭 S2 前的
 pending 可达缺口。部署要求：CDN/代理必须拒绝 `private/*` 路径（见
 `docs/deployment.md`）。验证：`cargo test` 57 通过。
+
+**2026-08-28 Architecture V3 S3 安全边界切片**: 新增 `backend/src/policy.rs`
+集中式 deny-by-default 授权（作品可见性 × 所有权、分级内容、投稿、审核），
+works 列表/facets/详情、moderation 路由守卫与 Fiction 鉴权全部改走策略层，
+并附角色×动作×状态表驱动测试；新增全局安全响应头 middleware（nosniff、
+Referrer-Policy、X-Frame-Options DENY、Permissions-Policy、HTML 专属 CSP、
+HSTS 随 `SESSION_COOKIE_SECURE` 开启）；补齐 S1 遗留项：公共 works
+列表/详情在 approved + all_ages（会话无关变体）下输出强 ETag +
+`public, max-age=60, stale-while-revalidate=120` 并支持 If-None-Match 304，
+分级/审核变体与 facets 保持不可共享缓存。单二进制同源切换 runbook 见
+`docs/deployment.md`。验证：`cargo test` 64 通过、0 编译警告。
 
 **方向已确定**：方案 C（双轨拆仓）。hasu-memes 保持只读画廊终态，hasu-gallery 为新建 UGC 平台。
 
@@ -509,17 +520,17 @@ backend/src/
 ## Next Actions
 
 > **Current Status (2026-08-28)**: Phase 1-5 baseline 已完成且必须保持回归
-> 绿色。Architecture V3 已批准并完成 S1、S2；迁移顺序以
-> `.ccg/spec/architecture-v3.md` 的 S1–S3 slices 为准。
+> 绿色。Architecture V3 已批准且 S1–S3 代码全部落地；生产切换按
+> `docs/deployment.md` 的单二进制 runbook 执行。
 
 **Immediate Next Steps**:
 1. 维持当前发布前验收：`pnpm test`、`pnpm typecheck`、`pnpm build`、
    `cargo test --manifest-path backend/Cargo.toml` 与 `pnpm e2e`。
-2. 生产部署 S2：应用 006 迁移、确认 CDN/代理拒绝 `private/*`、运行一次
-   `galleryd backfill-media`、双读窗口结束后清理 approved 旧公开对象。
-3. 实施 V3 S3：集中 `policy` 模块 + 角色×动作×状态测试表、安全响应头、
-   生产切换到单二进制同源部署并移除 `CORS_ALLOWED_ORIGINS`。
-4. 顺手项：把 works 公共读路径补上 ETag/micro-cache 头（S1 遗留跟进）。
+2. 生产部署 S2/S3：应用 006 迁移、确认 CDN/代理拒绝 `private/*`、运行一次
+   `galleryd backfill-media`、切换到 galleryd 单二进制同源部署（保留旧拓扑
+   到回滚窗口结束），窗口后清理 approved 旧公开对象。
+3. 恢复产品路线：账号设置 → 收藏/点赞/举报 → 审核制评论（V3 §9 非目标与
+   hardening backlog 见 `.ccg/spec/architecture-v3.md`）。
 
 **Long-term Priorities**:
 - Architecture V2: 完成 1C512M、权限矩阵、恶意媒体、CDN、备份恢复验收

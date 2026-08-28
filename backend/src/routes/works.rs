@@ -1,15 +1,17 @@
 use axum::{
+    body::Body,
     extract::{Path, Query, State},
-    http::StatusCode,
-    response::IntoResponse,
+    http::{header, HeaderMap, StatusCode},
+    response::{IntoResponse, Response},
     Json,
 };
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use sqlx::Row;
 use tower_sessions::Session;
 
 use super::auth::SESSION_USER_ID_KEY;
-use crate::{media, AppState};
+use crate::{media, policy, AppState};
 
 /// Query parameters for works listing
 #[derive(Debug, Deserialize)]
@@ -118,6 +120,7 @@ pub struct ArtFacetsResponse {
 pub async fn handle_works_list(
     State(state): State<AppState>,
     session: Session,
+    headers: HeaderMap,
     Query(params): Query<WorksQuery>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
     // Validate gallery parameter
@@ -137,41 +140,29 @@ pub async fn handle_works_list(
         ));
     }
 
-    // 未授权访问控制：非 approved 状态需要验证权限
+    // 未授权访问控制：非 approved 状态需要集中策略层放行（staff only）
     if status != "approved" {
-        let user_id: Option<i64> = session.get(SESSION_USER_ID_KEY).await.ok().flatten();
-
-        if let Some(uid) = user_id {
-            // 检查用户角色
-            let user_role: Option<String> =
-                sqlx::query_scalar("SELECT role::text FROM users WHERE id = $1")
-                    .bind(uid)
-                    .fetch_optional(&state.db)
-                    .await
-                    .map_err(|e| {
-                        tracing::error!("Failed to fetch user role: {}", e);
-                        (
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            "Authorization check failed".to_string(),
-                        )
-                    })?;
-
-            // 仅管理员和审核员可以查看所有非公开作品
-            if let Some(role) = user_role {
-                if role != "admin" && role != "moderator" {
-                    return Err((
-                        StatusCode::FORBIDDEN,
-                        "Only moderators and admins can view non-approved works".to_string(),
-                    ));
-                }
-            } else {
-                return Err((StatusCode::UNAUTHORIZED, "User not found".to_string()));
+        let principal = load_principal_http(&state.db, &session).await?;
+        match policy::decide(
+            &principal,
+            policy::Action::ViewWorks {
+                status,
+                owner_id: None,
+            },
+        ) {
+            policy::Decision::Allow => {}
+            policy::Decision::RequireAuth => {
+                return Err((
+                    StatusCode::UNAUTHORIZED,
+                    "Authentication required to view non-approved works".to_string(),
+                ));
             }
-        } else {
-            return Err((
-                StatusCode::UNAUTHORIZED,
-                "Authentication required to view non-approved works".to_string(),
-            ));
+            policy::Decision::Deny => {
+                return Err((
+                    StatusCode::FORBIDDEN,
+                    "Only moderators and admins can view non-approved works".to_string(),
+                ));
+            }
         }
     }
 
@@ -394,7 +385,11 @@ pub async fn handle_works_list(
         },
     };
 
-    Ok((StatusCode::OK, Json(response)))
+    // Only session-independent variants may enter shared caches: approved
+    // works where the effective rating scope is all_ages.
+    let cacheable = status == "approved"
+        && (params.gallery != "art" || params.rating.as_deref().unwrap_or("all_ages") == "all_ages");
+    Ok(public_json_response(&response, cacheable, &headers))
 }
 
 /// Handler for GET /api/works/facets
@@ -419,37 +414,27 @@ pub async fn handle_work_facets(
     }
 
     if status != "approved" {
-        let user_id: Option<i64> = session.get(SESSION_USER_ID_KEY).await.ok().flatten();
-
-        if let Some(uid) = user_id {
-            let user_role: Option<String> =
-                sqlx::query_scalar("SELECT role::text FROM users WHERE id = $1")
-                    .bind(uid)
-                    .fetch_optional(&state.db)
-                    .await
-                    .map_err(|e| {
-                        tracing::error!("Failed to fetch user role for facets: {}", e);
-                        (
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            "Authorization check failed".to_string(),
-                        )
-                    })?;
-
-            if let Some(role) = user_role {
-                if role != "admin" && role != "moderator" {
-                    return Err((
-                        StatusCode::FORBIDDEN,
-                        "Only moderators and admins can view non-approved facets".to_string(),
-                    ));
-                }
-            } else {
-                return Err((StatusCode::UNAUTHORIZED, "User not found".to_string()));
+        let principal = load_principal_http(&state.db, &session).await?;
+        match policy::decide(
+            &principal,
+            policy::Action::ViewWorks {
+                status,
+                owner_id: None,
+            },
+        ) {
+            policy::Decision::Allow => {}
+            policy::Decision::RequireAuth => {
+                return Err((
+                    StatusCode::UNAUTHORIZED,
+                    "Authentication required to view non-approved facets".to_string(),
+                ));
             }
-        } else {
-            return Err((
-                StatusCode::UNAUTHORIZED,
-                "Authentication required to view non-approved facets".to_string(),
-            ));
+            policy::Decision::Deny => {
+                return Err((
+                    StatusCode::FORBIDDEN,
+                    "Only moderators and admins can view non-approved facets".to_string(),
+                ));
+            }
         }
     }
 
@@ -578,6 +563,7 @@ pub async fn handle_work_detail(
     Path(id): Path<String>,
     State(state): State<AppState>,
     session: Session,
+    headers: HeaderMap,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
     // Query single work with detail fields and a safe public uploader summary.
     let query = "SELECT w.id, w.gallery::TEXT AS gallery, w.origin::TEXT AS origin, w.title, w.status::TEXT AS status, w.width, w.height,
@@ -671,52 +657,37 @@ pub async fn handle_work_detail(
         )?;
     }
 
-    // 访问控制：非 approved 状态需要验证权限
+    // 访问控制：非 approved 状态需要 owner 本人或 staff（集中策略层）
     if status_str != "approved" {
-        let user_id: Option<i64> = session.get(SESSION_USER_ID_KEY).await.ok().flatten();
-
-        if let Some(uid) = user_id {
-            // 检查是否为作品上传者
-            let is_owner = uploader_id_opt.map_or(false, |uploader_id| uploader_id == uid);
-
-            if !is_owner {
-                // 不是上传者，检查是否为管理员或审核员
-                let user_role: Option<String> =
-                    sqlx::query_scalar("SELECT role::text FROM users WHERE id = $1")
-                        .bind(uid)
-                        .fetch_optional(&state.db)
-                        .await
-                        .map_err(|e| {
-                            tracing::error!("Failed to fetch user role: {}", e);
-                            (
-                                StatusCode::INTERNAL_SERVER_ERROR,
-                                "Authorization check failed".to_string(),
-                            )
-                        })?;
-
-                if let Some(role) = user_role {
-                    if role != "admin" && role != "moderator" {
-                        return Err((
-                            StatusCode::FORBIDDEN,
-                            "Only the uploader, moderators, or admins can view non-approved works"
-                                .to_string(),
-                        ));
-                    }
-                } else {
-                    return Err((StatusCode::UNAUTHORIZED, "User not found".to_string()));
-                }
+        let principal = load_principal_http(&state.db, &session).await?;
+        match policy::decide(
+            &principal,
+            policy::Action::ViewWorks {
+                status: &status_str,
+                owner_id: uploader_id_opt,
+            },
+        ) {
+            policy::Decision::Allow => {}
+            policy::Decision::RequireAuth => {
+                return Err((
+                    StatusCode::UNAUTHORIZED,
+                    "Authentication required to view non-approved works".to_string(),
+                ));
             }
-            // 是上传者或管理员，允许访问
-        } else {
-            return Err((
-                StatusCode::UNAUTHORIZED,
-                "Authentication required to view non-approved works".to_string(),
-            ));
+            policy::Decision::Deny => {
+                return Err((
+                    StatusCode::FORBIDDEN,
+                    "Only the uploader, moderators, or admins can view non-approved works"
+                        .to_string(),
+                ));
+            }
         }
     }
 
     // Build response. Reaching this point means access is authorized, so a
     // non-approved work may expose presigned private media to the caller.
+    let cacheable =
+        status_str == "approved" && art_rating.as_deref().unwrap_or("all_ages") == "all_ages";
     let media_ref = media::media_ref_from_row(&row);
     let urls = media::resolve_work_media_urls(
         &state.s3_client,
@@ -756,29 +727,106 @@ pub async fn handle_work_detail(
         }),
     };
 
-    Ok((StatusCode::OK, Json(work_item)))
+    Ok(public_json_response(&work_item, cacheable, &headers))
 }
 
 fn ensure_mature_rating_access(
     user_id: Option<i64>,
     rating: &str,
 ) -> Result<(), (StatusCode, String)> {
-    if rating == "all_ages" {
-        return Ok(());
-    }
-    if !matches!(rating, "r15" | "r18") {
+    if !matches!(rating, "all_ages" | "r15" | "r18") {
         return Err((
             StatusCode::BAD_REQUEST,
             "Invalid rating parameter. Must be one of: all_ages, r15, r18".to_string(),
         ));
     }
-    if user_id.is_none() {
-        return Err((
+    let principal = policy::Principal {
+        user_id,
+        role: None,
+    };
+    match policy::decide(&principal, policy::Action::ViewRated { rating }) {
+        policy::Decision::Allow => Ok(()),
+        _ => Err((
             StatusCode::UNAUTHORIZED,
             "Authentication required to view R-15/R-18 content".to_string(),
-        ));
+        )),
     }
-    Ok(())
+}
+
+/// Load the caller's principal, mapping policy errors to the works HTTP shape.
+async fn load_principal_http(
+    db: &crate::db::DbPool,
+    session: &Session,
+) -> Result<policy::Principal, (StatusCode, String)> {
+    policy::load_principal(db, session)
+        .await
+        .map_err(|error| match error {
+            policy::PrincipalError::Session => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Authorization check failed".to_string(),
+            ),
+            policy::PrincipalError::UnknownUser => {
+                (StatusCode::UNAUTHORIZED, "User not found".to_string())
+            }
+        })
+}
+
+/// JSON response with a strong body ETag. Cacheable (session-independent)
+/// variants get a public micro-cache policy and honor If-None-Match; other
+/// variants are served without shared-cache headers.
+fn public_json_response<T: Serialize>(
+    payload: &T,
+    cacheable: bool,
+    request_headers: &HeaderMap,
+) -> Response {
+    let body = match serde_json::to_vec(payload) {
+        Ok(body) => body,
+        Err(error) => {
+            tracing::error!("response serialization failed: {}", error);
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Failed to serialize response".to_string(),
+            )
+                .into_response();
+        }
+    };
+
+    if !cacheable {
+        return Response::builder()
+            .status(StatusCode::OK)
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(body))
+            .expect("json response should build");
+    }
+
+    let etag = format!("\"{}\"", hex::encode(Sha256::digest(&body)));
+    let revalidated = request_headers
+        .get(header::IF_NONE_MATCH)
+        .and_then(|value| value.to_str().ok())
+        .map(|value| value.split(',').any(|item| item.trim() == etag))
+        .unwrap_or(false);
+
+    let mut builder = Response::builder()
+        .status(if revalidated {
+            StatusCode::NOT_MODIFIED
+        } else {
+            StatusCode::OK
+        })
+        .header(header::ETAG, etag)
+        .header(
+            header::CACHE_CONTROL,
+            "public, max-age=60, stale-while-revalidate=120",
+        );
+    if !revalidated {
+        builder = builder.header(header::CONTENT_TYPE, "application/json");
+    }
+    builder
+        .body(if revalidated {
+            Body::empty()
+        } else {
+            Body::from(body)
+        })
+        .expect("json response should build")
 }
 
 
@@ -792,6 +840,37 @@ mod tests {
         assert!(ensure_mature_rating_access(Some(1), "r18").is_ok());
         let err = ensure_mature_rating_access(None, "r18").unwrap_err();
         assert_eq!(err.0, StatusCode::UNAUTHORIZED);
+    }
+
+    #[test]
+    fn public_json_response_sets_etag_and_micro_cache_for_cacheable_variants() {
+        let payload = serde_json::json!({ "ok": true });
+
+        let cached = public_json_response(&payload, true, &HeaderMap::new());
+        assert_eq!(cached.status(), StatusCode::OK);
+        let etag = cached
+            .headers()
+            .get(header::ETAG)
+            .and_then(|value| value.to_str().ok())
+            .expect("cacheable responses carry an ETag")
+            .to_string();
+        assert!(etag.starts_with('"') && etag.ends_with('"'));
+        let cache = cached
+            .headers()
+            .get(header::CACHE_CONTROL)
+            .and_then(|value| value.to_str().ok())
+            .expect("cacheable responses carry Cache-Control");
+        assert!(cache.contains("public") && cache.contains("max-age=60"));
+
+        let mut revalidate = HeaderMap::new();
+        revalidate.insert(header::IF_NONE_MATCH, etag.parse().unwrap());
+        let not_modified = public_json_response(&payload, true, &revalidate);
+        assert_eq!(not_modified.status(), StatusCode::NOT_MODIFIED);
+
+        let private = public_json_response(&payload, false, &HeaderMap::new());
+        assert_eq!(private.status(), StatusCode::OK);
+        assert!(private.headers().get(header::ETAG).is_none());
+        assert!(private.headers().get(header::CACHE_CONTROL).is_none());
     }
 
 

@@ -697,14 +697,21 @@ async fn moderation_decision(
 }
 
 async fn require_user(session: &Session) -> Result<i64, Response> {
-    match session.get::<i64>(SESSION_USER_ID_KEY).await.ok().flatten() {
-        Some(id) => Ok(id),
-        None => Err(fiction_error(
+    let user_id = session.get::<i64>(SESSION_USER_ID_KEY).await.ok().flatten();
+    let principal = crate::policy::Principal {
+        user_id,
+        role: None,
+    };
+    if crate::policy::decide(&principal, crate::policy::Action::SubmitContent)
+        != crate::policy::Decision::Allow
+    {
+        return Err(fiction_error(
             StatusCode::UNAUTHORIZED,
             "unauthenticated",
             "Authentication required",
-        )),
+        ));
     }
+    Ok(user_id.expect("SubmitContent only allows signed-in principals"))
 }
 
 async fn require_moderator(state: &AppState, user_id: i64) -> Result<(), Response> {
@@ -714,17 +721,23 @@ async fn require_moderator(state: &AppState, user_id: i64) -> Result<(), Respons
         .await
         .ok()
         .flatten();
-    match role.as_deref() {
-        Some("moderator") | Some("admin") => Ok(()),
-        Some(_) => Err(fiction_error(
-            StatusCode::FORBIDDEN,
-            "forbidden",
-            "Moderator role required",
-        )),
-        None => Err(fiction_error(
+    let Some(role) = role else {
+        return Err(fiction_error(
             StatusCode::UNAUTHORIZED,
             "unauthenticated",
             "User not found",
+        ));
+    };
+    let principal = crate::policy::Principal {
+        user_id: Some(user_id),
+        role: crate::policy::Role::parse(&role),
+    };
+    match crate::policy::decide(&principal, crate::policy::Action::Moderate) {
+        crate::policy::Decision::Allow => Ok(()),
+        _ => Err(fiction_error(
+            StatusCode::FORBIDDEN,
+            "forbidden",
+            "Moderator role required",
         )),
     }
 }

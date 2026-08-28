@@ -21,6 +21,7 @@ mod image_processor;
 mod media;
 mod middleware;
 mod models;
+mod policy;
 mod routes;
 mod spa;
 mod storage;
@@ -250,6 +251,9 @@ async fn serve() {
         csrf_guard,
         allowed_origins,
         session_layer,
+        middleware::SecurityHeadersConfig {
+            hsts: secure_cookie,
+        },
     );
 
     let host = std::env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
@@ -280,6 +284,7 @@ fn build_app(
     csrf_guard: middleware::CsrfOriginGuard,
     allowed_origins: Vec<axum::http::HeaderValue>,
     session_layer: SessionManagerLayer<PostgresStore>,
+    security_headers: middleware::SecurityHeadersConfig,
 ) -> Router {
     // Moderation routes (require moderator/admin role)
     let moderation_routes = Router::new()
@@ -362,6 +367,10 @@ fn build_app(
                 ])
                 .allow_credentials(true),
         )
+        .layer(from_fn_with_state(
+            security_headers,
+            middleware::security_headers,
+        ))
 }
 
 async fn health_check(State(state): State<AppState>) -> impl IntoResponse {

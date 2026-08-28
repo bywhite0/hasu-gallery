@@ -93,6 +93,7 @@ pub async fn csrf_origin_guard(
     Ok(next.run(request).await)
 }
 
+#[cfg(test)]
 const DEFAULT_MAX_BUCKETS: usize = 10_000;
 
 #[derive(Clone)]
@@ -111,6 +112,8 @@ struct RateLimitBucket {
 }
 
 impl RateLimiter {
+    /// Test convenience with default bucket cap and no proxy trust.
+    #[cfg(test)]
     pub fn new(max_requests: u32, window: Duration) -> Self {
         Self::with_options(max_requests, window, DEFAULT_MAX_BUCKETS, false)
     }
@@ -260,34 +263,81 @@ fn referer_origin(value: &str) -> Option<String> {
     Some(format!("{}://{}", uri.scheme_str()?, uri.authority()?))
 }
 
-/// Middleware to require moderator or admin role
+/// Middleware to require moderator or admin role via the central policy layer.
 pub async fn require_moderator(
     session: Session,
     State(pool): State<PgPool>,
     request: Request<Body>,
     next: Next,
 ) -> Result<Response, StatusCode> {
-    // Get user_id from session
-    let user_id: i64 = session
-        .get("user_id")
+    let principal = crate::policy::load_principal(&pool, &session)
         .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-        .ok_or(StatusCode::UNAUTHORIZED)?;
+        .map_err(|error| match error {
+            crate::policy::PrincipalError::Session => StatusCode::INTERNAL_SERVER_ERROR,
+            crate::policy::PrincipalError::UnknownUser => StatusCode::UNAUTHORIZED,
+        })?;
 
-    // Query user role from database
-    let role: String = sqlx::query_scalar("SELECT role::TEXT FROM users WHERE id = $1")
-        .bind(user_id)
-        .fetch_one(&pool)
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    match crate::policy::decide(&principal, crate::policy::Action::Moderate) {
+        crate::policy::Decision::Allow => Ok(next.run(request).await),
+        crate::policy::Decision::RequireAuth => Err(StatusCode::UNAUTHORIZED),
+        crate::policy::Decision::Deny => Err(StatusCode::FORBIDDEN),
+    }
+}
 
-    // Check if user is moderator or admin
-    if role != "moderator" && role != "admin" {
-        return Err(StatusCode::FORBIDDEN);
+/// Security headers applied to every response (Architecture V3 S3). The CSP
+/// only targets HTML documents so JSON/media responses stay lean; HSTS is
+/// gated on the secure (HTTPS) deployment flag.
+#[derive(Clone, Copy)]
+pub struct SecurityHeadersConfig {
+    pub hsts: bool,
+}
+
+const CSP_HTML: &str = "default-src 'self'; script-src 'self'; \
+style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: http:; \
+connect-src 'self'; font-src 'self' data:; object-src 'none'; \
+frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
+
+pub async fn security_headers(
+    State(config): State<SecurityHeadersConfig>,
+    request: Request<Body>,
+    next: Next,
+) -> Response {
+    let mut response = next.run(request).await;
+    let is_html = response
+        .headers()
+        .get(axum::http::header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .map(|value| value.starts_with("text/html"))
+        .unwrap_or(false);
+
+    let headers = response.headers_mut();
+    headers.insert(
+        "x-content-type-options",
+        HeaderValue::from_static("nosniff"),
+    );
+    headers.insert(
+        "referrer-policy",
+        HeaderValue::from_static("strict-origin-when-cross-origin"),
+    );
+    headers.insert("x-frame-options", HeaderValue::from_static("DENY"));
+    headers.insert(
+        "permissions-policy",
+        HeaderValue::from_static("camera=(), microphone=(), geolocation=()"),
+    );
+    if is_html {
+        headers.insert(
+            "content-security-policy",
+            HeaderValue::from_static(CSP_HTML),
+        );
+    }
+    if config.hsts {
+        headers.insert(
+            "strict-transport-security",
+            HeaderValue::from_static("max-age=31536000; includeSubDomains"),
+        );
     }
 
-    // User is authorized, proceed
-    Ok(next.run(request).await)
+    response
 }
 
 #[cfg(test)]
@@ -384,5 +434,86 @@ mod tests {
         headers.insert("referer", "/relative".parse().unwrap());
 
         assert!(!guard.allows(&Method::POST, &headers));
+    }
+
+    #[tokio::test]
+    async fn security_headers_cover_all_responses_and_scope_csp_to_html() {
+        use axum::{routing::get, Json, Router};
+        use tower::ServiceExt;
+
+        let app = Router::new()
+            .route("/page", get(|| async { axum::response::Html("<html></html>") }))
+            .route("/data", get(|| async { Json(serde_json::json!({ "ok": true })) }))
+            .layer(axum::middleware::from_fn_with_state(
+                SecurityHeadersConfig { hsts: true },
+                security_headers,
+            ));
+
+        let html = app
+            .clone()
+            .oneshot(
+                HttpRequest::builder()
+                    .uri("/page")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            html.headers().get("x-content-type-options").unwrap(),
+            "nosniff"
+        );
+        assert_eq!(html.headers().get("x-frame-options").unwrap(), "DENY");
+        assert_eq!(
+            html.headers().get("referrer-policy").unwrap(),
+            "strict-origin-when-cross-origin"
+        );
+        let csp = html
+            .headers()
+            .get("content-security-policy")
+            .and_then(|value| value.to_str().ok())
+            .expect("html responses carry a CSP");
+        assert!(csp.contains("frame-ancestors 'none'"));
+        assert!(!csp.contains("unsafe-eval"));
+        assert!(html.headers().contains_key("strict-transport-security"));
+
+        let json = app
+            .oneshot(
+                HttpRequest::builder()
+                    .uri("/data")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            json.headers().get("x-content-type-options").unwrap(),
+            "nosniff"
+        );
+        assert!(!json.headers().contains_key("content-security-policy"));
+    }
+
+    #[tokio::test]
+    async fn security_headers_omit_hsts_when_not_secure() {
+        use axum::{routing::get, Router};
+        use tower::ServiceExt;
+
+        let app = Router::new()
+            .route("/data", get(|| async { "ok" }))
+            .layer(axum::middleware::from_fn_with_state(
+                SecurityHeadersConfig { hsts: false },
+                security_headers,
+            ));
+
+        let response = app
+            .oneshot(
+                HttpRequest::builder()
+                    .uri("/data")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert!(!response.headers().contains_key("strict-transport-security"));
     }
 }

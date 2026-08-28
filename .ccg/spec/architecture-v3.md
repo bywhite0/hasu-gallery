@@ -2,8 +2,10 @@
 
 - **Status**: Approved target architecture (2026-08-28). Supersedes
   `.ccg/spec/architecture-v2.md`, which is retained for history. S1 (single
-  JSON contract) and S2 (private media + UUIDv4 public URLs) shipped
-  2026-08-28; S3 is pending.
+  JSON contract), S2 (private media + UUIDv4 public URLs), and S3 (policy
+  layer, security headers, works ETag) shipped 2026-08-28. The production
+  cutover to the single-binary same-origin deploy is an ops step documented in
+  `docs/deployment.md`.
 - **Decision date**: 2026-08-28
 - **Goal**: Deliver the same product outcomes (Meme + Art + Fiction, moderated
   UGC, private pending media, single-binary deploy) at the lowest sustainable
@@ -258,14 +260,26 @@ image decoding and Argon2, both semaphore-bounded.
 - Legacy works without a media row keep their original URL shape until
   backfilled; remove legacy approved objects after the rollback window closes.
 
-### S3 — Policy consolidation + headers
+### S3 — Policy consolidation + headers ✅ (code shipped 2026-08-28)
 
-- Extract the scattered role/ownership checks in `middleware.rs` and route
-  handlers into the `policy` module; add the role × action × state test
-  table.
-- Add the security-headers layer + HTTP tests.
-- Production cutover to single-binary same-origin deploy (embedded SPA is
-  already built): retire the independent static frontend and `CORS_ALLOWED_ORIGINS`.
+- `backend/src/policy.rs`: one pure deny-by-default `decide(principal,
+  action)` covering work visibility (status × ownership), rated content,
+  submission, and moderation; table-driven role × action × state tests.
+  Works list/facets/detail, the moderation route guard, and Fiction
+  auth/moderation checks all route through it.
+- Security headers middleware on every response: `X-Content-Type-Options`,
+  `Referrer-Policy`, `X-Frame-Options: DENY`, `Permissions-Policy`; a CSP
+  (`script-src 'self'`, `frame-ancestors 'none'`, no unsafe-eval) on HTML
+  documents only; HSTS gated on `SESSION_COOKIE_SECURE`.
+- S1 leftover closed: public works list/detail responses carry a strong body
+  ETag + `public, max-age=60, stale-while-revalidate=120` and honor
+  `If-None-Match` — but only for session-independent variants
+  (approved + all_ages). Rated/moderator variants stay uncacheable, and
+  facets stay uncached because their output varies by session.
+- Production cutover to the single-binary same-origin deploy is prepared in
+  code (embedded SPA, same-origin CSRF, headers) and documented as an ops
+  runbook in `docs/deployment.md`; the split topology stays supported until
+  the cutover passes its rollback window.
 
 Each slice ships behind the existing acceptance set: `pnpm test`,
 `pnpm typecheck`, `pnpm build`, `cargo test`, local `pnpm e2e`.

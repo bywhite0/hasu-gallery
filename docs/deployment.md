@@ -1,16 +1,42 @@
 # Deployment Guide
 
 > **Current-runtime document.** This guide describes the deployed Phase 1-5
-> baseline. The approved but not-yet-implemented target is the single-binary,
-> same-origin Protobuf topology in
-> [Architecture V2](../.ccg/spec/architecture-v2.md). Update this guide only
-> when the corresponding migration slice has shipped and passed rollback
-> checks.
+> baseline (independent SPA + JSON API). Architecture V3 S1–S3 code has
+> shipped, so the single-binary same-origin topology below is ready to cut
+> over to; the split topology remains supported until the cutover passes its
+> rollback window. See [Architecture V3](../.ccg/spec/architecture-v3.md).
 
 Hasu Gallery is currently deployed as a static frontend plus an independent
 Rust API.
 The API owns Postgres, sessions, S3-compatible object storage, thumbnail
 generation, upload validation, moderation, and public media URL construction.
+
+## Single-Binary Deployment (Architecture V3)
+
+The recommended production shape is one `galleryd` executable serving the
+embedded SPA and the JSON API from the same origin:
+
+```powershell
+pnpm run build:galleryd          # SPA build + embed sync + cargo release build
+./backend/target/release/galleryd migrate
+./backend/target/release/galleryd serve
+```
+
+Properties and cutover notes:
+
+- SPA history routes fall back to the embedded `index.html`; no Node.js, pnpm,
+  or separate frontend server is required in production.
+- Same-origin means browsers send no cross-origin requests;
+  `CORS_ALLOWED_ORIGINS` must still contain the site origin because the CSRF
+  Origin/Referer guard uses the same list.
+- Security headers are always on: nosniff, `Referrer-Policy`,
+  `X-Frame-Options: DENY`, `Permissions-Policy`, and a CSP on HTML documents.
+  `Strict-Transport-Security` is sent when `SESSION_COOKIE_SECURE=true`.
+- Cutover: deploy `galleryd serve` behind the existing TLS proxy, point the
+  site origin at it, keep the old static-frontend deployment untouched for the
+  rollback window, then retire it.
+- Rollback: repoint the origin at the previous static frontend + API pair; no
+  data migration is involved.
 
 ## Runtime Services
 
