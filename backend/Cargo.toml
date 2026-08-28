@@ -35,3 +35,9 @@ sha2 = "0.10"
 [[bin]]
 name = "galleryd"
 path = "src/main.rs"
+
+# aws-sdk-s3 is generated I/O-bound plumbing; opt-level 3 needs more RAM than
+# a 1 GB host can give rustc. Building it lightly optimized keeps low-memory
+# builds feasible with no measurable runtime cost for this workload.
+[profile.release.package.aws-sdk-s3]
+opt-level = 1
