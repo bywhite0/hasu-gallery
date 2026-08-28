@@ -45,3 +45,8 @@ id_ed25519
 !.env.example
 !**/.env.example
 backend/.env
+
+# Embedded SPA build artifacts (synced by scripts/sync-web-embed.*; only the
+# tracked placeholder index.html stays in Git for CI builds)
+backend/embedded-web/*
+!backend/embedded-web/index.html
