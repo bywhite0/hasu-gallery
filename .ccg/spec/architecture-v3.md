@@ -2,7 +2,8 @@
 
 - **Status**: Approved target architecture (2026-08-28). Supersedes
   `.ccg/spec/architecture-v2.md`, which is retained for history. S1 (single
-  JSON contract) shipped 2026-08-28; S2/S3 are pending.
+  JSON contract) and S2 (private media + UUIDv4 public URLs) shipped
+  2026-08-28; S3 is pending.
 - **Decision date**: 2026-08-28
 - **Goal**: Deliver the same product outcomes (Meme + Art + Fiction, moderated
   UGC, private pending media, single-binary deploy) at the lowest sustainable
@@ -231,15 +232,31 @@ image decoding and Argon2, both semaphore-bounded.
 - Rollback boundary: revert commit range; JSON Meme/Art surface untouched
   throughout.
 
-### S2 — Private media + UUIDv4 public URLs
+### S2 — Private media + UUIDv4 public URLs ✅ (shipped 2026-08-28)
 
-- Migration: add `media_assets`; backfill rows for existing works; new
-  uploads write `private/*`; approval copies to `public/{uuid}/v1/*`.
-- Backfill job moves existing approved objects to `public/{uuid}/…` keys and
-  updates works; pending objects move to `private/*`.
-- Presigned GET for owner/moderator pending views.
-- Old public URLs keep working during a redirect/dual-read window; remove
-  after the rollback window closes.
+- Migration `006_media_assets.sql`: `media_assets` table
+  (pending/public/removed states) + nullable `works.media_id`.
+- New uploads write sanitized bytes to `private/{media_id}/original.{ext}` +
+  `private/{media_id}/thumb.jpg` with a fresh UUIDv4 media ID distinct from
+  the work ID; the upload response returns short-lived presigned preview URLs.
+- Approval copies both objects server-side to `public/{media_id}/v1/...`
+  before the moderation transaction commits (copies are compensated if the
+  commit fails) and flips the media state to `public`. Public URLs are
+  `{PUBLIC_MEDIA_BASE_URL}/public/{media_id}/v1/image.{ext}` — the object key
+  is the URL path, so the CDN/proxy needs no rewrite rules, but it MUST refuse
+  to serve `private/*` paths.
+- Owner (`/api/users/me/works`), moderation queue, and authorized
+  non-approved detail reads resolve pending/rejected media to 300 s presigned
+  GET URLs (`backend/src/media.rs`); public contexts never emit private URLs.
+- Takedown marks the media `removed`, deletes the public UUID objects (plus
+  legacy-key copies for backfilled works), and keeps the private original for
+  the retention window.
+- `galleryd backfill-media` migrates legacy works: approved → copy to
+  `public/{uuid}/v1/...` (legacy keys kept for the old-URL dual-read window);
+  pending/rejected → move to `private/...` and delete the legacy publicly
+  reachable objects, closing the pre-S2 exposure gap.
+- Legacy works without a media row keep their original URL shape until
+  backfilled; remove legacy approved objects after the rollback window closes.
 
 ### S3 — Policy consolidation + headers
 

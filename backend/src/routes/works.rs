@@ -9,7 +9,7 @@ use sqlx::Row;
 use tower_sessions::Session;
 
 use super::auth::SESSION_USER_ID_KEY;
-use crate::{storage::public_media_base_url, AppState};
+use crate::{media, AppState};
 
 /// Query parameters for works listing
 #[derive(Debug, Deserialize)]
@@ -112,24 +112,6 @@ pub struct ArtFacetsResponse {
     pub artists: Vec<FacetItem>,
     pub media: Vec<FacetItem>,
     pub ratings: Vec<FacetItem>,
-}
-
-/// Extract file extension from asset_file path
-fn extract_extension(asset_file: &str) -> &str {
-    asset_file.rsplit('.').next().unwrap_or("jpg")
-}
-
-/// Build thumbnail URL for a work (always .jpg since thumbnails are JPEG)
-pub fn build_thumbnail_url(id: &str, _asset_file: &str) -> String {
-    let base = public_media_base_url();
-    format!("{}/{}_thumb.jpg", base, id)
-}
-
-/// Build file URL for a work
-pub fn build_file_url(id: &str, asset_file: &str) -> String {
-    let base = public_media_base_url();
-    let ext = extract_extension(asset_file);
-    format!("{}/{}.{}", base, id, ext)
 }
 
 /// Handler for GET /api/works
@@ -307,8 +289,10 @@ pub async fn handle_works_list(
 
     // Fetch works
     let select_query = format!(
-        "SELECT w.id, w.gallery::TEXT AS gallery, w.origin::TEXT AS origin, w.title, w.status::TEXT AS status, w.width, w.height, w.created_at, w.asset_file
+        "SELECT w.id, w.gallery::TEXT AS gallery, w.origin::TEXT AS origin, w.title, w.status::TEXT AS status, w.width, w.height, w.created_at, w.asset_file,
+                w.media_id, ma.state::TEXT AS media_state, ma.public_version AS media_public_version, ma.mime_type AS media_mime_type
          FROM works w{}
+         LEFT JOIN media_assets ma ON w.media_id = ma.id
          WHERE {}
          ORDER BY {}
          LIMIT ${} OFFSET ${}",
@@ -352,43 +336,52 @@ pub async fn handle_works_list(
         )
     })?;
 
-    // Map rows to WorkItem
-    let works: Vec<WorkItem> = rows
-        .iter()
-        .map(|row| {
-            let id: String = row.try_get("id").unwrap_or_default();
-            let gallery: String = row.try_get("gallery").unwrap_or_default();
-            let origin: Option<String> = row.try_get("origin").ok();
-            let title: String = row.try_get("title").unwrap_or_default();
-            let status: String = row.try_get("status").unwrap_or_default();
-            let width: i32 = row.try_get("width").unwrap_or(0);
-            let height: i32 = row.try_get("height").unwrap_or(0);
-            let created_at: chrono::DateTime<chrono::Utc> =
-                row.try_get("created_at").unwrap_or_default();
-            let asset_file: String = row.try_get("asset_file").unwrap_or_default();
+    // Map rows to WorkItem. Non-approved listings are only reachable by
+    // moderators/admins (verified above), so private media may be presigned.
+    let allow_private = status != "approved";
+    let mut works: Vec<WorkItem> = Vec::with_capacity(rows.len());
+    for row in &rows {
+        let id: String = row.try_get("id").unwrap_or_default();
+        let gallery: String = row.try_get("gallery").unwrap_or_default();
+        let origin: Option<String> = row.try_get("origin").ok();
+        let title: String = row.try_get("title").unwrap_or_default();
+        let status: String = row.try_get("status").unwrap_or_default();
+        let width: i32 = row.try_get("width").unwrap_or(0);
+        let height: i32 = row.try_get("height").unwrap_or(0);
+        let created_at: chrono::DateTime<chrono::Utc> =
+            row.try_get("created_at").unwrap_or_default();
+        let asset_file: String = row.try_get("asset_file").unwrap_or_default();
+        let media_ref = media::media_ref_from_row(row);
+        let urls = media::resolve_work_media_urls(
+            &state.s3_client,
+            &id,
+            &asset_file,
+            &media_ref,
+            allow_private,
+        )
+        .await;
 
-            WorkItem {
-                id: id.clone(),
-                gallery,
-                origin,
-                title,
-                status,
-                thumbnail_url: build_thumbnail_url(&id, &asset_file),
-                file_url: build_file_url(&id, &asset_file),
-                width,
-                height,
-                created_at: created_at.to_rfc3339(),
-                reviewed_at: None,
-                review_note: None,
-                uploader_name: None, // 列表不显示上传者信息
-                uploader: None,
-                source: None,
-                source_url: None,
-                rights_note: None,
-                art_meta: None,
-            }
-        })
-        .collect();
+        works.push(WorkItem {
+            id,
+            gallery,
+            origin,
+            title,
+            status,
+            thumbnail_url: urls.thumbnail_url,
+            file_url: urls.file_url,
+            width,
+            height,
+            created_at: created_at.to_rfc3339(),
+            reviewed_at: None,
+            review_note: None,
+            uploader_name: None, // 列表不显示上传者信息
+            uploader: None,
+            source: None,
+            source_url: None,
+            rights_note: None,
+            art_meta: None,
+        });
+    }
 
     // Build response
     let response = WorksResponse {
@@ -589,6 +582,7 @@ pub async fn handle_work_detail(
     // Query single work with detail fields and a safe public uploader summary.
     let query = "SELECT w.id, w.gallery::TEXT AS gallery, w.origin::TEXT AS origin, w.title, w.status::TEXT AS status, w.width, w.height,
                         w.source, w.source_url, w.rights_note, w.created_at, w.asset_file,
+                        w.media_id, ma.state::TEXT AS media_state, ma.public_version AS media_public_version, ma.mime_type AS media_mime_type,
                         w.uploader_id, u.display_name as uploader_name,
                         u.handle as uploader_handle,
                         u.display_name as uploader_display_name,
@@ -596,6 +590,7 @@ pub async fn handle_work_detail(
                         COALESCE(up.approved_public_work_count, 0)::BIGINT as uploader_approved_public_work_count,
                         am.artist, am.medium, am.rating::TEXT AS rating
                  FROM works w
+                 LEFT JOIN media_assets ma ON w.media_id = ma.id
                  LEFT JOIN users u ON w.uploader_id = u.id
                  LEFT JOIN LATERAL (
                     SELECT COUNT(*)::BIGINT as approved_public_work_count
@@ -720,15 +715,25 @@ pub async fn handle_work_detail(
         }
     }
 
-    // Build response
+    // Build response. Reaching this point means access is authorized, so a
+    // non-approved work may expose presigned private media to the caller.
+    let media_ref = media::media_ref_from_row(&row);
+    let urls = media::resolve_work_media_urls(
+        &state.s3_client,
+        &work_id,
+        &asset_file,
+        &media_ref,
+        status_str != "approved",
+    )
+    .await;
     let work_item = WorkItem {
         id: work_id.clone(),
         gallery,
         origin,
         title,
         status: status_str,
-        thumbnail_url: build_thumbnail_url(&work_id, &asset_file),
-        file_url: build_file_url(&work_id, &asset_file),
+        thumbnail_url: urls.thumbnail_url,
+        file_url: urls.file_url,
         width,
         height,
         created_at: created_at.to_rfc3339(),

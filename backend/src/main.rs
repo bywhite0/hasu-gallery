@@ -13,10 +13,12 @@ use tower_sessions::{Expiry, SessionManagerLayer};
 use tower_sessions_sqlx_store::PostgresStore;
 
 mod auth;
+mod backfill;
 mod cli;
 mod db;
 mod fiction;
 mod image_processor;
+mod media;
 mod middleware;
 mod models;
 mod routes;
@@ -47,9 +49,26 @@ async fn main() {
         Commands::Migrate => migrate().await,
         Commands::Doctor => doctor(),
         Commands::MediaWorker => {
-            eprintln!("galleryd media-worker is not implemented in Architecture V2 Slice A");
+            eprintln!("galleryd media-worker is not implemented (hardening backlog)");
             std::process::exit(2);
         }
+        Commands::BackfillMedia => backfill_media().await,
+    }
+}
+
+async fn backfill_media() {
+    let database_url = database_url();
+    tracing::info!("Connecting to database for backfill-media...");
+    let db = db::create_pool(&database_url)
+        .await
+        .expect("Failed to create database pool");
+    db::run_migrations(&db)
+        .await
+        .expect("Failed to run migrations");
+    let s3_client = storage::create_s3_client().await;
+    if let Err(error) = backfill::run(&db, &s3_client).await {
+        eprintln!("backfill-media failed: {}", error);
+        std::process::exit(1);
     }
 }
 

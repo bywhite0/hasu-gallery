@@ -26,14 +26,14 @@ pub async fn create_s3_client() -> Client {
     Client::new(&config)
 }
 
-/// 上传文件到 S3
-pub async fn upload_file(
+/// 上传对象到 S3（key 即完整对象路径，URL 由 media 模块派生）
+pub async fn upload_object(
     client: &Client,
     bucket: &str,
     key: &str,
     body: Vec<u8>,
     content_type: &str,
-) -> Result<String, String> {
+) -> Result<(), String> {
     client
         .put_object()
         .bucket(bucket)
@@ -44,7 +44,25 @@ pub async fn upload_file(
         .await
         .map_err(|e| format!("Failed to upload to S3: {}", e))?;
 
-    Ok(format!("{}/{}", public_media_base_url(), key))
+    Ok(())
+}
+
+/// Server-side copy used to publish approved private objects.
+pub async fn copy_object(
+    client: &Client,
+    bucket: &str,
+    source_key: &str,
+    dest_key: &str,
+) -> Result<(), String> {
+    client
+        .copy_object()
+        .bucket(bucket)
+        .copy_source(format!("{}/{}", bucket, source_key))
+        .key(dest_key)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to copy {} -> {}: {}", source_key, dest_key, e))?;
+    Ok(())
 }
 
 /// Best-effort object deletion used for upload compensation and takedown.

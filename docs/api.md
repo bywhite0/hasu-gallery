@@ -166,6 +166,14 @@ Upload validation:
 - When a filename is present, its extension must match the detected format.
 - Image dimensions are capped at 8192 px per side and 64 MP total.
 
+Media URLs (Architecture V3 S2): the upload response's `file_url` /
+`thumbnail_url` are short-lived (300 s) presigned review URLs because pending
+objects are private. After approval, list/detail responses return immutable
+public URLs of the form
+`{PUBLIC_MEDIA_BASE_URL}/public/{media_id}/v1/image.{ext}`; the UUIDv4
+`media_id` is unrelated to the work ID. Treat every media URL as opaque and
+possibly expiring — always re-read it from the API rather than storing it.
+
 ## Fiction
 
 Fiction endpoints return structured JSON errors (`code`, `message`) and use

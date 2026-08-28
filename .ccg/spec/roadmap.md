@@ -44,7 +44,7 @@
 | **3.2 审核仪表板** | ✅ COMPLETE | ✅ ModerationPage + ModerationActions + ModerationLog（524 行）| — |
 | **4: Art Gallery** | ✅ BASELINE COMPLETE | ✅ Baseline launch 已验证：Meme/Art 导航、Art upload metadata、rating 筛选、`work_art_meta` 写入、MinIO 上传成功路径与审核发布均通过真实浏览器验收 | 自动化 E2E 与 production hardening 已转入 Phase 5 |
 | **5: Polish & Hardening** | ✅ COMPLETE | ✅ Art polish、轻量 CI、后端测试、安全加固、性能索引/媒体优化、部署/审核/监控文档与监控摘要 API 均已落地；Playwright E2E 作为本地脚本保留 | 后续仅剩外部 APM/Sentry、发布自动化与前端组件测试等增强项 |
-| **Architecture V2→V3 migration track** | V3 APPROVED / S1 ✅ | ✅ 单一 JSON 契约（Protobuf 管线已删除）+ galleryd 单二进制 + Fiction 域 | S2 私有媒体/UUIDv4 公开 URL；S3 策略层收敛/安全头/生产切换 |
+| **Architecture V2→V3 migration track** | V3 APPROVED / S1–S2 ✅ | ✅ 单一 JSON 契约 + galleryd 单二进制 + Fiction 域 + 私有媒体/UUIDv4 公开 URL/backfill | S3 策略层收敛/安全头/生产切换 |
 
 **Phase 2 总计**: +2,562 行前端代码，11 个 API 端点，完整的画廊浏览和上传功能。
 
@@ -139,6 +139,18 @@ public/account/moderation 路由移植为 JSON（`backend/src/routes/fiction.rs`
 `hasu-gallery-api` bin。验证：`cargo test` 51 通过、`pnpm typecheck`、
 `pnpm test` 9 通过、`pnpm build` 全绿。works 读路径的 ETag/micro-cache
 移植为后续跟进项。
+
+**2026-08-28 Architecture V3 S2 私有媒体切片**: 新增 `006_media_assets.sql`
+（media_assets 表 + works.media_id）与 `backend/src/media.rs`。新上传写入
+`private/{media_uuid}/`（原图 + 缩略图，含 sha256），作品 ID 与媒体 UUID 分离；
+审核批准在事务提交前将净化对象服务端复制到 `public/{media_uuid}/v1/`（提交
+失败补偿删除），公开 URL 为 `{base}/public/{uuid}/v1/image.{ext}`；owner/
+审核队列/非公开详情通过 300s presigned GET 查看私有对象，公开上下文绝不输出
+私有 URL；takedown 标记 removed 并删除公开对象（保留私有原件）。新增
+`galleryd backfill-media`：approved 旧作品复制到公开 UUID 键（旧 URL 双读
+窗口保留），pending/rejected 迁入私有前缀并删除旧公开对象，关闭 S2 前的
+pending 可达缺口。部署要求：CDN/代理必须拒绝 `private/*` 路径（见
+`docs/deployment.md`）。验证：`cargo test` 57 通过。
 
 **方向已确定**：方案 C（双轨拆仓）。hasu-memes 保持只读画廊终态，hasu-gallery 为新建 UGC 平台。
 
@@ -497,14 +509,14 @@ backend/src/
 ## Next Actions
 
 > **Current Status (2026-08-28)**: Phase 1-5 baseline 已完成且必须保持回归
-> 绿色。Architecture V3 已批准并完成 S1；迁移顺序以
+> 绿色。Architecture V3 已批准并完成 S1、S2；迁移顺序以
 > `.ccg/spec/architecture-v3.md` 的 S1–S3 slices 为准。
 
 **Immediate Next Steps**:
 1. 维持当前发布前验收：`pnpm test`、`pnpm typecheck`、`pnpm build`、
    `cargo test --manifest-path backend/Cargo.toml` 与 `pnpm e2e`。
-2. 实施 V3 S2：`media_assets` 表、`private/`/`public/` 前缀分离、UUIDv4
-   公开 URL、pending 媒体 presigned GET 审核视图、既有对象回填与兼容窗口。
+2. 生产部署 S2：应用 006 迁移、确认 CDN/代理拒绝 `private/*`、运行一次
+   `galleryd backfill-media`、双读窗口结束后清理 approved 旧公开对象。
 3. 实施 V3 S3：集中 `policy` 模块 + 角色×动作×状态测试表、安全响应头、
    生产切换到单二进制同源部署并移除 `CORS_ALLOWED_ORIGINS`。
 4. 顺手项：把 works 公共读路径补上 ETag/micro-cache 头（S1 遗留跟进）。

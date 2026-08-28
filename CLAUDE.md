@@ -14,13 +14,17 @@ summary files, not here.
   Protobuf/codegen toolchain. V3 S1 is shipped: Fiction public/account/
   moderation routes are JSON under `/api/fictions*`, `/api/users/me/fictions*`,
   and `/api/moderation/fictions*`; `galleryd` embeds the SPA as fallback.
-  Media UUID pipeline (S2) and policy/headers/cutover (S3) are not shipped.
+  V3 S2 is shipped: `media_assets` + UUIDv4 media IDs, private
+  `private/{uuid}/...` staging, approval-time copy to immutable
+  `public/{uuid}/v1/...`, presigned review URLs, and `galleryd backfill-media`.
+  S3 (policy layer, security headers, single-binary cutover) is not shipped.
 - CI is intentionally lightweight: frontend typecheck/build/component tests and
   backend Postgres + `cargo test`.
 - Playwright E2E is a local pre-release acceptance script, not part of CI.
-- Current engineering track: implement V3 S2 (private media + UUIDv4 public
-  URLs) then S3 (policy layer, security headers, single-binary cutover) while
-  keeping the completed guest/account/moderation baseline green.
+- Current engineering track: deploy S2 (migration 006 + `backfill-media` +
+  CDN denies `private/*`), then implement V3 S3 (policy layer, security
+  headers, single-binary cutover) while keeping the completed
+  guest/account/moderation baseline green.
 
 ## Source Of Truth
 
@@ -51,8 +55,10 @@ summary files, not here.
 - Content kinds are Meme, Art, and Fiction. Fiction uses versioned PostgreSQL
   text revisions, series ordering, shared moderation, and safe constrained
   markup rather than raw HTML.
-- Public media URLs use a distinct UUIDv4 media ID (V3 S2). Originals and
-  pending objects remain private; only approved sanitized objects are public.
+- Public media URLs use a distinct UUIDv4 media ID (shipped in V3 S2).
+  Originals and pending objects live under the private `private/{uuid}/...`
+  namespace and are reachable only via short-lived presigned URLs; only
+  approved sanitized objects are copied to public `public/{uuid}/v{n}/...`.
 - Production frontend and API are same-origin, production CORS is disabled, and
   protected operations pass through a centralized deny-by-default policy layer
   (V3 S3).
@@ -76,6 +82,7 @@ summary files, not here.
 - Target architecture: `.ccg/spec/architecture-v3.md`
 - Backend entry / galleryd: `backend/src/main.rs`
 - Embedded SPA fallback: `backend/src/spa.rs`
+- Media identity/URLs: `backend/src/media.rs` (backfill: `backend/src/backfill.rs`)
 - Backend routes: `backend/src/routes/` (Fiction: `backend/src/routes/fiction.rs`)
 - Fiction domain layer: `backend/src/fiction/`
 - Backend middleware: `backend/src/middleware.rs`
@@ -156,7 +163,7 @@ resolves another pnpm version.
 ## Next Product Direction
 
 The next architecture/product track is the bounded Architecture V3 migration
-(S2 private media + UUIDv4 URLs, then S3 policy/headers/cutover). It must
+(S3 policy/headers/single-binary cutover; S1–S2 are shipped). It must
 preserve the completed Meme/Art baseline and the shipped Fiction foundation:
 
 - Fiction is a first-class content kind, not an Art attachment.

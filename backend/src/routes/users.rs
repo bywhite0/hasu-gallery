@@ -9,8 +9,8 @@ use sqlx::Row;
 use tower_sessions::Session;
 
 use super::auth::SESSION_USER_ID_KEY;
-use super::works::{build_file_url, build_thumbnail_url, Pagination, WorkItem, WorksResponse};
-use crate::AppState;
+use super::works::{Pagination, WorkItem, WorksResponse};
+use crate::{media, AppState};
 
 #[derive(Debug, Deserialize)]
 pub struct MyWorksQuery {
@@ -230,10 +230,12 @@ pub async fn handle_my_works(
 
     // Fetch works
     let select_query = format!(
-        "SELECT id, gallery::TEXT AS gallery, origin::TEXT AS origin, title, status::TEXT AS status, width, height, created_at, reviewed_at, review_note, asset_file
-         FROM works
+        "SELECT w.id, w.gallery::TEXT AS gallery, w.origin::TEXT AS origin, w.title, w.status::TEXT AS status, w.width, w.height, w.created_at, w.reviewed_at, w.review_note, w.asset_file,
+                w.media_id, ma.state::TEXT AS media_state, ma.public_version AS media_public_version, ma.mime_type AS media_mime_type
+         FROM works w
+         LEFT JOIN media_assets ma ON w.media_id = ma.id
          WHERE {}
-         ORDER BY created_at DESC
+         ORDER BY w.created_at DESC
          LIMIT ${} OFFSET ${}",
         where_clause,
         param_index,
@@ -259,46 +261,49 @@ pub async fn handle_my_works(
         )
     })?;
 
-    // Map rows to WorkItem
-    let works: Vec<WorkItem> = rows
-        .iter()
-        .map(|row| {
-            let id: String = row.try_get("id").unwrap_or_default();
-            let gallery: String = row.try_get("gallery").unwrap_or_default();
-            let origin: Option<String> = row.try_get("origin").ok();
-            let title: String = row.try_get("title").unwrap_or_default();
-            let status: String = row.try_get("status").unwrap_or_default();
-            let width: i32 = row.try_get("width").unwrap_or(0);
-            let height: i32 = row.try_get("height").unwrap_or(0);
-            let created_at: chrono::DateTime<chrono::Utc> =
-                row.try_get("created_at").unwrap_or_default();
-            let reviewed_at: Option<chrono::DateTime<chrono::Utc>> =
-                row.try_get("reviewed_at").ok();
-            let review_note: Option<String> = row.try_get("review_note").ok();
-            let asset_file: String = row.try_get("asset_file").unwrap_or_default();
+    // Map rows to WorkItem. These are the caller's own works, so pending and
+    // rejected media resolve to short-lived presigned review URLs.
+    let mut works: Vec<WorkItem> = Vec::with_capacity(rows.len());
+    for row in &rows {
+        let id: String = row.try_get("id").unwrap_or_default();
+        let gallery: String = row.try_get("gallery").unwrap_or_default();
+        let origin: Option<String> = row.try_get("origin").ok();
+        let title: String = row.try_get("title").unwrap_or_default();
+        let status: String = row.try_get("status").unwrap_or_default();
+        let width: i32 = row.try_get("width").unwrap_or(0);
+        let height: i32 = row.try_get("height").unwrap_or(0);
+        let created_at: chrono::DateTime<chrono::Utc> =
+            row.try_get("created_at").unwrap_or_default();
+        let reviewed_at: Option<chrono::DateTime<chrono::Utc>> =
+            row.try_get("reviewed_at").ok();
+        let review_note: Option<String> = row.try_get("review_note").ok();
+        let asset_file: String = row.try_get("asset_file").unwrap_or_default();
+        let media_ref = media::media_ref_from_row(row);
+        let urls =
+            media::resolve_work_media_urls(&state.s3_client, &id, &asset_file, &media_ref, true)
+                .await;
 
-            WorkItem {
-                id: id.clone(),
-                gallery,
-                origin,
-                title,
-                status,
-                thumbnail_url: build_thumbnail_url(&id, &asset_file),
-                file_url: build_file_url(&id, &asset_file),
-                width,
-                height,
-                created_at: created_at.to_rfc3339(),
-                reviewed_at: reviewed_at.map(|value| value.to_rfc3339()),
-                review_note,
-                uploader_name: None, // 我的作品列表不显示上传者（就是自己）
-                uploader: None,
-                source: None,
-                source_url: None,
-                rights_note: None,
-                art_meta: None,
-            }
-        })
-        .collect();
+        works.push(WorkItem {
+            id,
+            gallery,
+            origin,
+            title,
+            status,
+            thumbnail_url: urls.thumbnail_url,
+            file_url: urls.file_url,
+            width,
+            height,
+            created_at: created_at.to_rfc3339(),
+            reviewed_at: reviewed_at.map(|value| value.to_rfc3339()),
+            review_note,
+            uploader_name: None, // 我的作品列表不显示上传者（就是自己）
+            uploader: None,
+            source: None,
+            source_url: None,
+            rights_note: None,
+            art_meta: None,
+        });
+    }
 
     // Build response
     let response = WorksResponse {

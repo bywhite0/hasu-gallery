@@ -105,27 +105,51 @@ and Postgres query profiling.
 
 ## Media And CDN
 
-Uploaded objects are stored in S3 using UUID-based keys. Public URLs are
-constructed from `PUBLIC_MEDIA_BASE_URL`; trailing slashes are removed before
-joining keys.
+Since Architecture V3 S2, media objects use UUIDv4 media IDs with a
+private/public key split inside one bucket:
 
-JPEG/PNG public originals are re-encoded on upload to strip EXIF/XMP-style
-metadata. GIF/WebP keep container bytes so animation is preserved.
+- `private/{media_id}/original.{ext}` and `private/{media_id}/thumb.jpg`:
+  pending/rejected uploads and retained originals. Never publicly served;
+  owners and moderators view them through short-lived (300 s) presigned GET
+  URLs issued by the API.
+- `public/{media_id}/v{n}/image.{ext}` and `public/{media_id}/v{n}/thumb.jpg`:
+  approved sanitized objects, copied server-side at approval time. These are
+  immutable; cache them aggressively.
 
-Recommended CDN/proxy behavior:
+Public URLs are `PUBLIC_MEDIA_BASE_URL` plus the object key (the key includes
+the `public/` prefix), so the CDN/proxy keeps the existing `<base>/<key>`
+mapping. JPEG/PNG public originals are re-encoded on upload to strip
+EXIF/XMP-style metadata. GIF/WebP keep container bytes so animation is
+preserved.
+
+Required CDN/proxy behavior:
+- **Deny `private/*` paths.** The proxy must only serve `public/*` (plus
+  legacy root-level keys during the migration window). Presigned URLs go
+  directly to the S3/MinIO endpoint and bypass the CDN.
 - Allow the production frontend origin for hotlinked `<img>` requests; a WAF
   rule that blocks site Referer will break every gallery page.
 - Do not use Referer alone as the media authorization mechanism.
-- Cache approved originals/thumbnails carefully; on takedown the API deletes
-  source objects and operators must purge CDN URLs.
-- Proxy `https://assets.example.com/hasu-gallery/<key>` to the S3 bucket.
+- Cache `public/{media_id}/v{n}/...` as immutable; on takedown the API deletes
+  the public objects and operators must purge CDN URLs.
 - Keep API JSON responses separate from media CDN caching.
 
-Known limitation: pending objects currently use the same public media base URL
-as approved works. UUID keys reduce casual guessing, but true private staging
-(private bucket or auth media proxy) remains a follow-up before high-sensitivity
-deployments. Architecture V2 replaces this with UUIDv4 media IDs, a private
-staging/review namespace, and public sanitized variants only.
+### Legacy media backfill
+
+Works uploaded before S2 store objects at root-level `{work_id}.{ext}` keys.
+Run once after deploying S2:
+
+```powershell
+cargo run --manifest-path backend/Cargo.toml --bin galleryd -- backfill-media
+```
+
+- Approved works are copied to `public/{uuid}/v1/...`; legacy objects are kept
+  so old URLs continue to work during the rollback window (delete them after
+  the window closes).
+- Pending/rejected works are moved to `private/...` and their legacy publicly
+  reachable objects are deleted, closing the pre-S2 exposure gap.
+
+The S3/MinIO endpoint must be reachable from browsers for presigned review
+URLs (MinIO on `http://localhost:9000` in development).
 
 ## Production Checklist
 
@@ -134,5 +158,7 @@ staging/review namespace, and public sanitized variants only.
 - Set `SESSION_COOKIE_SECURE=true` so the session cookie uses the `__Host-`
   prefix and `Secure` attribute over HTTPS.
 - Set `PUBLIC_MEDIA_BASE_URL` to the public CDN/proxy URL.
+- Confirm the CDN/proxy denies `private/*` object paths.
+- Run `galleryd backfill-media` once after the first S2 deploy.
 - Confirm upload, moderation approval, public gallery listing, and detail page.
 - Keep `pnpm e2e` as a local release smoke test.

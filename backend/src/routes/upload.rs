@@ -1,6 +1,7 @@
 use axum::{extract::State, http::{StatusCode, Uri}, response::IntoResponse, Json};
 use axum_extra::extract::Multipart;
 use serde_json::json;
+use sha2::{Digest, Sha256};
 use sqlx::Row;
 use tower_sessions::Session;
 use uuid::Uuid;
@@ -9,7 +10,7 @@ use crate::{
     image_processor::{
         detect_image_format, generate_thumbnail, get_image_dimensions, prepare_public_original,
     },
-    storage, AppState,
+    media, storage, AppState,
 };
 
 const SESSION_USER_ID_KEY: &str = "user_id";
@@ -269,36 +270,28 @@ pub async fn upload_work(
         .map_err(|e| (StatusCode::BAD_REQUEST, e))?;
     let content_type = public_content_type.to_string();
 
-    // 生成唯一 ID 和文件名
+    // 生成作品 ID 与独立的媒体 UUID（V3 S2：公开 URL 不暴露作品 ID）
     let work_id = Uuid::new_v4().to_string();
-    let file_ext = match content_type.as_str() {
-        "image/png" => "png",
-        "image/jpeg" => "jpg",
-        "image/gif" => "gif",
-        "image/webp" => "webp",
-        _ => "jpg",
-    };
-    let file_key = format!("{}.{}", work_id, file_ext);
-    let thumbnail_key = format!("{}_thumb.jpg", work_id);
+    let media_id = Uuid::new_v4();
+    let file_ext = media::extension_for_mime(&content_type);
+    let original_key = media::private_original_key(&media_id, file_ext);
+    let thumbnail_key = media::private_thumb_key(&media_id);
     let bucket = storage::s3_bucket();
     let mut uploaded_keys: Vec<String> = Vec::new();
 
-    // 上传原图到 S3（使用清理后的公开字节）
-    let file_url = match storage::upload_file(
+    // 上传原图到私有前缀（使用清理后的公开字节）
+    if let Err(e) = storage::upload_object(
         &state.s3_client,
         &bucket,
-        &file_key,
+        &original_key,
         public_file_data.clone(),
         &content_type,
     )
     .await
     {
-        Ok(url) => {
-            uploaded_keys.push(file_key.clone());
-            url
-        }
-        Err(e) => return Err((StatusCode::INTERNAL_SERVER_ERROR, e)),
-    };
+        return Err((StatusCode::INTERNAL_SERVER_ERROR, e));
+    }
+    uploaded_keys.push(original_key.clone());
 
     // 生成缩略图（从已清理字节解码，避免写入 EXIF）
     let thumbnail_data = match generate_thumbnail(&public_file_data, THUMBNAIL_SIZE) {
@@ -309,8 +302,8 @@ pub async fn upload_work(
         }
     };
 
-    // 上传缩略图到 S3
-    let thumbnail_url = match storage::upload_file(
+    // 上传缩略图到私有前缀
+    if let Err(e) = storage::upload_object(
         &state.s3_client,
         &bucket,
         &thumbnail_key,
@@ -319,17 +312,14 @@ pub async fn upload_work(
     )
     .await
     {
-        Ok(url) => {
-            uploaded_keys.push(thumbnail_key.clone());
-            url
-        }
-        Err(e) => {
-            storage::delete_files_best_effort(&state.s3_client, &bucket, &uploaded_keys).await;
-            return Err((StatusCode::INTERNAL_SERVER_ERROR, e));
-        }
-    };
+        storage::delete_files_best_effort(&state.s3_client, &bucket, &uploaded_keys).await;
+        return Err((StatusCode::INTERNAL_SERVER_ERROR, e));
+    }
+    uploaded_keys.push(thumbnail_key.clone());
 
-    // works + art_meta 必须同事务；失败时补偿删除已写对象
+    let original_sha256 = hex::encode(Sha256::digest(&public_file_data));
+
+    // media_assets + works + art_meta 必须同事务；失败时补偿删除已写对象
     let mut tx = match state.db.begin().await {
         Ok(tx) => tx,
         Err(e) => {
@@ -344,9 +334,29 @@ pub async fn upload_work(
         "all_ages"
     };
 
+    if let Err(e) = sqlx::query(
+        "INSERT INTO media_assets (id, owner_id, state, mime_type, original_key, thumb_key, original_sha256, width, height)
+         VALUES ($1, $2, 'pending'::media_asset_state, $3, $4, $5, $6, $7, $8)",
+    )
+    .bind(media_id)
+    .bind(user_id)
+    .bind(&content_type)
+    .bind(&original_key)
+    .bind(&thumbnail_key)
+    .bind(&original_sha256)
+    .bind(width as i32)
+    .bind(height as i32)
+    .execute(&mut *tx)
+    .await
+    {
+        let _ = tx.rollback().await;
+        storage::delete_files_best_effort(&state.s3_client, &bucket, &uploaded_keys).await;
+        return Err((StatusCode::INTERNAL_SERVER_ERROR, e.to_string()));
+    }
+
     let query_str = r#"
-        INSERT INTO works (id, gallery, content_kind, content_rating, origin, title, source, source_url, status, uploader_id, asset_file, thumbnail_asset_file, width, height)
-        VALUES ($1, $2::gallery_kind, $3::content_kind, $4::content_rating, $5::meme_origin, $6, $7, $8, 'pending'::work_status, $9, $10, $11, $12, $13)
+        INSERT INTO works (id, gallery, content_kind, content_rating, origin, title, source, source_url, status, uploader_id, asset_file, thumbnail_asset_file, width, height, media_id)
+        VALUES ($1, $2::gallery_kind, $3::content_kind, $4::content_rating, $5::meme_origin, $6, $7, $8, 'pending'::work_status, $9, $10, $11, $12, $13, $14)
         RETURNING id, title, status::text as status
     "#;
 
@@ -360,10 +370,11 @@ pub async fn upload_work(
         .bind(&source)
         .bind(&source_url)
         .bind(user_id)
-        .bind(&file_url)
-        .bind(&thumbnail_url)
+        .bind(&original_key)
+        .bind(&thumbnail_key)
         .bind(width as i32)
         .bind(height as i32)
+        .bind(media_id)
         .fetch_one(&mut *tx)
         .await
     {
@@ -406,6 +417,14 @@ pub async fn upload_work(
     let work_status: String = work
         .try_get("status")
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
+
+    // Pending 对象是私有的：上传响应返回短时效签名 URL 供上传者预览。
+    let file_url = media::presign_get(&state.s3_client, &bucket, &original_key)
+        .await
+        .unwrap_or_default();
+    let thumbnail_url = media::presign_get(&state.s3_client, &bucket, &thumbnail_key)
+        .await
+        .unwrap_or_default();
 
     Ok((
         StatusCode::CREATED,

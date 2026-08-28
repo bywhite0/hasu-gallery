@@ -8,7 +8,7 @@ use sqlx::Row;
 use tower_sessions::Session;
 use uuid::Uuid;
 
-use crate::{storage, AppState};
+use crate::{media, storage, AppState};
 
 const MAX_REVIEW_NOTE_LEN: usize = 1_000;
 
@@ -37,7 +37,7 @@ fn default_limit() -> i32 {
 }
 
 /// Work item in moderation queue
-#[derive(Serialize, sqlx::FromRow)]
+#[derive(Serialize)]
 pub struct QueueWorkItem {
     pub id: Uuid,
     pub title: String,
@@ -91,24 +91,28 @@ pub async fn get_queue(
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    // Get works with uploader info
-    let works = sqlx::query_as::<_, QueueWorkItem>(
+    // Get works with uploader info. This route sits behind require_moderator,
+    // so private (pending/rejected) media resolve to presigned review URLs.
+    let rows = sqlx::query(
         "SELECT
             w.id::UUID as id,
             w.title,
             w.gallery::TEXT as gallery,
             w.status::TEXT as status,
             u.handle as uploader_handle,
-            w.thumbnail_asset_file as thumbnail_url,
-            w.asset_file as file_url,
+            w.asset_file,
             w.origin::TEXT as origin,
             w.source,
             w.source_url,
             w.created_at,
             CONCAT(w.width, 'x', w.height) as dimensions,
-            NULL::BIGINT as file_size_bytes
+            w.media_id,
+            ma.state::TEXT AS media_state,
+            ma.public_version AS media_public_version,
+            ma.mime_type AS media_mime_type
          FROM works w
          JOIN users u ON w.uploader_id = u.id
+         LEFT JOIN media_assets ma ON w.media_id = ma.id
          WHERE w.gallery = $1::gallery_kind AND w.status = $2::work_status
          ORDER BY w.created_at ASC
          LIMIT $3 OFFSET $4",
@@ -120,6 +124,37 @@ pub async fn get_queue(
     .fetch_all(pool)
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let mut works: Vec<QueueWorkItem> = Vec::with_capacity(rows.len());
+    for row in &rows {
+        let id: Uuid = row.try_get("id").map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        let asset_file: String = row.try_get("asset_file").unwrap_or_default();
+        let media_ref = media::media_ref_from_row(row);
+        let urls = media::resolve_work_media_urls(
+            &state.s3_client,
+            &id.to_string(),
+            &asset_file,
+            &media_ref,
+            true,
+        )
+        .await;
+
+        works.push(QueueWorkItem {
+            id,
+            title: row.try_get("title").unwrap_or_default(),
+            gallery: row.try_get("gallery").unwrap_or_default(),
+            status: row.try_get("status").unwrap_or_default(),
+            uploader_handle: row.try_get("uploader_handle").unwrap_or_default(),
+            thumbnail_url: Some(urls.thumbnail_url),
+            file_url: Some(urls.file_url),
+            origin: row.try_get("origin").ok(),
+            source: row.try_get("source").ok(),
+            source_url: row.try_get("source_url").ok(),
+            created_at: row.try_get("created_at").unwrap_or_default(),
+            dimensions: row.try_get("dimensions").ok(),
+            file_size_bytes: None,
+        });
+    }
 
     let total_pages = ((total as f64) / (params.limit as f64)).ceil() as i32;
 
@@ -191,6 +226,29 @@ pub async fn update_status(
         return Err(StatusCode::CONFLICT);
     }
 
+    // Lock the media row (if any) so approval/takedown transitions are atomic
+    // with the object-store publication below.
+    let media_row = sqlx::query(
+        "SELECT ma.id, ma.state::TEXT AS state, ma.mime_type, ma.public_version
+         FROM media_assets ma
+         JOIN works w ON w.media_id = ma.id
+         WHERE w.id = $1
+         FOR UPDATE OF ma",
+    )
+    .bind(&work_id_str)
+    .fetch_optional(&mut *tx)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let media_info = media_row.map(|row| {
+        (
+            row.try_get::<Uuid, _>("id").unwrap_or_default(),
+            row.try_get::<String, _>("state").unwrap_or_default(),
+            row.try_get::<String, _>("mime_type").unwrap_or_default(),
+            row.try_get::<i32, _>("public_version").unwrap_or(1).max(1),
+        )
+    });
+
     // Optimistic source guard: only transition from the locked current status.
     let updated = sqlx::query(
         "UPDATE works
@@ -234,37 +292,120 @@ pub async fn update_status(
     .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-    // Commit transaction
-    tx.commit()
-        .await
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    // Approval publishes sanitized private objects to the immutable public
+    // UUIDv4 namespace before commit so an approved work is never publicly
+    // listed without reachable media. Commit failure compensates the copies.
+    let bucket = storage::s3_bucket();
+    let mut copied_public_keys: Vec<String> = Vec::new();
+    if status == "approved" {
+        if let Some((media_id, media_state, mime, version)) = &media_info {
+            if media_state == "pending" {
+                let ext = media::extension_for_mime(mime);
+                let copies = [
+                    (
+                        media::private_original_key(media_id, ext),
+                        media::public_original_key(media_id, *version, ext),
+                    ),
+                    (
+                        media::private_thumb_key(media_id),
+                        media::public_thumb_key(media_id, *version),
+                    ),
+                ];
+                for (src, dst) in &copies {
+                    if let Err(error) =
+                        storage::copy_object(&state.s3_client, &bucket, src, dst).await
+                    {
+                        tracing::error!(work_id = %work_id_str, error = %error, "publish copy failed");
+                        storage::delete_files_best_effort(
+                            &state.s3_client,
+                            &bucket,
+                            &copied_public_keys,
+                        )
+                        .await;
+                        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+                    }
+                    copied_public_keys.push(dst.clone());
+                }
+                sqlx::query(
+                    "UPDATE media_assets
+                     SET state = 'public'::media_asset_state, updated_at = NOW()
+                     WHERE id = $1",
+                )
+                .bind(media_id)
+                .execute(&mut *tx)
+                .await
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            }
+        }
+    }
 
-    // Takedown: best-effort delete public objects. CDN purge remains an ops step.
+    if status == "takedown" {
+        if let Some((media_id, _, _, _)) = &media_info {
+            sqlx::query(
+                "UPDATE media_assets
+                 SET state = 'removed'::media_asset_state, updated_at = NOW()
+                 WHERE id = $1",
+            )
+            .bind(media_id)
+            .execute(&mut *tx)
+            .await
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        }
+    }
+
+    // Commit transaction
+    if let Err(error) = tx.commit().await {
+        tracing::error!(work_id = %work_id_str, error = %error, "status commit failed");
+        storage::delete_files_best_effort(&state.s3_client, &bucket, &copied_public_keys).await;
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    // Takedown: best-effort delete public objects. Private originals are kept
+    // for the retention/audit window. CDN purge remains an ops step.
     if status == "takedown" {
         let mut keys = Vec::new();
-        for url in [asset_file.as_deref(), thumbnail_asset_file.as_deref()]
-            .into_iter()
-            .flatten()
-        {
-            if let Some(key) = storage::object_key_from_public_url(url) {
-                keys.push(key);
-            }
-        }
-        // Fallback to UUID-derived keys when stored values are already bare keys.
-        if keys.is_empty() {
+        if let Some((media_id, _, mime, version)) = &media_info {
+            let ext = media::extension_for_mime(mime);
+            keys.push(media::public_original_key(media_id, *version, ext));
+            keys.push(media::public_thumb_key(media_id, *version));
+            // Backfilled legacy works also keep old-URL objects during the
+            // dual-read window; takedown must remove those copies too.
             if let Some(asset) = asset_file.as_deref() {
-                if !asset.contains("://") {
-                    keys.push(asset.to_string());
+                if !asset.starts_with("private/") {
+                    if let Some(key) = storage::object_key_from_public_url(asset) {
+                        keys.push(key);
+                        keys.push(format!("{}_thumb.jpg", work_id_str));
+                    } else if !asset.contains("://") {
+                        keys.push(asset.to_string());
+                        keys.push(format!("{}_thumb.jpg", work_id_str));
+                    }
                 }
             }
-            keys.push(format!("{}_thumb.jpg", work_id_str));
+        } else {
+            // Legacy pre-S2 works: derive keys from stored URLs / work ID.
+            for url in [asset_file.as_deref(), thumbnail_asset_file.as_deref()]
+                .into_iter()
+                .flatten()
+            {
+                if let Some(key) = storage::object_key_from_public_url(url) {
+                    keys.push(key);
+                }
+            }
+            if keys.is_empty() {
+                if let Some(asset) = asset_file.as_deref() {
+                    if !asset.contains("://") {
+                        keys.push(asset.to_string());
+                    }
+                }
+                keys.push(format!("{}_thumb.jpg", work_id_str));
+            }
         }
         if !keys.is_empty() {
-            storage::delete_files_best_effort(&state.s3_client, &storage::s3_bucket(), &keys).await;
+            storage::delete_files_best_effort(&state.s3_client, &bucket, &keys).await;
             tracing::info!(
                 work_id = %work_id_str,
                 keys = ?keys,
-                "takedown deleted source objects; purge CDN cache separately if configured"
+                "takedown deleted public objects; purge CDN cache separately if configured"
             );
         }
     }

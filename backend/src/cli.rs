@@ -4,7 +4,7 @@ use clap::{Parser, Subcommand};
 #[command(
     name = "galleryd",
     version,
-    about = "Hasu Gallery production binary (SPA + JSON API + /api/v2)"
+    about = "Hasu Gallery production binary (SPA + JSON API)"
 )]
 pub struct Cli {
     #[command(subcommand)]
@@ -13,14 +13,18 @@ pub struct Cli {
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
-    /// Serve SPA, JSON API, and V2 Protobuf routes (default).
+    /// Serve SPA and JSON API (default).
     Serve,
     /// Run database migrations and exit.
     Migrate,
     /// Print non-secret configuration diagnostics.
     Doctor,
-    /// Isolated media worker (not implemented in Slice A).
+    /// Isolated media worker (not implemented; hardening backlog).
     MediaWorker,
+    /// Backfill legacy works into media_assets: approved works publish to
+    /// public/{uuid}/v1/..., pending/rejected move to private/{uuid}/... and
+    /// their legacy public objects are deleted.
+    BackfillMedia,
 }
 
 impl Cli {
