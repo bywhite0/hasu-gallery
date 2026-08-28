@@ -15,6 +15,11 @@ use crate::{
 
 const SESSION_USER_ID_KEY: &str = "user_id";
 const MAX_FILE_SIZE: usize = 10 * 1024 * 1024; // 10MB
+// Route-level body cap. Axum's default is 2MB, which silently rejected any
+// upload above it before the handler's own MAX_FILE_SIZE check could run.
+// The 512KB headroom covers multipart boundaries and text fields so a file
+// of exactly MAX_FILE_SIZE still reaches the handler's 413 check.
+pub(crate) const UPLOAD_BODY_LIMIT: usize = MAX_FILE_SIZE + 512 * 1024;
 const THUMBNAIL_SIZE: u32 = 400;
 const MAX_TITLE_LEN: usize = 200;
 const MAX_ARTIST_LEN: usize = 200;
@@ -596,5 +601,152 @@ mod tests {
             error.1,
             "File extension .exe does not match detected image type image/png"
         );
+    }
+
+    mod body_limit {
+        use super::super::*;
+        use crate::AppState;
+        use aws_config::BehaviorVersion;
+        use aws_sdk_s3::config::{Credentials, Region};
+        use axum::body::{to_bytes, Body};
+        use axum::extract::DefaultBodyLimit;
+        use axum::http::{header, Request};
+        use axum::routing::post;
+        use axum::Router;
+        use sqlx::postgres::PgPoolOptions;
+        use tower::ServiceExt;
+
+        const BOUNDARY: &str = "hasu-upload-test-boundary";
+
+        fn test_state() -> AppState {
+            let db = PgPoolOptions::new()
+                .connect_lazy("postgres://hasu_user:hasu_pass@localhost:5432/hasu_gallery_test")
+                .expect("test database URL should parse");
+            let s3_config = aws_sdk_s3::Config::builder()
+                .behavior_version(BehaviorVersion::latest())
+                .region(Region::new("us-east-1"))
+                .credentials_provider(Credentials::new(
+                    "test-access-key",
+                    "test-secret-key",
+                    None,
+                    None,
+                    "hasu-gallery-test",
+                ))
+                .endpoint_url("http://localhost:9000")
+                .build();
+            AppState {
+                db,
+                s3_client: aws_sdk_s3::Client::from_conf(s3_config),
+            }
+        }
+
+        async fn seed_session(session: Session) -> StatusCode {
+            session
+                .insert(SESSION_USER_ID_KEY, 1_i64)
+                .await
+                .expect("session insert should succeed");
+            StatusCode::OK
+        }
+
+        // Mirrors the `/api/works/upload` registration in main.rs: the same
+        // handler behind the same DefaultBodyLimit, with an in-memory session
+        // store so the tests run without Postgres or MinIO.
+        fn test_app() -> Router {
+            Router::new()
+                .route("/test/session", post(seed_session))
+                .route(
+                    "/api/works/upload",
+                    post(upload_work).layer(DefaultBodyLimit::max(UPLOAD_BODY_LIMIT)),
+                )
+                .with_state(test_state())
+                .layer(tower_sessions::SessionManagerLayer::new(
+                    tower_sessions::MemoryStore::default(),
+                ))
+        }
+
+        async fn authenticated_cookie(app: &Router) -> String {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/test/session")
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+            response
+                .headers()
+                .get(header::SET_COOKIE)
+                .expect("session cookie should be set")
+                .to_str()
+                .unwrap()
+                .split(';')
+                .next()
+                .unwrap()
+                .to_string()
+        }
+
+        fn multipart_file_body(file_bytes: &[u8]) -> Vec<u8> {
+            let mut body = Vec::new();
+            body.extend_from_slice(
+                format!(
+                    "--{BOUNDARY}\r\nContent-Disposition: form-data; name=\"file\"; \
+                     filename=\"big.png\"\r\nContent-Type: image/png\r\n\r\n"
+                )
+                .as_bytes(),
+            );
+            body.extend_from_slice(file_bytes);
+            body.extend_from_slice(format!("\r\n--{BOUNDARY}--\r\n").as_bytes());
+            body
+        }
+
+        async fn upload_response(file_size: usize) -> (StatusCode, String) {
+            let app = test_app();
+            let cookie = authenticated_cookie(&app).await;
+            let response = app
+                .oneshot(
+                    Request::builder()
+                        .method("POST")
+                        .uri("/api/works/upload")
+                        .header(
+                            header::CONTENT_TYPE,
+                            format!("multipart/form-data; boundary={BOUNDARY}"),
+                        )
+                        .header(header::COOKIE, cookie)
+                        .body(Body::from(multipart_file_body(&vec![0_u8; file_size])))
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            let status = response.status();
+            let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+            (status, String::from_utf8_lossy(&body).into_owned())
+        }
+
+        // Regression: axum's default 2MB body limit used to reject uploads
+        // between 2MB and 10MB before the handler ever saw them. A 3MB file
+        // must now be read fully, so the request fails later on the missing
+        // title instead of a body-read error.
+        #[tokio::test]
+        async fn reads_files_larger_than_axum_default_body_limit() {
+            let (status, body) = upload_response(3 * 1024 * 1024).await;
+
+            assert_eq!(status, StatusCode::BAD_REQUEST);
+            assert_eq!(body, "Title is required");
+        }
+
+        // The handler's own 10MB check must stay reachable: a file just over
+        // MAX_FILE_SIZE fits inside UPLOAD_BODY_LIMIT and gets the product
+        // 413, not a transport-level rejection.
+        #[tokio::test]
+        async fn rejects_file_exceeding_max_file_size_with_413() {
+            let (status, body) = upload_response(MAX_FILE_SIZE + 1).await;
+
+            assert_eq!(status, StatusCode::PAYLOAD_TOO_LARGE);
+            assert_eq!(body, "File size exceeds 10MB limit");
+        }
     }
 }

@@ -1,6 +1,6 @@
 use axum::{
     Router,
-    extract::State,
+    extract::{DefaultBodyLimit, State},
     http::StatusCode,
     middleware::{from_fn, from_fn_with_state},
     response::IntoResponse,
@@ -333,10 +333,12 @@ fn build_app(
         .route("/api/works/:id", get(routes::works::handle_work_detail))
         .route(
             "/api/works/upload",
-            post(routes::upload::upload_work).route_layer(from_fn_with_state(
-                upload_rate_limiter,
-                middleware::rate_limit,
-            )),
+            post(routes::upload::upload_work)
+                .route_layer(from_fn_with_state(
+                    upload_rate_limiter,
+                    middleware::rate_limit,
+                ))
+                .layer(DefaultBodyLimit::max(routes::upload::UPLOAD_BODY_LIMIT)),
         )
         .route("/api/users/me/works", get(routes::users::handle_my_works))
         .route("/api/users/me/stats", get(routes::users::handle_my_stats))
