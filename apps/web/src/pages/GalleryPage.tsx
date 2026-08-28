@@ -74,7 +74,16 @@ export function GalleryPage({ gallery }: GalleryPageProps) {
 
   const isGuest = !user;
   const canViewNonApproved = user?.role === 'admin' || user?.role === 'moderator';
-  const queryFilters: Filters = isGuest ? { ...filters, status: 'approved' } : filters;
+  // Guests may only request approved, all-ages works. A persisted r15/r18
+  // preference from a previous login must never leak into guest requests,
+  // or the backend answers 401 and the gallery becomes unusable.
+  const queryFilters: Filters = isGuest
+    ? {
+        ...filters,
+        status: 'approved',
+        ...(gallery === 'art' ? { rating: 'all_ages' as const } : {}),
+      }
+    : filters;
   const facetsStatus = canViewNonApproved ? filters.status : 'approved';
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
@@ -124,7 +133,7 @@ export function GalleryPage({ gallery }: GalleryPageProps) {
   const title = galleryLabel(gallery);
   const hasActiveFilters = Object.entries(filters).some(([key, value]) => {
     if (!value) return false;
-    if (gallery === 'art' && key === 'rating') return value !== 'all_ages';
+    if (gallery === 'art' && key === 'rating') return !isGuest && value !== 'all_ages';
     return true;
   });
   const emptyTitle = hasActiveFilters

@@ -134,7 +134,7 @@ export function FilterPanel({
             </label>
             <select
               id="rating-filter"
-              value={filters.rating || 'all_ages'}
+              value={isGuest ? 'all_ages' : filters.rating || 'all_ages'}
               onChange={(e) => handleChange('rating', e.target.value)}
               className="rounded border border-ink/30 bg-paper px-3 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-ink focus:ring-offset-2 focus:ring-offset-surface"
             >
